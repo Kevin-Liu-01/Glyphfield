@@ -12,6 +12,7 @@ const docs = [
   'content/docs/skills/api.mdx',
   'content/docs/skills/studio.mdx',
   'content/docs/skills/export.mdx',
+  'content/docs/skills/brand.mdx',
 ].map((file) => readFileSync(path.join(root, file), 'utf8')).join('\n');
 const llms = readFileSync(path.join(root, 'public/llms.txt'), 'utf8');
 const agentIndex = readFileSync(path.join(root, 'AGENTS.md'), 'utf8');
@@ -26,7 +27,7 @@ describe('Glyphfield Agent Skills', () => {
   it('publishes Skills as a first-class documentation section', () => {
     expect(rootNavigation.pages).toContain('skills');
     expect(skillsNavigation.title).toBe('Skills');
-    expect(skillsNavigation.pages).toEqual(['index', 'create', 'api', 'studio', 'export']);
+    expect(skillsNavigation.pages).toEqual(['index', 'create', 'api', 'studio', 'export', 'brand']);
   });
 
   it('ships every discoverable package with valid entry metadata', () => {

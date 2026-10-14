@@ -4,7 +4,7 @@ description: Apply one identity to a searchable catalog of digital, product, dev
 icon: LayoutGrid
 ---
 
-Brand elements turns the active identity into a broad application catalog. Select an element, adjust its content and composition, then download a machine-readable production brief.
+Brand elements turns the active identity into a broad application catalog. Each element renders at its real pixel size (for example 640 px emails, 1200 × 630 OpenGraph, 1600 × 900 posts) with the identity's fonts, colours, corner radius, logo files, and graphic device, then scales to fit the canvas. Select an element, edit its copy in place or in the inspector, adjust composition, and download a machine-readable production brief.
 
 <DocsMedia
   alt='General Translation Brand elements workspace with application categories and a rendered artifact'
@@ -29,12 +29,17 @@ Brand elements turns the active identity into a broad application catalog. Selec
 
 Search by name, output, use case, or keyword. Category filters reduce the catalog without changing the selected element.
 
+## Edit in place
+
+Click any headline, supporting copy, action, name, role, or partner name on the artboard to edit it directly. Edits commit as you type and stay in sync with the inspector fields, source, and the element brief.
+
 ## Common controls
 
 Depending on the selected application, the editor exposes:
 
 - Headline, body, action, and person/partner copy
-- Layout, type scale, and pattern
+- Layout (split, stacked, or centered), type scale, and pattern
+- Font role and weight for display type; body and code text keep the identity's body and code faces
 - Logo, website, and supporting metadata visibility
 - Logo inversion, alpha-aware outline, shadow, and custom appearance
 - Background, text, and accent colors
@@ -45,11 +50,24 @@ All controls are stored per project and element. **Reset** removes the element o
 
 ## Edit the selected element as source
 
-Select **File → Edit source code** to edit the selected element override as JSON. The drawer contains only the mutable override for that application; the catalog record and identity-derived defaults remain separate inputs.
+Select **File → Edit source code** to edit the selected element as JSON. Version 2 source contains every setting for the selected application plus its identity:
 
-Applying valid source updates the selected preview immediately and persists under the active project and `element.id`. Resetting the drawer restores the current visual override. Using the element’s normal **Reset** action removes that override entirely and returns the application to its identity-derived state.
+```json
+{
+  "schema": "glyphfield.brand-element",
+  "version": 2,
+  "elementId": "welcome-email",
+  "headline": "Welcome to Stripe",
+  "body": "…",
+  "cta": "Open workspace",
+  "layout": "stacked",
+  "accentColor": "#533AFD"
+}
+```
 
-This distinction matters when automating edits: source **Reset** reloads the current override, while element **Reset** deletes it.
+Applying source selects `elementId` (when present) and stores only the values that differ from the identity defaults, so untouched copy keeps following identity edits. Settings omitted from the document keep their current values, so `{ "elementId": "x-post" }` simply selects an element. Colours must be six-digit HEX, enums must match the editor options, numbers are clamped to the editor ranges, and unknown keys are ignored. Version 1 documents without `elementId` apply to the selected element, as before.
+
+Resetting the drawer restores the current settings. Using the element’s normal **Reset** action removes the override entirely and returns the application to its identity-derived state.
 
 ## Element brief
 

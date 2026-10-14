@@ -7,6 +7,8 @@ import { BRAND_ELEMENTS } from './brandElements';
 import { SURFACE_MATERIAL_IDS } from './backgroundSvg';
 import { OPEN_SURFACE_LIBRARY_IDS } from './openSurfaceLibrary';
 import { AGENT_SHADER_LIBRARY } from './agentCatalog';
+import { BRAND_KIT_CONTRACT, BRAND_VALIDATE_CONTRACT } from './brandApi';
+import { BRAND_IDENTITY_PATCH_SCHEMA, BRAND_IDENTITY_SOURCE_SCHEMA } from './brandSource';
 
 export const GLYPHFIELD_AGENT_API_VERSION = '0.3.0';
 
@@ -106,7 +108,8 @@ const AGENT_IDENTITY_SCHEMA = {
     name: { maxLength: 80, minLength: 1, type: 'string' },
     paper: HEX_COLOR_SCHEMA,
     positioning: { maxLength: 320, minLength: 1, type: 'string' },
-    preset: { enum: ['custom', 'starter', 'template', 'gt', 'ramp', 'mintlify', 'tailwind', 'viteplus', 'cloudflare', 'stripe'], type: 'string' },
+    id: { description: 'An identity ID from /api/identities. Send { id } alone, or the complete identity object from /api/identities (custom identities included) to render with its edits. Do not combine with preset.', maxLength: 120, minLength: 1, type: 'string' },
+    preset: { enum: ['custom', 'starter', 'template', 'basement', 'gt', 'ramp', 'mintlify', 'tailwind', 'viteplus', 'cloudflare', 'stripe'], type: 'string' },
     shortName: { maxLength: 8, minLength: 1, type: 'string' },
     tagline: { maxLength: 180, minLength: 1, type: 'string' },
     website: { maxLength: 200, minLength: 1, type: 'string' },
@@ -283,13 +286,16 @@ export const AGENT_GENERATION_REQUEST_SCHEMA = {
         backgroundImageDataUrl: IMAGE_DATA_URL_SCHEMA,
         body: { maxLength: 1000, minLength: 1, type: 'string' },
         foreground: HEX_COLOR_SCHEMA,
+        format: { description: 'Format preset ID: opengraph | wide | square | portrait | story | linkedin | lockup, or for slides 16x9 | 4x3 | square.', type: 'string' },
         identity: AGENT_IDENTITY_SCHEMA,
         kind: { const: 'template' },
+        language: { enum: ['typescript', 'tsx', 'javascript', 'python', 'bash', 'json', 'html', 'css'], type: 'string' },
+        layout: { description: 'Layout variant ID for the template (the Studio layout list). Slides also accept slideLayout.', type: 'string' },
         output: { enum: ['json', 'raw'], type: 'string' },
         partnerId: { maxLength: 80, minLength: 1, type: 'string' },
         partnerLogoDataUrl: IMAGE_DATA_URL_SCHEMA,
         slideLayout: { enum: ['title', 'section', 'agenda', 'split', 'metrics', 'quote', 'timeline', 'statement', 'comparison', 'process', 'chart', 'team', 'image', 'closing'], type: 'string' },
-        template: { enum: ['slides', 'blog', 'partnership'], type: 'string' },
+        template: { enum: ['slides', 'blog', 'partnership', 'opengraph', 'terminal'], type: 'string' },
         texture: { enum: ['white', 'dark', 'grid', 'noise'], type: 'string' },
         title: { maxLength: 240, minLength: 1, type: 'string' },
       },
@@ -310,7 +316,8 @@ export const AGENT_GENERATION_CONTRACT = {
       name: 'Optional string, maximum 80 characters',
       paper: 'Optional six-digit HEX color',
       positioning: 'Optional string, maximum 320 characters',
-      preset: 'starter | template | gt | ramp | mintlify | tailwind | viteplus | cloudflare | stripe | custom',
+      id: 'Optional ID from /api/identities; send { id } alone or the complete identity object from /api/identities. Unknown fields next to preset are rejected with unknown_field.',
+      preset: 'starter | template | basement | gt | ramp | mintlify | tailwind | viteplus | cloudflare | stripe | custom',
       shortName: 'Optional string, maximum 8 characters',
       tagline: 'Optional string, maximum 180 characters',
       website: 'Optional string, maximum 200 characters',
@@ -392,19 +399,22 @@ export const AGENT_GENERATION_CONTRACT = {
       mimeTypes: ['application/json'],
     },
     template: {
-      description: 'Generate a standalone slide, blog cover, or partnership SVG.',
+      description: 'Generate a standalone OpenGraph, terminal card, slide, blog cover, or partnership SVG from the same brand templates and renderer as the Studio, with the brand fonts and images embedded.',
       fields: {
-        background: 'Optional six-digit HEX',
+        background: 'Optional six-digit HEX page surface',
         backgroundImageDataUrl: 'Optional base64 image data URL, maximum 5 MB',
-        body: 'Optional string, maximum 1000 characters; newline-delimited for lists',
-        foreground: 'Optional six-digit HEX',
+        body: 'Optional string, maximum 1000 characters (4000 for terminal code); slides: newline-delimited list items; terminal: the code; other templates: supporting copy',
+        foreground: 'Optional six-digit HEX for every text layer',
+        format: 'Optional format preset: opengraph | wide | square | portrait | story | linkedin | lockup (slides: 16x9 | 4x3 | square)',
         identity: 'Agent identity object',
         kind: 'template',
+        language: 'Optional code language for template terminal: typescript | tsx | javascript | python | bash | json | html | css',
+        layout: 'Optional layout variant; opengraph: split | statement | media | centered | editorial; blog: editorial | feature | statement | centered | ledger; terminal: card | split | focus | caption; partnership: lockup | centered | hero | announcement; slides: use slideLayout or layout',
         output: 'json | raw; defaults to json',
-        partnerId: 'Optional public proof asset ID from /api/identities',
+        partnerId: 'Optional partner ID: the identity\'s proof assets from /api/identities, another identity ID, or template-northstar. Without it the lockup uses the identity\'s own proof partner, or a written "Partner" placeholder.',
         partnerLogoDataUrl: 'Optional base64 image data URL, maximum 5 MB',
         slideLayout: 'title | section | agenda | split | metrics | quote | timeline | statement | comparison | process | chart | team | image | closing',
-        template: 'slides | blog | partnership',
+        template: 'slides | blog | partnership | opengraph | terminal',
         texture: 'white | dark | grid | noise',
         title: 'Optional string, maximum 240 characters',
       },
@@ -460,7 +470,28 @@ export const GLYPHFIELD_AGENT_SKILLS = [
     repositoryPath: 'skills/glyphfield-export',
     useFor: 'Still and motion export with artifact, loop, frame, and audio verification',
   },
+  {
+    id: 'glyphfield-brand',
+    repositoryPath: 'skills/glyphfield-brand',
+    useFor: 'Set up or improve a brand identity end to end: research, validate, apply, add logo and font files, audit, fix, and export the brand kit',
+  },
 ] as const;
+
+export const BRAND_AGENT_CONTRACT = {
+  browserActions: Object.keys(STUDIO_TOOL_ACTION_CONTRACTS.identity),
+  guide: '/docs/agents/brand-setup.md',
+  kit: BRAND_KIT_CONTRACT.endpoint,
+  skill: 'skills/glyphfield-brand/SKILL.md',
+  validate: BRAND_VALIDATE_CONTRACT.endpoint,
+  workflow: [
+    'Research the brand from the user\'s website, repository or design files; never invent facts.',
+    'Open /studio?tool=identity&project=<id>, wait for window.glyphfield.studio, call describe().',
+    'identity.validate a merge patch, fix every error, then identity.apply { identity: patch }.',
+    'identity.asset.add and identity.font.add with File objects built from authorized bytes.',
+    'identity.audit, identity.fix or follow each finding agentPrompt until no errors remain.',
+    'identity.save, then identity.export.kit and verify the returned Blob.',
+  ],
+} as const;
 
 export const AGENT_MANIFEST = {
   description: 'Discover Glyphfield labs, shaders, identities, generation contracts, and the programmatic Studio browser API from one agent-readable interface.',
@@ -493,6 +524,7 @@ export const AGENT_MANIFEST = {
       'Do not retry an unchanged validation failure.',
     ],
   },
+  brand: BRAND_AGENT_CONTRACT,
   generation: AGENT_GENERATION_CONTRACT,
   interfaces: {
     browser: {
@@ -508,7 +540,7 @@ export const AGENT_MANIFEST = {
       search: '/api/search',
     },
     http: {
-      bestFor: ['discovery', 'deterministic SVG', 'identity data', 'element briefs', 'Design Lab source generation'],
+      bestFor: ['discovery', 'deterministic SVG', 'identity data', 'identity validation', 'brand tokens and brand.md', 'element briefs', 'Design Lab source generation'],
       contract: '/openapi.json',
       generation: '/api/generate',
     },
@@ -520,6 +552,9 @@ export const AGENT_MANIFEST = {
     license: 'Glyphfield source is licensed under MIT; see /LICENSE and /llms.txt. Bundled third-party marks remain separately owned.',
   },
   resources: {
+    brandKit: '/api/brand/kit',
+    brandSetupGuide: '/docs/agents/brand-setup',
+    brandValidate: '/api/brand/validate',
     catalog: '/api/catalog',
     docs: '/docs',
     fullInstructions: '/llms-full.txt',
@@ -551,6 +586,8 @@ export const OPENAPI_DOCUMENT = {
   components: {
     schemas: {
       AgentGenerationRequest: AGENT_GENERATION_REQUEST_SCHEMA,
+      BrandIdentity: BRAND_IDENTITY_SOURCE_SCHEMA,
+      BrandIdentityPatch: BRAND_IDENTITY_PATCH_SCHEMA,
       ErrorEnvelope: {
         additionalProperties: false,
         properties: {
@@ -584,6 +621,69 @@ export const OPENAPI_DOCUMENT = {
           '200': { description: 'Agent manifest and generation contract' },
         },
         summary: 'Discover the Glyphfield agent API',
+      },
+    },
+    '/api/brand/kit': {
+      get: {
+        responses: { '200': { description: 'Brand kit text formats and request contract' } },
+        summary: 'Read the brand kit contract',
+      },
+      post: {
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                additionalProperties: false,
+                properties: {
+                  format: { enum: ['dtcg', 'css', 'tailwind', 'markdown'], type: 'string' },
+                  identity: { $ref: '#/components/schemas/BrandIdentity' },
+                },
+                required: ['format', 'identity'],
+                type: 'object',
+              },
+            },
+          },
+          required: true,
+        },
+        responses: {
+          '200': { description: 'W3C DTCG JSON, CSS custom properties, a Tailwind v4 @theme block, or brand.md' },
+          '400': { description: 'Structured validation error naming the first invalid identity path' },
+          '413': { description: 'Request body exceeds 5 MB' },
+          '415': { description: 'Content-Type must be application/json' },
+        },
+        summary: 'Render one brand kit file from an identity',
+      },
+    },
+    '/api/brand/validate': {
+      get: {
+        responses: { '200': { description: 'BrandIdentity JSON Schema, merge-patch schema, merge rules, logo slots, and an example' } },
+        summary: 'Read the BrandIdentity source contract',
+      },
+      post: {
+        requestBody: {
+          content: {
+            'application/json': {
+              examples: { patch: { value: BRAND_VALIDATE_CONTRACT.example } },
+              schema: {
+                additionalProperties: false,
+                properties: {
+                  identity: { oneOf: [{ $ref: '#/components/schemas/BrandIdentity' }, { $ref: '#/components/schemas/BrandIdentityPatch' }] },
+                  mode: { enum: ['full', 'patch'], type: 'string' },
+                },
+                required: ['identity'],
+                type: 'object',
+              },
+            },
+          },
+          required: true,
+        },
+        responses: {
+          '200': { description: '{ ok, issues, identity, health, schemaVersion }; invalid source returns ok false with path-level issues' },
+          '400': { description: 'Malformed request envelope or unknown top-level field' },
+          '413': { description: 'Request body exceeds 5 MB' },
+          '415': { description: 'Content-Type must be application/json' },
+        },
+        summary: 'Validate and normalize BrandIdentity source without storing it',
       },
     },
     '/api/catalog': {

@@ -14,9 +14,11 @@ import { OPEN_SURFACE_LIBRARY_IDS } from '@/lib/openSurfaceLibrary';
 import { BRAND_ELEMENTS, type BrandElement } from '@/lib/brandElements';
 import {
   BUILT_IN_BRAND_IDENTITIES,
+  hydrateBrandIdentities,
   STARTER_BRAND_IDENTITY,
   type BrandIdentity,
 } from '@/lib/brandIdentity';
+import { colorContrastRatio } from '@/lib/color';
 import { escapeXml } from '@/lib/download';
 import {
   defaultCompositionEffectSettings,
@@ -38,18 +40,21 @@ import {
   type ShaderSequenceSettings,
 } from '@/lib/shaderSequence';
 import { DEFAULT_TEXT_EFFECT } from '@/lib/textEffects';
+import type { CanvasDocument } from '@/lib/canvasDocument';
 import {
-  defaultTemplatePartner,
-  templateBrandLogo,
-  templatePartnerOptions,
-  type TemplateKind,
-} from '@/lib/templateAssets';
-import { buildTemplateSvg, type SlideLayout, type TemplateTexture } from '@/lib/templateSvg';
+  buildExpressionGenerationDocument,
+  expressionGenerationAssetPaths,
+  renderExpressionGeneration,
+} from '@/lib/expressionGeneration';
+import { expressionFormats, expressionState, type ExpressionToolKind } from '@/lib/expressionModel';
+import { CODE_LANGUAGES } from '@/lib/expressionSvg';
+import { brandBackgroundPalette, brandBackgroundPattern, expressionLayouts, expressionPartnerOptions } from '@/lib/expressionTemplates';
 
 const AGENT_IDENTITY_PRESETS = [
   'custom',
   'starter',
   'template',
+  'basement',
   'gt',
   'ramp',
   'mintlify',
@@ -90,19 +95,13 @@ type AgentBackgroundPlan = AgentGenerationBase & {
 };
 
 type AgentTemplatePlan = AgentGenerationBase & {
-  backgroundImageDataUrl: string | null;
-  background: string;
-  body: string;
-  brandLogoPath: string | null;
-  foreground: string;
+  brand: BrandIdentity;
+  /** The Studio's expression document for this template, before assets are embedded. */
+  document: CanvasDocument;
   height: number;
   kind: 'template';
-  partnerLogoDataUrl: string | null;
-  partnerLogoPath: string | null;
-  slideLayout: SlideLayout;
-  template: TemplateKind;
-  texture: TemplateTexture;
-  title: string;
+  layout: string;
+  template: ExpressionToolKind;
   width: number;
 };
 
@@ -182,8 +181,11 @@ export const AGENT_GENERATION_REQUEST_FIELDS = {
     'backgroundImageDataUrl',
     'body',
     'foreground',
+    'format',
     'identity',
     'kind',
+    'language',
+    'layout',
     'output',
     'partnerId',
     'partnerLogoDataUrl',
@@ -422,8 +424,67 @@ function baseColor(identity: BrandIdentity, id: string, fallback: string): strin
   return identity.colors.find((color) => color.id === id)?.hex ?? fallback;
 }
 
+const PRESET_IDENTITY_FIELDS = ['description', 'ink', 'logoDataUrl', 'name', 'paper', 'positioning', 'preset', 'shortName', 'tagline', 'website'] as const;
+
+/**
+ * A full identity object (as returned by /api/identities, or a project's custom
+ * identity) is read as that identity. A preset object is strict: unknown fields
+ * fail with a pointer to { preset } instead of silently rendering Starter.
+ */
+function fullIdentityValue(input: Record<string, unknown>): BrandIdentity | null {
+  if (input.preset !== undefined || typeof input.id !== 'string') return null;
+  const looksComplete = Array.isArray(input.colors) && Array.isArray(input.typography);
+  if (!looksComplete) {
+    const preset = BUILT_IN_BRAND_IDENTITIES.find(({ id }) => id === input.id);
+    if (!preset) {
+      throw new AgentGenerationError(
+        `identity.id must be an ID from /api/identities (${BUILT_IN_BRAND_IDENTITIES.map(({ id }) => id).join(', ')}), or pass { preset } with optional overrides.`,
+        'identity.id',
+        'unknown_identity'
+      );
+    }
+    if (Object.keys(input).some((key) => key !== 'id')) {
+      throw new AgentGenerationError('Pass either { id } alone, the complete identity object from /api/identities, or { preset } with overrides.', 'identity', 'invalid_identity');
+    }
+    return preset;
+  }
+  const hydrated = hydrateBrandIdentities([input]).find(({ id }) => id === input.id);
+  if (!hydrated) {
+    throw new AgentGenerationError('identity could not be read as a complete BrandIdentity. Pass { preset: "gt" } or an identity object from /api/identities.', 'identity', 'invalid_identity');
+  }
+  return hydrated;
+}
+
+function agentIdentityFromBrand(base: BrandIdentity): AgentIdentity {
+  const builtIn = (AGENT_IDENTITY_PRESETS as readonly string[]).includes(base.id) && BUILT_IN_BRAND_IDENTITIES.some(({ id }) => id === base.id);
+  return {
+    base,
+    description: base.description,
+    id: base.id,
+    ink: baseColor(base, 'ink', '#181818'),
+    logoDataUrl: null,
+    name: base.name,
+    paper: baseColor(base, 'paper', '#FFFFFF'),
+    positioning: base.positioning,
+    preset: builtIn ? base.id as AgentIdentityPreset : 'custom',
+    shortName: base.shortName,
+    tagline: base.tagline,
+    website: base.website,
+  };
+}
+
 function resolveAgentIdentity(value: unknown): AgentIdentity {
   const input = asRecord(value, 'identity');
+  const full = fullIdentityValue(input);
+  if (full) return agentIdentityFromBrand(full);
+  const unknownField = Object.keys(input).filter((key) => !(PRESET_IDENTITY_FIELDS as readonly string[]).includes(key)).sort()[0];
+  if (unknownField) {
+    throw new AgentGenerationError(
+      `identity.${unknownField} is not a preset override. Pass { preset: "gt" } with optional overrides (${PRESET_IDENTITY_FIELDS.join(', ')}), or the complete identity object from /api/identities.`,
+      `identity.${unknownField}`,
+      'unknown_field'
+    );
+  }
   const preset = oneOf(
     input.preset,
     AGENT_IDENTITY_PRESETS,
@@ -486,15 +547,38 @@ function resolveAgentIdentity(value: unknown): AgentIdentity {
   };
 }
 
+/** The BrandIdentity a template renders with: the preset plus the request's overrides. */
+function agentBrandIdentity(identity: AgentIdentity): BrandIdentity {
+  const base = identity.base ?? STARTER_BRAND_IDENTITY;
+  const custom = identity.base === null;
+  const logo = identity.logoDataUrl;
+  const logoAssets = logo
+    ? ['mark-dark', 'mark-light', 'wordmark', 'wordmark-light'].map((id) => ({ id, label: `${identity.name} logo`, path: logo, surface: 'any' as const, type: 'logo' as const }))
+    : [];
+  return {
+    ...base,
+    assets: [...logoAssets, ...base.assets.filter((asset) => !(logo && asset.type === 'logo') && !(custom && asset.type === 'logo'))],
+    colors: base.colors.map((color) => color.id === 'ink' ? { ...color, hex: identity.ink } : color.id === 'paper' ? { ...color, hex: identity.paper } : color),
+    description: identity.description,
+    id: identity.id,
+    name: identity.name,
+    positioning: identity.positioning,
+    proofAssets: custom ? [] : base.proofAssets,
+    shortName: identity.shortName,
+    tagline: identity.tagline,
+    website: identity.website,
+  };
+}
+
 function outputValue(value: unknown): AgentOutput {
   return oneOf(value, ['json', 'raw'] as const, 'json', 'output');
 }
 
-function backgroundSettings(value: unknown): BackgroundSettings {
+function backgroundSettings(value: unknown, defaults: BackgroundSettings = DEFAULT_BACKGROUND_SETTINGS): BackgroundSettings {
   const input = asRecord(value, 'settings');
   const width = numberValue(
     input.width,
-    DEFAULT_BACKGROUND_SETTINGS.width,
+    defaults.width,
     'settings.width',
     64,
     4096,
@@ -503,7 +587,7 @@ function backgroundSettings(value: unknown): BackgroundSettings {
   );
   const height = numberValue(
     input.height,
-    DEFAULT_BACKGROUND_SETTINGS.height,
+    defaults.height,
     'settings.height',
     64,
     4096,
@@ -519,88 +603,113 @@ function backgroundSettings(value: unknown): BackgroundSettings {
   }
 
   return {
-    angle: numberValue(input.angle, DEFAULT_BACKGROUND_SETTINGS.angle, 'settings.angle', -360, 360),
-    bandCount: numberValue(input.bandCount, DEFAULT_BACKGROUND_SETTINGS.bandCount, 'settings.bandCount', 3, 24, true),
-    bandDepth: numberValue(input.bandDepth, DEFAULT_BACKGROUND_SETTINGS.bandDepth, 'settings.bandDepth', 0, 100),
-    bandGap: numberValue(input.bandGap, DEFAULT_BACKGROUND_SETTINGS.bandGap, 'settings.bandGap', 0, 64),
-    colorA: colorValue(input.colorA, DEFAULT_BACKGROUND_SETTINGS.colorA, 'settings.colorA'),
-    colorB: colorValue(input.colorB, DEFAULT_BACKGROUND_SETTINGS.colorB, 'settings.colorB'),
-    colorC: colorValue(input.colorC, DEFAULT_BACKGROUND_SETTINGS.colorC, 'settings.colorC'),
+    angle: numberValue(input.angle, defaults.angle, 'settings.angle', -360, 360),
+    bandCount: numberValue(input.bandCount, defaults.bandCount, 'settings.bandCount', 3, 24, true),
+    bandDepth: numberValue(input.bandDepth, defaults.bandDepth, 'settings.bandDepth', 0, 100),
+    bandGap: numberValue(input.bandGap, defaults.bandGap, 'settings.bandGap', 0, 64),
+    colorA: colorValue(input.colorA, defaults.colorA, 'settings.colorA'),
+    colorB: colorValue(input.colorB, defaults.colorB, 'settings.colorB'),
+    colorC: colorValue(input.colorC, defaults.colorC, 'settings.colorC'),
     ditherMatrix: numericOneOf(
       input.ditherMatrix,
       [2, 4, 8] as const,
-      DEFAULT_BACKGROUND_SETTINGS.ditherMatrix,
+      defaults.ditherMatrix,
       'settings.ditherMatrix',
     ),
     ditherShape: oneOf(
       input.ditherShape,
       ['dots', 'squares'] as const satisfies readonly BackgroundDitherShape[],
-      DEFAULT_BACKGROUND_SETTINGS.ditherShape,
+      defaults.ditherShape,
       'settings.ditherShape'
     ),
-    focalX: numberValue(input.focalX, DEFAULT_BACKGROUND_SETTINGS.focalX, 'settings.focalX', 0, 100),
-    focalY: numberValue(input.focalY, DEFAULT_BACKGROUND_SETTINGS.focalY, 'settings.focalY', 0, 100),
+    focalX: numberValue(input.focalX, defaults.focalX, 'settings.focalX', 0, 100),
+    focalY: numberValue(input.focalY, defaults.focalY, 'settings.focalY', 0, 100),
     gradient: oneOf(
       input.gradient,
       ['linear', 'radial', 'mesh', 'orbit', 'wave', 'bloom'] as const satisfies readonly BackgroundGradient[],
-      DEFAULT_BACKGROUND_SETTINGS.gradient,
+      defaults.gradient,
       'settings.gradient'
     ),
-    grain: numberValue(input.grain, DEFAULT_BACKGROUND_SETTINGS.grain, 'settings.grain', 0, 100),
+    grain: numberValue(input.grain, defaults.grain, 'settings.grain', 0, 100),
     height,
-    logoColor: colorValue(input.logoColor, DEFAULT_BACKGROUND_SETTINGS.logoColor, 'settings.logoColor'),
-    logoOpacity: numberValue(input.logoOpacity, DEFAULT_BACKGROUND_SETTINGS.logoOpacity, 'settings.logoOpacity', 0, 100),
-    logoScale: numberValue(input.logoScale, DEFAULT_BACKGROUND_SETTINGS.logoScale, 'settings.logoScale', 5, 90),
-    logoTone: oneOf(input.logoTone, ['black', 'white'] as const, DEFAULT_BACKGROUND_SETTINGS.logoTone, 'settings.logoTone'),
-    logoX: numberValue(input.logoX, DEFAULT_BACKGROUND_SETTINGS.logoX, 'settings.logoX', -50, 50),
-    logoY: numberValue(input.logoY, DEFAULT_BACKGROUND_SETTINGS.logoY, 'settings.logoY', -50, 50),
+    logoColor: colorValue(input.logoColor, defaults.logoColor, 'settings.logoColor'),
+    logoOpacity: numberValue(input.logoOpacity, defaults.logoOpacity, 'settings.logoOpacity', 0, 100),
+    logoScale: numberValue(input.logoScale, defaults.logoScale, 'settings.logoScale', 5, 90),
+    logoTone: oneOf(input.logoTone, ['black', 'white'] as const, defaults.logoTone, 'settings.logoTone'),
+    logoX: numberValue(input.logoX, defaults.logoX, 'settings.logoX', -50, 50),
+    logoY: numberValue(input.logoY, defaults.logoY, 'settings.logoY', -50, 50),
     lightingEnabled: booleanValue(
       input.lightingEnabled,
-      DEFAULT_BACKGROUND_SETTINGS.lightingEnabled,
+      defaults.lightingEnabled,
       'settings.lightingEnabled'
     ),
     pattern: oneOf(
       input.pattern,
       ['none', 'dots', 'lines', 'grid', 'fibers', 'speckles', 'topographic', 'crosshatch'] as const satisfies readonly BackgroundPattern[],
-      DEFAULT_BACKGROUND_SETTINGS.pattern,
+      defaults.pattern,
       'settings.pattern'
     ),
-    patternOpacity: numberValue(input.patternOpacity, DEFAULT_BACKGROUND_SETTINGS.patternOpacity, 'settings.patternOpacity', 0, 100),
-    relief: numberValue(input.relief, DEFAULT_BACKGROUND_SETTINGS.relief, 'settings.relief', 0, 80),
-    spacing: numberValue(input.spacing, DEFAULT_BACKGROUND_SETTINGS.spacing, 'settings.spacing', 8, 256, true),
+    patternOpacity: numberValue(input.patternOpacity, defaults.patternOpacity, 'settings.patternOpacity', 0, 100),
+    relief: numberValue(input.relief, defaults.relief, 'settings.relief', 0, 80),
+    spacing: numberValue(input.spacing, defaults.spacing, 'settings.spacing', 8, 256, true),
     style: oneOf(
       input.style,
       ['gradient', 'grain-gradient', 'dither', 'pattern'] as const satisfies readonly BackgroundStyle[],
-      DEFAULT_BACKGROUND_SETTINGS.style,
+      defaults.style,
       'settings.style'
     ),
-    surfaceAngle: numberValue(input.surfaceAngle, DEFAULT_BACKGROUND_SETTINGS.surfaceAngle, 'settings.surfaceAngle', 0, 180),
-    surfaceDepth: numberValue(input.surfaceDepth, DEFAULT_BACKGROUND_SETTINGS.surfaceDepth, 'settings.surfaceDepth', 0, 100),
+    surfaceAngle: numberValue(input.surfaceAngle, defaults.surfaceAngle, 'settings.surfaceAngle', 0, 180),
+    surfaceDepth: numberValue(input.surfaceDepth, defaults.surfaceDepth, 'settings.surfaceDepth', 0, 100),
     surfaceMaterial: oneOf(
       input.surfaceMaterial,
       SURFACE_MATERIAL_IDS,
-      DEFAULT_BACKGROUND_SETTINGS.surfaceMaterial,
+      defaults.surfaceMaterial,
       'settings.surfaceMaterial'
     ),
-    surfaceMetallic: numberValue(input.surfaceMetallic, DEFAULT_BACKGROUND_SETTINGS.surfaceMetallic, 'settings.surfaceMetallic', 0, 100),
-    surfaceOpenArea: numberValue(input.surfaceOpenArea, DEFAULT_BACKGROUND_SETTINGS.surfaceOpenArea, 'settings.surfaceOpenArea', 0, 92),
-    surfaceRoughness: numberValue(input.surfaceRoughness, DEFAULT_BACKGROUND_SETTINGS.surfaceRoughness, 'settings.surfaceRoughness', 0, 100),
-    surfaceScale: numberValue(input.surfaceScale, DEFAULT_BACKGROUND_SETTINGS.surfaceScale, 'settings.surfaceScale', 12, 140),
-    surfaceTextureAmount: numberValue(input.surfaceTextureAmount, DEFAULT_BACKGROUND_SETTINGS.surfaceTextureAmount, 'settings.surfaceTextureAmount', 0, 100),
-    surfaceIrregularity: numberValue(input.surfaceIrregularity, DEFAULT_BACKGROUND_SETTINGS.surfaceIrregularity, 'settings.surfaceIrregularity', 0, 100),
+    surfaceMetallic: numberValue(input.surfaceMetallic, defaults.surfaceMetallic, 'settings.surfaceMetallic', 0, 100),
+    surfaceOpenArea: numberValue(input.surfaceOpenArea, defaults.surfaceOpenArea, 'settings.surfaceOpenArea', 0, 92),
+    surfaceRoughness: numberValue(input.surfaceRoughness, defaults.surfaceRoughness, 'settings.surfaceRoughness', 0, 100),
+    surfaceScale: numberValue(input.surfaceScale, defaults.surfaceScale, 'settings.surfaceScale', 12, 140),
+    surfaceTextureAmount: numberValue(input.surfaceTextureAmount, defaults.surfaceTextureAmount, 'settings.surfaceTextureAmount', 0, 100),
+    surfaceIrregularity: numberValue(input.surfaceIrregularity, defaults.surfaceIrregularity, 'settings.surfaceIrregularity', 0, 100),
     surfaceLibraryAssetId: oneOf(
       input.surfaceLibraryAssetId,
       ['', ...OPEN_SURFACE_LIBRARY_IDS],
-      DEFAULT_BACKGROUND_SETTINGS.surfaceLibraryAssetId,
+      defaults.surfaceLibraryAssetId,
       'settings.surfaceLibraryAssetId'
     ),
     width,
   };
 }
 
+/** Colors default to the identity's palette, so { style } alone stays on brand. */
+function brandBackgroundDefaults(identity: AgentIdentity, input: Record<string, unknown>): BackgroundSettings {
+  if (!identity.base) return DEFAULT_BACKGROUND_SETTINGS;
+  const brand = agentBrandIdentity(identity);
+  const settings = asRecord(input.settings, 'settings');
+  const [colorA, colorB, colorC] = brandBackgroundPalette(brand);
+  const style = typeof settings.style === 'string' ? settings.style : DEFAULT_BACKGROUND_SETTINGS.style;
+  return {
+    ...DEFAULT_BACKGROUND_SETTINGS,
+    colorA,
+    colorB,
+    colorC,
+    logoColor: readableOn(colorA, brand),
+    logoTone: readableOn(colorA, brand) === baseColor(brand, 'paper', '#FFFFFF') ? 'white' : 'black',
+    pattern: style === 'pattern' ? brandBackgroundPattern(brand) : DEFAULT_BACKGROUND_SETTINGS.pattern,
+    patternOpacity: style === 'pattern' ? 34 : DEFAULT_BACKGROUND_SETTINGS.patternOpacity,
+  };
+}
+
+function readableOn(background: string, brand: BrandIdentity): string {
+  const ink = baseColor(brand, 'ink', '#181818');
+  const paper = baseColor(brand, 'paper', '#FFFFFF');
+  return colorContrastRatio(background, paper) >= colorContrastRatio(background, ink) ? paper : ink;
+}
+
 function backgroundPlan(input: Record<string, unknown>): AgentBackgroundPlan {
   const identity = resolveAgentIdentity(input.identity);
-  const settings = backgroundSettings(input.settings);
+  const settings = backgroundSettings(input.settings, brandBackgroundDefaults(identity, input));
   const mark = identity.base?.assets.find(({ id }) =>
     id === (settings.logoTone === 'white' ? 'mark-light' : 'mark-dark')
   );
@@ -615,103 +724,72 @@ function backgroundPlan(input: Record<string, unknown>): AgentBackgroundPlan {
   };
 }
 
-function templateDimensions(template: TemplateKind) {
-  if (template === 'slides') return { height: 900, width: 1600 };
-  return { height: template === 'blog' ? 630 : 600, width: 1200 };
+const TEMPLATE_KINDS = ['blog', 'partnership', 'slides', 'opengraph', 'terminal'] as const;
+
+function templateLayout(input: Record<string, unknown>, template: ExpressionToolKind): string {
+  const layouts = expressionLayouts(template).map(({ id }) => id);
+  if (template === 'slides' && input.slideLayout !== undefined) {
+    if (input.layout !== undefined) throw new AgentGenerationError('Pass slideLayout or layout, not both.', 'layout');
+    return oneOf(input.slideLayout, layouts, 'title', 'slideLayout');
+  }
+  if (template !== 'slides' && input.slideLayout !== undefined) {
+    throw new AgentGenerationError('slideLayout applies to template slides; use layout for other templates.', 'slideLayout');
+  }
+  return oneOf(input.layout, layouts, template === 'slides' ? 'title' : '', 'layout');
 }
 
-function defaultTemplateTitle(identity: AgentIdentity, template: TemplateKind): string {
-  if (template === 'partnership') {
-    const partner = identity.base ? defaultTemplatePartner(identity.base).label : 'Northstar';
-    return `${identity.name} × ${partner}`;
-  }
-  return template === 'blog' ? identity.positioning : identity.tagline;
+function templateCopy(input: Record<string, unknown>, kind: ExpressionToolKind) {
+  return {
+    body: input.body === undefined ? undefined : textValue(input.body, '', 'body', kind === 'terminal' ? 4000 : 1000),
+    title: input.title === undefined ? undefined : textValue(input.title, '', 'title', 240),
+  };
 }
 
-function resolveTemplatePartner(
-  identity: AgentIdentity,
-  input: Record<string, unknown>,
-  template: TemplateKind
-) {
-  const base = identity.base ?? STARTER_BRAND_IDENTITY;
-  const options = templatePartnerOptions(base);
-  const defaultPartner = defaultTemplatePartner(base);
-  const partnerId = textValue(input.partnerId, defaultPartner.id, 'partnerId', 80);
-  const selected = options.find(({ id }) => id === partnerId);
-  if (template === 'partnership' && !input.partnerLogoDataUrl && !selected) {
-    throw new AgentGenerationError(
-      `partnerId must reference a public partner asset: ${options.map(({ id }) => id).join(', ')}.`,
-      'partnerId'
-    );
+function templatePartner(input: Record<string, unknown>, brand: BrandIdentity): string | undefined {
+  if (input.partnerId === undefined) return undefined;
+  const options = expressionPartnerOptions(brand).map(({ id }) => id);
+  const partnerId = textValue(input.partnerId, '', 'partnerId', 80);
+  if (!options.includes(partnerId)) {
+    throw new AgentGenerationError(`partnerId must reference a partner from /api/identities: ${options.join(', ')}.`, 'partnerId');
   }
-  return selected;
+  return partnerId;
 }
 
 function templatePlan(input: Record<string, unknown>): AgentTemplatePlan {
   const identity = resolveAgentIdentity(input.identity);
-  const template = oneOf(
-    input.template,
-    ['blog', 'partnership', 'slides'] as const,
-    'slides',
-    'template'
-  );
-  const texture = oneOf(
-    input.texture,
-    ['dark', 'grid', 'noise', 'white'] as const,
-    'white',
-    'texture'
-  );
-  const slideLayout = oneOf(
-    input.slideLayout,
-    ['title', 'section', 'agenda', 'split', 'metrics', 'quote', 'timeline', 'statement', 'comparison', 'process', 'chart', 'team', 'image', 'closing'] as const,
-    'title',
-    'slideLayout'
-  );
-  const isDark = texture === 'dark';
-  const { height, width } = templateDimensions(template);
-  const defaultTitle = defaultTemplateTitle(identity, template);
-  const brandLogo = identity.base
-    ? templateBrandLogo(identity.base, template, isDark)
-    : null;
-  const selectedPartner = resolveTemplatePartner(identity, input, template);
-
+  const template = oneOf(input.template, TEMPLATE_KINDS, 'slides', 'template');
+  const brand = agentBrandIdentity(identity);
+  const layout = templateLayout(input, template);
+  const format = input.format === undefined
+    ? undefined
+    : oneOf(input.format, expressionFormats(template).map(({ id }) => id), expressionFormats(template)[0]!.id, 'format');
+  if (input.language !== undefined && template !== 'terminal') throw new AgentGenerationError('language applies to template terminal.', 'language');
+  const document = buildExpressionGenerationDocument({
+    background: input.background === undefined ? undefined : colorValue(input.background, '#FFFFFF', 'background'),
+    backgroundImageDataUrl: imageDataUrl(input.backgroundImageDataUrl, 'backgroundImageDataUrl'),
+    ...templateCopy(input, template),
+    foreground: input.foreground === undefined ? undefined : colorValue(input.foreground, '#000000', 'foreground'),
+    format,
+    identity: brand,
+    language: input.language === undefined ? undefined : oneOf(input.language, CODE_LANGUAGES.map(({ id }) => id), 'typescript', 'language'),
+    layout: layout || undefined,
+    partnerId: templatePartner(input, brand),
+    partnerLogoDataUrl: imageDataUrl(input.partnerLogoDataUrl, 'partnerLogoDataUrl'),
+    template,
+    texture: input.texture === undefined ? undefined : oneOf(input.texture, ['dark', 'grid', 'noise', 'white'] as const, 'white', 'texture'),
+  });
+  const page = document.pages[document.pageIds[0]!]!;
   return {
-    background: colorValue(
-      input.background,
-      isDark ? identity.ink : identity.paper,
-      'background'
-    ),
-    backgroundImageDataUrl: imageDataUrl(
-      input.backgroundImageDataUrl,
-      'backgroundImageDataUrl'
-    ),
-    body: textValue(
-      input.body,
-      template === 'slides' ? 'Foundation\nExpression\nApplication\nDelivery' : identity.description,
-      'body',
-      1000
-    ),
-    brandLogoPath: identity.logoDataUrl ? null : brandLogo?.path ?? null,
-    filename: `${slug(identity.name)}-${template}-${width}x${height}.svg`,
-    foreground: colorValue(
-      input.foreground,
-      isDark ? identity.paper : identity.ink,
-      'foreground'
-    ),
-    height,
+    brand,
+    document,
+    filename: `${slug(identity.name)}-${template}-${page.width}x${page.height}.svg`,
+    height: page.height,
     identity,
     kind: 'template',
+    layout: layout || expressionState(document).pages[document.pageIds[0]!]!.layout,
     output: outputValue(input.output),
-    partnerLogoDataUrl: imageDataUrl(input.partnerLogoDataUrl, 'partnerLogoDataUrl'),
-    partnerLogoPath:
-      template === 'partnership' && !input.partnerLogoDataUrl
-        ? selectedPartner?.path ?? null
-        : null,
-    slideLayout,
     template,
-    texture,
-    title: textValue(input.title, defaultTitle, 'title', 240),
-    width,
+    width: page.width,
   };
 }
 
@@ -863,7 +941,7 @@ export function agentAssetPaths(plan: AgentGenerationPlan): string[] {
     : plan.kind === 'design-sequence'
       ? [plan.logoPath]
     : plan.kind === 'template'
-      ? [plan.brandLogoPath, plan.partnerLogoPath]
+      ? expressionGenerationAssetPaths(plan.document)
       : [];
   return [...new Set(paths.filter((path): path is string => Boolean(path)))];
 }
@@ -1040,33 +1118,13 @@ export function renderAgentGeneration(
     };
   }
 
-  const brandLogo = plan.identity.logoDataUrl
-    ?? (plan.brandLogoPath ? assets[plan.brandLogoPath] : null)
-    ?? monogramDataUrl(plan.identity, plan.foreground);
-  const partnerLogo = plan.partnerLogoDataUrl
-    ?? (plan.partnerLogoPath ? assets[plan.partnerLogoPath] : null);
+  const rendered = renderExpressionGeneration(plan.document, plan.brand, assets);
   return {
-    content: buildTemplateSvg({
-      background: plan.background,
-      backgroundImage: plan.backgroundImageDataUrl,
-      body: plan.body,
-      brandLogo,
-      foreground: plan.foreground,
-      height: plan.height,
-      identityName: plan.identity.name,
-      invertPartner: plan.texture === 'dark',
-      kind: plan.template,
-      partnerLogo,
-      slideLayout: plan.slideLayout,
-      texture: plan.texture,
-      title: plan.title,
-      website: plan.identity.website,
-      width: plan.width,
-    }),
+    content: rendered.content,
     filename: plan.filename,
-    height: plan.height,
+    height: rendered.height,
     mimeType: 'image/svg+xml',
     output: plan.output,
-    width: plan.width,
+    width: rendered.width,
   };
 }

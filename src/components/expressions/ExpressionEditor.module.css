@@ -1,0 +1,246 @@
+.plane {
+  container-type: inline-size;
+}
+
+.layer {
+  background: transparent;
+}
+
+.layerSvg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.inlineText {
+  width: 100%;
+  height: 100%;
+}
+
+.inlineTextField {
+  outline: 1px dashed color-mix(in oklab, #5b7cff 70%, transparent);
+  outline-offset: 2px;
+  cursor: text;
+  user-select: text;
+  overflow-wrap: break-word;
+  font-kerning: normal;
+  font-optical-sizing: none;
+}
+
+.layerRow {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) 28px 28px;
+  align-items: center;
+  gap: 2px;
+  min-height: 32px;
+  border-radius: 6px;
+  padding-inline-start: 6px;
+  color: hsl(var(--muted-foreground));
+}
+
+.layerRow[data-selected='true'] {
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+}
+
+.layerRow[data-hidden='true'] .layerName {
+  opacity: 0.45;
+}
+
+.layerRow[data-drop='before'] {
+  box-shadow: inset 0 2px 0 #5b7cff;
+}
+
+.layerRow[data-drop='after'] {
+  box-shadow: inset 0 -2px 0 #5b7cff;
+}
+
+.layerName {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  padding-block: 6px;
+  text-align: start;
+  font-size: 13px;
+  color: inherit;
+}
+
+.layerName span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.grip {
+  cursor: grab;
+  color: hsl(var(--muted-foreground));
+  font-size: 10px;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.slideStrip {
+  display: grid;
+  gap: 10px;
+}
+
+.slideCard {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  border-radius: 8px;
+  padding: 6px;
+  text-align: start;
+}
+
+.slideCard[data-active='true'] {
+  background: hsl(var(--muted));
+}
+
+.slideCard[data-drop='before'] {
+  box-shadow: inset 0 2px 0 #5b7cff;
+}
+
+.slideIndex {
+  padding-top: 2px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: hsl(var(--muted-foreground));
+}
+
+.slideThumb {
+  display: block;
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: 4px;
+  background: hsl(var(--background));
+}
+
+.slideThumb svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.slideCard[data-active='true'] .slideThumb {
+  border-color: hsl(var(--foreground));
+}
+
+.slideName {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+}
+
+.addGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.addButton {
+  display: flex;
+  height: 52px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+}
+
+.addButton:hover,
+.addButton:focus-visible {
+  border-color: hsl(var(--foreground));
+  color: hsl(var(--foreground));
+}
+
+.layoutGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.layoutButton {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  padding: 6px 10px;
+  text-align: start;
+  font-size: 12px;
+}
+
+.layoutButton[aria-pressed='true'] {
+  border-color: hsl(var(--foreground));
+  background: hsl(var(--muted));
+}
+
+.numberGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.numberField {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 4px;
+  border: 1px solid hsl(var(--input));
+  border-radius: 6px;
+  padding-inline-start: 8px;
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+}
+
+.numberField input {
+  height: 32px;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: hsl(var(--foreground));
+  outline: none;
+}
+
+.numberField:focus-within {
+  border-color: hsl(var(--foreground));
+}
+
+.iconRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.partnerRow {
+  display: grid;
+  gap: 8px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.tabRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: hsl(var(--muted-foreground));
+}

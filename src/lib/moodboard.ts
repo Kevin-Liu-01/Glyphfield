@@ -7,7 +7,12 @@ export type MoodboardExportPresetId =
   | 'ultra'
   | 'custom';
 
-export type MoodboardComposition = 'showcase' | 'system' | 'catalog';
+export const MOODBOARD_COMPOSITIONS = ['showcase', 'campaign', 'system', 'specimen', 'catalog'] as const;
+export type MoodboardComposition = (typeof MOODBOARD_COMPOSITIONS)[number];
+
+export function isMoodboardComposition(value: unknown): value is MoodboardComposition {
+  return MOODBOARD_COMPOSITIONS.includes(value as MoodboardComposition);
+}
 
 export type MoodboardExportPreset = {
   height: number;
@@ -52,9 +57,19 @@ export function moodboardAssets(identity: BrandIdentity): BrandAsset[] {
 const MINIMUM_CUSTOM_WIDTH = 800;
 const MAXIMUM_CUSTOM_WIDTH = 4800;
 const BOARD_HEIGHT_RATIOS: Record<MoodboardComposition, number> = {
+  campaign: 9 / 16,
   catalog: 3 / 2,
   showcase: 9 / 16,
+  specimen: 5 / 4,
   system: 5 / 4,
+};
+
+export const MOODBOARD_ASPECT_LABELS: Record<MoodboardComposition, string> = {
+  campaign: '16:9',
+  catalog: '2:3',
+  showcase: '16:9',
+  specimen: '4:5',
+  system: '4:5',
 };
 
 export const MOODBOARD_EXPORT_PRESETS: readonly MoodboardExportPreset[] = [

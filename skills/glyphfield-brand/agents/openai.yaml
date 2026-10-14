@@ -1,0 +1,5 @@
+interface:
+  display_name: "Glyphfield Brand"
+  short_description: "Set up and audit a brand identity in Glyphfield"
+  brand_color: "#7058FF"
+  default_prompt: "Use $glyphfield-brand to set up my brand in Glyphfield from my website and repository."

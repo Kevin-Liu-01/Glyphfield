@@ -8,7 +8,7 @@ Lottie is the vector-motion workspace. It accepts Lottie JSON and `.lottie` bund
 
 The built-in library contains seven editorial motion studies: branching signals, deliberate routing, converging perspectives, architectural layers, an optical scan, an orbital network, and delivery across formats. Each has a complete opening composition, a continuous five-second loop, large brand typography, and one accent color. The geometry stays vector-based and editable.
 
-**Studio** applies a warm paper, ink, and terracotta palette. **Mono** pairs light artwork with a dark background; **Brand** uses your identity colors. The brand mark follows the primary artwork color. Stroke width scales the authored line weights together, preserving the difference between structural lines and accents.
+A first visit starts from the identity's own colours: its paper field, ink artwork, a quiet secondary, and its accent. **Studio** applies a warm paper, ink, and terracotta palette. **Mono** pairs light artwork with a dark background; **Brand** uses your identity colors. Each palette slot also offers the identity's colour tokens as one-click swatches. The brand mark follows the primary artwork color. Stroke width scales the authored line weights together, preserving the difference between structural lines and accents.
 
 Selecting a built-in preset loads its current design. Existing saved compositions retain their source and appearance until you choose a preset again.
 
@@ -23,19 +23,28 @@ Raw JSON must include numeric `fr` and an array-valued `layers` field. Unsupport
 
 ## Playback and frame selection
 
-Play, pause, restart, seek, trim the in/out range, and select an exact frame. Frame seeking is deterministic and can be used to create a high-resolution poster image from the animation.
+Play, pause, restart, seek, trim the in/out range, and select an exact frame. Frame seeking is deterministic and can be used to create a high-resolution poster image from the animation. The transport updates on its own, so playback never re-renders the inspectors.
 
-The background uses the same shared material controls as Animation. Material time follows the Lottie playhead during preview and capture, so selecting a vector frame also selects its composited shader frame.
+The background uses the same shared material controls as Animation. During GIF and MP4 export, material time follows the output clock, so every exported frame composites the shader frame for that moment.
+
+## Markers
+
+Markers name segments of the timeline. Each built-in study ships **Build** (the opening composition), **Hold** (the continuous loop), and **Resolve** (the exit). **Play marker** sets the in and out frames to that segment and plays it; **Add marker** names the segment from the current frame to the out point. Rename or remove markers in the list. JSON markers are written into the exported document's `markers`; `.lottie` bundle markers are read from the bundle and play the same way.
+
+## Layers and text
+
+**Layers** lists the document's top-level layers with their type. **Hide layer** removes a layer from playback and every export without deleting it; **Show layer** restores it. Text layers expose their text for direct rewriting, and **Restore original text** discards the rewrite. Edits are non-destructive: the source document is kept, and the preview, frame PNG, GIF, MP4, and JSON download carry the edited result. `.lottie` bundles keep their embedded layers.
 
 ## Recoloring
 
-Use the discovered color list to replace vector colors without manually editing every layer. Recoloring applies to the live document; open **File → Edit source code** when a path-level change requires direct Lottie JSON.
+Built-in studies recolour through the three palette slots. Imported JSON keeps its authored colours and lists every static fill, stroke, gradient stop, and text colour under **Document colours**, most used first. Replace any colour with the picker or a brand token, choose **Brand tokens** to map every colour at once (chromatic colours take the brand's accents in order of chroma; neutrals take the brand neutral nearest in lightness), or **Authored** to restore the original colours. **Palette recolours every paint** restores the earlier behaviour, where the primary slot recolours every unnamed paint; older saved projects keep it. Open **File → Edit source code** when a path-level change requires direct Lottie JSON.
 
 ## Output
 
-- Download the edited Lottie JSON when the input is source JSON.
+- Download the edited Lottie JSON when the input is source JSON, with layer, colour, text, and marker edits applied.
 - Download the original `.lottie` bundle when the input is binary.
 - Export the selected composited frame as a high-resolution PNG.
+- Export the trimmed segment as **GIF** (25 fps, 256-colour palette protecting the artwork colours) or **MP4** (30 fps), honouring speed and playback direction (bounce modes play forward and back). GIF and MP4 have no alpha, so a transparent canvas flattens onto its canvas colour.
 - Use transparent background for downstream composition, or render over a brand color or live shader.
 
 ## Agent workflow
@@ -44,7 +53,25 @@ Lottie depends on browser playback and local files, so agents use `window.glyphf
 
 ```js
 const file = new File([lottieJson], 'animation.json', { type: 'application/json' });
-window.glyphfield.studio.set('Import Lottie', file);
+window.glyphfield.studio.set('Import .lottie or JSON', file);
 ```
 
 After import, wait for the document to load, call `readSource()` for the exact JSON when available, and use the visible frame/export controls. Never treat a binary `.lottie` archive as editable UTF-8 text.
+
+Edit through the dedicated actions, which validate their input and return the current document description:
+
+```js
+const studio = window.glyphfield.studio;
+const lottie = await studio.invoke('lottie.describe');
+const title = lottie.textLayers[0];
+await studio.invoke('lottie.edit', {
+  hiddenLayers: [lottie.layers.at(-1).key],
+  textOverrides: { [title.key]: 'Edge by default.' },
+  recolor: 'source',
+});
+await studio.invoke('lottie.colors.brand');
+await studio.invoke('lottie.segment.set', { marker: 'Hold' });
+const gif = await studio.invoke('lottie.export.gif');
+```
+
+`lottie.edit` replaces each listed field (`hiddenLayers`, `colorMap`, `textOverrides`, `markers`, `recolor`) and rejects unknown layer keys, malformed colours, and invalid marker frames with the field path.

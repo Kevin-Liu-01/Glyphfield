@@ -33,7 +33,7 @@ test('every public tool keeps its header and File menu usable at desktop and mid
         }), { message: `Design Lab playback controls do not overlap at ${width}px` }).toBe(true);
       }
     }
-    if (tool.id !== 'brand-book') {
+    {
       await waitForStudioSource(page);
       const file = header.getByRole('button', { name: 'File', exact: true });
       await file.focus();

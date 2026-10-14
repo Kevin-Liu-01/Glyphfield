@@ -78,7 +78,7 @@ import StudioContextMenu, {
   contextMenuPositionFromEvent,
   type StudioContextMenuPosition,
 } from '@/components/ui/StudioContextMenu';
-import StudioSelect from '@/components/ui/StudioSelect';
+import ShaderLibraryFilters from '@/components/ShaderLibraryFilters';
 import { useRenderQuality } from '@/hooks/useLandingRenderQuality';
 import { studioRenderQualityStore } from '@/lib/landingRenderQuality';
 import { useDeferredRuntime } from '@/hooks/useDeferredRuntime';
@@ -225,12 +225,12 @@ import {
 import { createImportedBrandAsset, imageLibraryErrorMessage, readEmbeddedImageFile } from '@/lib/imageAssets';
 import {
   SHADER_LAB_CATEGORIES,
-  SHADER_LAB_SOURCES,
   shaderLabCategoryCount,
   shaderLabMaterials,
   shaderLabSettingsFor,
   shaderPreviewAssetPath,
   type ShaderLabCategory,
+  type ShaderLabKind,
   type ShaderLabSource,
 } from '@/lib/shaderLab';
 import {
@@ -2884,6 +2884,7 @@ export default function ShaderLabStudio({
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<ShaderLabCategory>('all');
   const [materialSource, setMaterialSource] = useState<ShaderLabSource>('all');
+  const [materialKind, setMaterialKind] = useState<ShaderLabKind>('all');
   const [visibleMaterialCount, setVisibleMaterialCount] = useState(SHADER_LIBRARY_INITIAL_CARD_COUNT);
   const [logoLayers, setLogoLayers] = useState<CompositionLogoLayer[]>(() => [{
     appearance: { ...DEFAULT_LOGO_APPEARANCE },
@@ -3279,7 +3280,7 @@ export default function ShaderLabStudio({
     sequencePreviewAnimationRef.current = requestAnimationFrame(sequencePreviewTickRef.current);
     return () => cancelAnimationFrame(sequencePreviewAnimationRef.current);
   }, [active, sequencePreviewing]);
-  const materials = useMemo(() => shaderLabMaterials(query, category, materialSource), [category, materialSource, query]);
+  const materials = useMemo(() => shaderLabMaterials(query, category, materialSource, materialKind), [category, materialKind, materialSource, query]);
   const visibleMaterials = useMemo(
     () => materials.slice(0, visibleMaterialCount),
     [materials, visibleMaterialCount]
@@ -6799,19 +6800,22 @@ export default function ShaderLabStudio({
               }}
               type='button'
             >
-              {option.label}<span>{shaderLabCategoryCount(option.id, materialSource)}</span>
+              {option.label}<span>{shaderLabCategoryCount(option.id, materialSource, materialKind)}</span>
             </button>
           ))}
         </div>
-        <StudioSelect
-          ariaLabel='Shader source filter'
-          className='mt-2 h-8'
-          onValueChange={(value) => {
+        <ShaderLibraryFilters
+          className='mx-3'
+          kind={materialKind}
+          onKindChange={(kind) => {
             setVisibleMaterialCount(SHADER_LIBRARY_INITIAL_CARD_COUNT);
-            setMaterialSource(SHADER_LAB_SOURCES.find(({ id }) => id === value)?.id ?? 'all');
+            setMaterialKind(kind);
           }}
-          options={SHADER_LAB_SOURCES.map(({ id, label }) => ({ label, value: id }))}
-          value={materialSource}
+          onSourceChange={(source) => {
+            setVisibleMaterialCount(SHADER_LIBRARY_INITIAL_CARD_COUNT);
+            setMaterialSource(source);
+          }}
+          source={materialSource}
         />
         <div className='shader-lab-v2-material-grid studio-scroll-area'>
           {visibleMaterials.map((option) => (
@@ -7189,6 +7193,7 @@ export default function ShaderLabStudio({
   const closeShortcuts = useCallback(() => setShortcutsOpen(false), []);
   const previewQualityToggle = useMemo(() => (
     <>
+      <span className='canvas-toolbar-divider' />
       <DesignLabPreviewQualityToggle
         automaticallyReduced={previewQuality.automaticallyReduced}
         mode={previewQuality.mode}

@@ -248,7 +248,7 @@ describe('Studio interaction performance contracts', () => {
   });
 
   it('keeps the typing pace clock out of the Typography tool render', () => {
-    const source = readSource('src/components/StudioToolWorkspace.tsx');
+    const source = readSource('src/components/tools/TypographyTool.tsx');
     const meter = source.slice(source.indexOf('function TypingMeter('), source.indexOf('function TypographyTool('));
     const toolStart = source.indexOf('function TypographyTool(');
     const tool = source.slice(toolStart, source.indexOf('\nfunction ', toolStart + 1));
@@ -267,6 +267,7 @@ describe('Studio interaction performance contracts', () => {
     expect(source).toContain('function preloadStudioTool(toolId: StudioToolId)');
     expect(source).toContain('onPointerEnter={() => void preloadStudioTool(tool.id)}');
     expect(source).toContain('onFocus={() => void preloadStudioTool(tool.id)}');
+    expect(source).toContain('return preloadToolModule(toolId);');
     expect(lottie).toContain('lottieRuntimePreload ??= DotLottie.preload();');
     expect(landingLink).toContain("import('@/components/StudioApp')");
     expect(landingLink).toContain("import('@/components/ShaderLabStudio')");

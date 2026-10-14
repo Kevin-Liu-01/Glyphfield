@@ -9,7 +9,7 @@ describe('landing identity dependencies', () => {
   it('preserves every serialized built-in field while splitting the startup identity', () => {
     // Extraction baseline: update only when intentionally editing canonical preset data.
     expect(createHash('sha256').update(JSON.stringify(BUILT_IN_BRAND_IDENTITIES)).digest('hex'))
-      .toBe('0ed302ec7eec378b362150f851bf0bf0aa44a4d4c44edfb7dfdda975019e4e07');
+      .toBe('d5f230ad87fda61925f67ecb723cac261a9cbcde0cc2c1898116c4906cf6fe1d');
   });
 
   it('loads the canonical GT leaf without the all-brand catalog', () => {

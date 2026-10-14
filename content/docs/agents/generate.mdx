@@ -66,7 +66,7 @@ Choose `png`, `jpg`, `gif`, or `mp4`. Shader-sequence mode is available for GIF 
 
 ## Template
 
-Template generates slides, blog covers, and partnership lockups.
+Template renders the Studio's brand templates as standalone SVG: OpenGraph images, terminal cards, slides, blog covers, and partnership lockups. Output uses the same layouts and renderer as the Studio and embeds the brand's font files and images, so it renders in the brand face in a plain `<img>`. Without copy, the identity supplies it: its headline and voice, its proof figures for metrics, its strategy pillars for agendas, and its own proof partner (or a written **Partner** placeholder) for lockups.
 
 ```json
 {
@@ -83,11 +83,16 @@ Template generates slides, blog covers, and partnership lockups.
 
 ### Template enums
 
-- `template`: `slides | blog | partnership`
+- `template`: `slides | blog | partnership | opengraph | terminal`
 - `texture`: `white | dark | grid | noise`
 - `slideLayout`: `title | section | agenda | split | metrics | quote | timeline | statement | comparison | process | chart | team | image | closing`
+- `layout` (other templates): opengraph `split | statement | media | centered | editorial`; blog `editorial | feature | statement | centered | ledger`; terminal `card | split | focus | caption`; partnership `lockup | centered | hero | announcement`
+- `format`: `opengraph | wide | square | portrait | story | linkedin | lockup`; slides `16x9 | 4x3 | square`
+- `language` (terminal): `typescript | tsx | javascript | python | bash | json | html | css`
 
-Fixed output sizes are 1600 × 900 for slides, 1200 × 630 for blog, and 1200 × 600 for partnership.
+`body` is the list for slides (one item per line), the code for terminal, and supporting copy elsewhere. Default sizes are 1600 × 900 for slides, 1200 × 630 for OpenGraph, terminal, and blog, and 1200 × 600 for partnership; `format` changes them.
+
+`identity` accepts `{ preset }` with optional overrides, `{ id }` with an ID from `/api/identities`, or the complete identity object from `/api/identities` (custom identities included). Any other field next to `preset` is rejected with `unknown_field` rather than silently rendering Starter.
 
 ## Background
 

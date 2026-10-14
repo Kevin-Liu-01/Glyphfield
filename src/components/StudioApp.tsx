@@ -122,7 +122,8 @@ async function preloadStudioTool(toolId: StudioToolId) {
     return preloadLottieRuntime();
   }
   if (toolId === 'material') return loadShaderLabStudio();
-  return loadStudioToolWorkspace();
+  const { preloadToolModule } = await loadStudioToolWorkspace();
+  return preloadToolModule(toolId);
 }
 
 function StudioWorkspaceLoading() {
@@ -796,6 +797,7 @@ export const StudioWorkspacePanels = memo(function StudioWorkspacePanels({
               hasPendingChanges={hasPendingIdentityChanges}
               identity={activeIdentity}
               onChange={onIdentityChange}
+              onSave={onIdentitySave}
               tool={activeTool}
             />
           ) : (

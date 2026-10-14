@@ -13,7 +13,10 @@ Canvas/WebGL/Lottie rendering, export UI, and documentation presentation.
 ## Mental model & key files
 
 - `StudioApp.tsx` owns projects, tabs, active tool, and identity selection.
-- `StudioToolWorkspace.tsx` is the public tool-to-editor switch.
+- `StudioToolWorkspace.tsx` is the public tool-to-editor switch. It loads each
+  editor in `tools/` as its own `next/dynamic` chunk and exports
+  `preloadToolModule` for hover/focus prefetch. `tools/ToolShell.tsx` and
+  `tools/ToolFields.tsx` hold the shared shell and inspector fields.
 - `ShaderLabStudio.tsx` is Design Lab despite the historical filename. It owns
   state, history, export and the Browser API adapter; rendering lives in memoized
   modules: `DesignLabStage` (layers, live materials, artboards),

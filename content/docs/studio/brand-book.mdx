@@ -1,57 +1,90 @@
 ---
 title: Brand book
-description: Review and export the active identity as a complete editorial standards document.
+description: Review, edit, and export the active identity as an editorial standards document.
 icon: BookOpenText
 ---
 
-Brand Book turns the active identity record into a structured, multi-page system document. It is generated from the same strategy, logo, typography, colors, asset library, graphic rules, and applications used by the rest of Studio.
+Brand book turns the active identity record into an editorial standards document. Every page is built from the same strategy, logo files, typography, colours, graphic device, image library, voice, applications, and motion used by the rest of Studio, and every page holds one idea.
 
 <DocsMedia
   alt='Glyphfield Brand Book overview showing a multi-page General Translation identity system'
   caption='The identity rendered as a navigable standards document'
-  meta='Overview · 51 pages'
+  meta='Overview · 54 pages'
   src='/screenshots/studio-gt-brand-book-dark-2026.png'
 />
 
 ## Book structure
 
-The generated book includes:
+Pages are 16:10 on a 12-column grid with consistent margins, a running head, and a folio. Each section opens with a full-bleed opener.
 
-1. Introduction and how to use the system.
-2. Foundations, promise, strategy, and positioning.
-3. Logo family, clear space, scale, and surface behavior.
-4. Typography roles, weights, hierarchy, and specimens.
-5. Semantic color roles and combinations.
-6. Illustration, imagery, and signature graphic devices.
-7. Iconography and interface implications.
-8. Composition rules and prohibited moves.
-9. Application showcase across product, editorial, developer, social, event, and physical outputs.
-
-The exact page count changes with the identity's available assets and application records.
+1. **Introduction**: cover, contents, and how to use the book.
+2. **Strategy**: brand idea; challenge, promise, and outcome; mission and position; audience and personality; pillars and values.
+3. **Logo**: primary mark, logo family, clear space, minimum size, colourways, and misuse.
+4. **Colour**: palette with HEX, RGB, and OKLCH; proportion; every text pairing with its WCAG contrast; tonal ranges.
+5. **Typography**: display specimen, text specimen, pairing, the type scale, and the role of each face.
+6. **Graphic device**: the device, its construction, variations, the icon system, and device rules.
+7. **Imagery**: direction, the approved library, and the image treatment.
+8. **Voice**: principles, do and don't with real lines, the messaging hierarchy, and a sample email.
+9. **Applications**: layout grid, stationery, digital, social, events, and a contact sheet.
+10. **Motion**: easing curves, motion tokens, and the device in motion.
+11. **Closing**.
 
 ## Overview and reading modes
 
-**Overview** presents pages as a contact sheet for fast system review. **Read** displays a single editorial page at a larger scale. The left chapter index synchronizes with both views.
+**Overview** presents every page as a contact sheet. **Read** shows one page at a time with a page inspector. The left section index works in both views; arrow keys turn pages in Read.
 
-Zoom changes the reading surface only. It does not alter page dimensions, typography, or PDF output.
+The thumbnail size control changes the contact sheet only. It does not alter page dimensions, typography, or PDF output.
 
-## Keep it current
+## Edit the book
 
-Brand Book is derived output. Make foundational changes in Brand identity, then return to the book. Do not duplicate brand rules as book-only copy when they should guide moodboards, templates, motion, components, or agents too.
+- **Text**: in Read, click any text on the page to edit it in place. The **Copy** section of the inspector lists the same fields.
+- **Pages**: the inspector shows or hides the page and sets its **Layout** variant, **Surface** colour role (paper, muted, ink, deep, or accent), and **Image** where the page shows one. **Reset page** returns it to the identity defaults.
+- **Sections**: hover a section in the left index to hide it or move it earlier or later. The inspector has the same controls for the current section. The introduction and closing stay in place.
+
+Hidden pages and sections stay visible, dimmed, in Overview so you can restore them; they are left out of folios, the contents page, and the PDF. Edits are saved per project.
+
+Keep foundational changes in Brand identity. Use book edits for presentation and wording that belong to this document only.
 
 <DocsMediaGrid>
   <DocsMedia alt='Brand Book in light Studio chrome' caption='Light reading environment' meta='Identity output unchanged' src='/screenshots/studio-gt-brand-book-light-2026.png' />
   <DocsMedia alt='Brand Book in dark Studio chrome' caption='Dark reading environment' meta='Identity output unchanged' src='/screenshots/studio-gt-brand-book-dark-2026.png' />
 </DocsMediaGrid>
 
+## Edit the book as source
+
+Select **File → Edit source code** to read or apply the book as JSON:
+
+```json
+{
+  "schema": "glyphfield.brand-book",
+  "version": 1,
+  "sections": [
+    {
+      "id": "strategy",
+      "name": "Strategy",
+      "hidden": false,
+      "pages": [
+        { "id": "strategy-premise", "title": "Brand idea", "hidden": false, "variant": "statement", "variants": ["statement", "centered"], "tone": "paper", "assetId": "", "imageSlot": false, "copy": { "statement": "…", "aside": "…" } }
+      ]
+    }
+  ]
+}
+```
+
+- The order of the nine reorderable sections follows `sections`; `intro` and `closing` may be listed but do not move.
+- Pages may only appear under their own section. `variant` must be one of the page's `variants`, `tone` one of the five surfaces, and `assetId` an identity image (only on pages with `imageSlot: true`).
+- `copy` keys must be the page's editable slots; each value holds up to 1200 characters. Values equal to the identity defaults are not stored.
+- Sections and pages omitted from a document keep their current settings.
+
+The Browser API exposes the same document through `studio.readSource()` and `studio.applySource()`.
+
 ## Export PDF
 
-Export produces a paginated PDF from the current generated book. Before exporting:
+**Export PDF** (`brand-book.print`) opens the browser print flow with one vector page per sheet at 16 × 10 in, edge to edge. Only visible pages print, in the edited order. Before exporting:
 
 - Resolve missing logo or font assets.
 - Check light and dark mark use.
 - Review long strategy text for overflow.
 - Confirm reference assets are redistributable when they appear in output.
-- Inspect the application showcase for stale project content.
 
-The PDF is a snapshot. Re-export after editing the identity; existing files are not updated in place.
+The PDF is a snapshot. Re-export after editing the identity or the book.

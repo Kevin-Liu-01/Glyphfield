@@ -11,7 +11,10 @@ import { OPEN_SURFACE_LIBRARY, OPEN_SURFACE_LIBRARY_IDS, OPEN_SURFACE_PRESETS } 
 import { DEFAULT_STICKER_FINISH, STICKER_FINISH_PRESETS } from './surfaceSticker';
 import {
   SHADER_LAB_CATEGORIES,
+  SHADER_LAB_KINDS,
   SHADER_LIBRARY_DEFAULT_IDS,
+  shaderLabCategory,
+  shaderLabKind,
   shaderLabMaterials,
 } from './shaderLab';
 import { STUDIO_CATEGORIES, STUDIO_TOOLS, type StudioToolId } from './studioCatalog';
@@ -50,6 +53,7 @@ SHARED_SHADER_MATERIALS.forEach(({ engine }) => {
 
 export const AGENT_SHADER_LIBRARY = {
   categories: SHADER_LAB_CATEGORIES,
+  kinds: SHADER_LAB_KINDS,
   // Controls are published once, on each material's nativeControls.
   shaderEffects: { version: SHADER_EFFECTS_VERSION, source: SHADER_EFFECTS_SOURCE, license: 'MIT', components: SHADER_EFFECT_COMPONENTS },
   controls: {
@@ -78,6 +82,8 @@ export const AGENT_SHADER_LIBRARY = {
     const nativeControls = getShaderEffectControls(material.id);
     return {
       ...material,
+      category: shaderLabCategory(material),
+      kind: shaderLabKind(material),
       motion: getShaderMotionCapabilities(material.id),
       ...(nativeControls ? { nativeControls, settingsKey: 'effectProps', requiresWebGPU: true } : {}),
     };

@@ -24,6 +24,8 @@ Machine-readable resources:
 - Allowlisted surface maps: `/api/surface-textures/:assetId/:map`
 - Identity catalog: `/api/identities`
 - Brand-element catalog: `/api/elements`
+- Brand identity schema and validation: `/api/brand/validate`
+- Brand kit files (DTCG tokens, CSS, Tailwind v4, brand.md): `/api/brand/kit`
 - Generation contract: `/api/generate`
 - Interactive workspace: `/studio`
 - Installable skill guide: `/docs/skills.md`
@@ -34,6 +36,7 @@ Repository Agent Skills:
 - `skills/glyphfield-api`: deterministic HTTP discovery and generation.
 - `skills/glyphfield-studio`: live Studio controls, source round trips, files, and browser rendering.
 - `skills/glyphfield-export`: artifact export and still/motion verification.
+- `skills/glyphfield-brand`: set up or improve a brand identity end to end from the brand's own sources, then audit and export its brand kit.
 
 Load only the skill whose description matches the current task. Combine them when a workflow actually crosses generation, browser operation, and export boundaries.
 
@@ -52,13 +55,17 @@ Do not imitate a browser-rendered result with server SVG when the user requested
 `POST /api/generate` accepts `Content-Type: application/json` and one of these `kind` values:
 
 - `background`: deterministic SVG gradient, pattern, dither, or tactile surface; output `json` or `raw`.
-- `template`: deterministic slide, blog-cover, or partnership SVG; output `json` or `raw`.
+- `template`: deterministic OpenGraph, terminal, slide, blog-cover, or partnership SVG from the Studio brand templates, brand fonts embedded; optional `layout`, `format`, `language`; output `json` or `raw`. `identity` takes `{ preset }`, `{ id }`, or the full object from /api/identities.
 - `element-brief`: one brand-element brief resolved against a built-in or custom identity.
 - `design-sequence`: a response-schema-1 envelope containing an apply-ready Design Lab version-3 compatibility document, resolved shader timeline, and browser commands. Applying it normalizes the active Studio source to CanvasDocument schema 2 with Design Lab source 4.
 
 Unknown top-level fields are rejected. Treat structured `400`, `413`, `415`, and `429` responses as actionable errors. Do not retry unchanged invalid input.
 
 Remote URL fetching is not supported. Provide authorized local data through allowed data-URL fields or a real browser `File` object.
+
+## Brand setup
+
+To set up or improve a brand, follow `/docs/agents/brand-setup.md` or `skills/glyphfield-brand`. Open `/studio?tool=identity&project=<id>`, then call `identity.validate`, `identity.apply` (merge patch: records merge by id, typography by role, string lists are replaced, unknown fields are kept), `identity.asset.add` and `identity.font.add` with `File` objects, `identity.audit`, `identity.fix`, `identity.save`, and `identity.export.kit`. `GET /api/brand/validate` returns the BrandIdentity JSON Schema; `POST /api/brand/validate` validates without storing anything. Use only facts from the brand's own website, repository, or design files.
 
 ## Studio Browser API
 
@@ -84,7 +91,7 @@ Control discovery and activation are scoped to the active adapter workspace. Ide
 
 UI hierarchy: the Project menu manages the whole project; Projects reopens saved projects. Tool headers keep checkpoint saving, saved-design browsing, File, and Export together. File contains portable open/download actions where supported and Edit source code. Activate File, then re-read controls() to discover its owned menu actions. Inspector sections can collapse; expand their named heading before operating a hidden control. Color rows open the shared picker for HEX, OKLCH, hue, and opacity. Direct source/export actions are unchanged and do not require opening menus.
 
-Persistent source is available for every navigable tool except the identity-derived Brand book, regardless of whether its Code drawer is open. Direct actions include `identity.export.json`, `brand-element.export.brief`, `moodboard.export.png`, `moodboard.export.identity`, `brand-book.print`, `colors.tokens.read`, `colors.tokens.copy`, Animation GIF/MP4/project exports, Lottie frame/source exports, `opengraph.export.png`, `terminal.export.png`, `blog.export.png`, `partnership.export.png`, `slides.export.png`, and the Design Lab actions below. Read the exact current names and contracts from `describe()` or `/api/agent`.
+Persistent source is available for every navigable tool, including Brand book section, page, and copy edits, regardless of whether its Code drawer is open. Direct actions include `identity.export.json`, `brand-element.export.brief`, `moodboard.export.svg`, `moodboard.export.png`, `moodboard.export.identity`, `brand-book.print`, `colors.tokens.read`, `colors.tokens.copy`, Animation GIF/MP4/poster/project exports and scene, keyframe, starter, and seek actions, Lottie frame/GIF/MP4/source exports and layer, colour, text, and marker edits, `opengraph.export.png`, `terminal.export.png`, `blog.export.png`, `partnership.export.png`, `slides.export.png`, `slides.export.pdf`, the shared expression-tool layer actions (`{tool}.document.describe`, `{tool}.layer.add`, `{tool}.layer.update`, `{tool}.format.set`, `{tool}.layout.apply`, …; read `{tool}.document.describe` first), and the Design Lab actions below. Read the exact current names and contracts from `describe()` or `/api/agent`.
 
 ### Design Lab actions
 
@@ -180,19 +187,20 @@ One active identity supplies name, marks, assets, color roles, type roles, strat
 
 Design Lab is the general layer compositor. It combines multiple text, mark, image, shader, sticker, and converter layers; direct manipulation; ordering and grouping; non-destructive image crop, focal point, and zoom; per-layer opacity and blend; Bayer, ASCII, halftone, posterize, and text effects; foreground/background effect colors; independent shader fills; capability-aware time selection and persisted PNG frame captures; logarithmic shader size from 0.1× to 10×; surfaces and sticker finishes; saved designs; recovery; and PNG/JPG/GIF/MP4 export.
 
-The shared Shader Library is quality-sorted and used by Design Lab and Animation. Read `/api/materials` for the exact current material list, engine attribution, categories, controls, palettes, and defaults. Never infer a material ID from its display name.
+The shared Shader Library is quality-sorted and used by Design Lab and Animation. Read `/api/materials` for the exact current material list, engine attribution, look `category`, `kind` (backgrounds, image-effects, interactive, shapes), controls, palettes, and defaults. Never infer a material ID from its display name.
 
 Native Shaders.com effects (`shader-effects-*`, engine `Shaders.com WebGPU`) take `settings.effectProps` holding only the values to change; each material's `nativeControls` lists keys, defaults, and ranges. Their colours default to the shared `colorA`/`colorB`/`colorC` palette (a control's `palette` field names its stop), and motion speed is `settings.speed`. They render only with WebGPU; without it Studio shows a labelled still and refuses export.
 
 New Design Lab compositions default to Gem Smoke. Saved documents remain authoritative, and authored legacy materials must not be replaced merely because defaults changed.
 
-Animation builds text, mark, and image sequences with per-frame layout, timing, material backgrounds, frame overrides, audio clips, GIF, and MP4. Lottie imports JSON or `.lottie`, supports recoloring, trim/playback, live-material backgrounds, frame PNG, and source download.
+Animation builds text, mark, and image sequences with brand starters per identity, per-scene timing, layer keyframes, text entrances, captions, material backgrounds, frame overrides, audio clips, GIF, MP4, and a PNG poster frame. Lottie imports JSON or `.lottie`, supports layer show/hide, text edits, brand-token recoloring, named markers, trim/playback, live-material backgrounds, frame PNG, GIF, MP4, and source download.
 
 Brand identity, Brand elements, Moodboard, Brand book, OpenGraph, Color tokens, Typography, Terminal card, Partnership, Blog, Slides, and Components share the same identity and reusable Studio editor systems. Read `/api/labs` and the relevant docs page for current availability and exact behavior.
 
 ## High-value docs
 
 - `/docs/agents/choose-interface.md`
+- `/docs/agents/brand-setup.md`
 - `/docs/agents/recipes.md`
 - `/docs/reference/browser-api.md`
 - `/docs/reference/endpoints.md`
