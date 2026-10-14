@@ -212,6 +212,27 @@ describe('Studio interaction performance contracts', () => {
     expect(styles).not.toContain('@keyframes studio-workspace-enter');
   });
 
+  it('swaps workspaces in deferred renders with a compositor-only crossfade', () => {
+    const source = readSource('src/components/StudioApp.tsx');
+    const workspace = readSource('src/components/StudioToolWorkspace.tsx');
+    const styles = readSource('src/app/globals.css');
+    const layerIn = styles.slice(styles.indexOf('@keyframes studio-layer-in'), styles.indexOf('}', styles.indexOf('@keyframes studio-layer-in') + 30) + 1);
+
+    // Editors suspend to one revealed boundary instead of committing their own fallbacks.
+    expect(source).toContain('const ShaderLabStudio = memo(dynamic(loadShaderLabStudio));');
+    expect(source).toContain('<Suspense fallback={<StudioWorkspaceSkeleton />}>');
+    expect(workspace).not.toMatch(/dynamic\(\(\) => import\('@\/components\/(BrandBook|BrandElementsStudio|DesignBoard)'\), \{\s*loading/);
+    expect(source).toContain('const toolId = useDeferredValue(activeToolId);');
+    expect(source).toContain('const identityId = useDeferredValue(activeIdentity?.id);');
+    expect(source).toContain('const ready = useDeferredValue(identitiesReady);');
+    expect(source).toContain('scheduleStudioToolPrefetch()');
+    // The fade animates opacity only and is removed under reduced motion.
+    expect(layerIn).toContain('opacity');
+    expect(layerIn).not.toMatch(/filter|width|height|top|left/);
+    expect(styles).toContain('.studio-app[data-studio-motion=\'reduced\'] .studio-workspace-view {\n  --studio-layer-fade: 0ms;');
+    expect(styles).toContain('transition: visibility 0s linear var(--studio-layer-fade);');
+  });
+
   it('skips re-rendering hidden retained editors when their props are unchanged', () => {
     const source = readSource('src/components/StudioApp.tsx');
     const animation = readSource('src/components/AnimationStudio.tsx');
