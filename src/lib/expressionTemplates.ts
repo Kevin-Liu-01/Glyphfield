@@ -552,7 +552,7 @@ function logoAt(context: LayoutContext, variant: 'mark' | 'wordmark', base: numb
 function logoBase(context: LayoutContext, role: 'feature' | 'hero' | 'signature'): number {
   if (role === 'hero') return context.t.hero * 1.2;
   if (role === 'feature') return context.t.title;
-  return context.t.headline * 0.86;
+  return context.t.headline * 1.05;
 }
 
 function rule(context: LayoutContext, slot: string, box: Box, opacity = 0.2): ShapeSpec {
@@ -591,7 +591,8 @@ function media(context: LayoutContext, box: Box): SlotSpec {
 
 function mediaForeground(context: LayoutContext): 'ink' | 'paper' {
   if (context.recipe.media) return 'paper';
-  return context.recipe.device === 'window' || context.recipe.device === 'ledger' ? 'ink' : 'paper';
+  // These devices draw on a light field.
+  return ['interruption', 'ledger', 'window'].includes(context.recipe.device) ? 'ink' : 'paper';
 }
 
 function landscape(context: LayoutContext) {

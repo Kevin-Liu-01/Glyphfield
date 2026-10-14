@@ -65,12 +65,12 @@ export function inkAspect(aspect: number, ink: LogoInkBox): number {
 
 /**
  * Size a logo's ink box. `base` is the height a square mark would get; wider
- * marks get less height and more width (height ∝ aspect^-0.42), so a wordmark
+ * marks get less height and more width (height ∝ aspect^-0.4), so a wordmark
  * and a monogram carry similar optical weight. Width is capped at `maxWidth`.
  */
 export function opticalLogoSize(aspect: number, base: number, maxWidth = Number.POSITIVE_INFINITY): { height: number; width: number } {
   const safe = Math.max(0.2, aspect);
-  let height = base * safe ** -0.42;
+  let height = base * safe ** -0.4;
   let width = height * safe;
   if (width > maxWidth) {
     width = maxWidth;
