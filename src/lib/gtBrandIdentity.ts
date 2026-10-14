@@ -82,9 +82,6 @@ export const GT_BRAND_IDENTITY: BrandIdentity = {
   assets: [
     asset('mark-dark', 'Black GT mark', '/brands/gt/logos/mark-black.svg', 'light'),
     asset('mark-light', 'White GT mark', '/brands/gt/logos/mark-white.svg', 'dark'),
-    // The stacked GT wordmark (the same file as public/brand/gt-wordmark.svg) and its white variant.
-    asset('wordmark', 'General Translation wordmark / black', '/brands/gt/logos/wordmark-black.svg', 'light'),
-    asset('wordmark-light', 'General Translation wordmark / white', '/brands/gt/logos/wordmark-white.svg', 'dark'),
     asset('identity-field', 'GT monochrome light field', '/brands/gt/assets/aura-spectrum.svg', 'any', 'background'),
     {
       ...asset('library-advance', 'GT multilingual advance field', '/brands/gt/library/advance.png', 'dark', 'image', 'High-contrast multilingual glyph field for visual-system, editorial, launch, and motion compositions.'),
