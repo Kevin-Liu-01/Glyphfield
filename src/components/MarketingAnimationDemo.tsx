@@ -1,16 +1,19 @@
 'use client';
 
-import dynamic from 'next/dynamic';
-import { useRef } from 'react';
+import { lazy, useRef } from 'react';
 
 import { useDeferredRuntime } from '@/hooks/useDeferredRuntime';
 import { useDeferredHydration } from '@/hooks/useDeferredHydration';
 import { useViewportActivity } from '@/hooks/useViewportActivity';
 
-// next/dynamic keeps the editor in the server HTML with its stylesheets linked,
-// while its code loads as a separate chunk after the rest of the page.
-const MarketingAnimationStudioLive = dynamic(() => import('@/components/MarketingAnimationStudioLive'));
+// The server renders the editor in place; in the browser its code is a separate
+// chunk that loads after the page hydrates. React.lazy, unlike next/dynamic, adds
+// no preload or stylesheet links: the editor's view needs only global rules, and
+// its module stylesheets load with its code.
 const loadLiveEditor = () => import('@/components/MarketingAnimationStudioLive');
+const MarketingAnimationStudioLive = lazy(loadLiveEditor);
+// Fetch the hero editor while the page hydrates rather than after it.
+if (typeof window !== 'undefined') void loadLiveEditor().catch(() => {});
 
 function AnimationStudioPlaceholder() {
   return (

@@ -1,7 +1,6 @@
 'use client';
 
-import dynamic from 'next/dynamic';
-import { useRef, type ComponentProps, type ReactNode } from 'react';
+import { lazy, useRef, type ComponentProps, type ReactNode } from 'react';
 
 import { useDeferredHydration } from '@/hooks/useDeferredHydration';
 import { useViewportActivity } from '@/hooks/useViewportActivity';
@@ -17,12 +16,14 @@ const loadShowcaseDemos = () => import('@/components/MarketingStudioShowcaseDemo
 const loadAgentControlLab = () => import('@/components/MarketingAgentControlLab');
 const loadOpenSourceWorkbench = () => import('@/components/MarketingOpenSourceWorkbench');
 
-const MarketingIdentityDemo = dynamic(() => import('@/components/MarketingStudioShowcaseDemos').then((module) => module.MarketingIdentityDemo));
-const MarketingMaterialDemo = dynamic(() => import('@/components/MarketingStudioShowcaseDemos').then((module) => module.MarketingMaterialDemo));
-const MarketingApplicationsDemo = dynamic(() => import('@/components/MarketingStudioShowcaseDemos').then((module) => module.MarketingApplicationsDemo));
-const MarketingMotionDemo = dynamic(() => import('@/components/MarketingStudioShowcaseDemos').then((module) => module.MarketingMotionDemo));
-const MarketingAgentControlLab = dynamic(() => import('@/components/MarketingAgentControlLab'));
-const MarketingOpenSourceWorkbench = dynamic(() => import('@/components/MarketingOpenSourceWorkbench'));
+// React.lazy, unlike next/dynamic, adds no preload links, so offscreen demos do
+// not compete with the hero for bandwidth.
+const MarketingIdentityDemo = lazy(() => loadShowcaseDemos().then((demos) => ({ default: demos.MarketingIdentityDemo })));
+const MarketingMaterialDemo = lazy(() => loadShowcaseDemos().then((demos) => ({ default: demos.MarketingMaterialDemo })));
+const MarketingApplicationsDemo = lazy(() => loadShowcaseDemos().then((demos) => ({ default: demos.MarketingApplicationsDemo })));
+const MarketingMotionDemo = lazy(() => loadShowcaseDemos().then((demos) => ({ default: demos.MarketingMotionDemo })));
+const MarketingAgentControlLab = lazy(loadAgentControlLab);
+const MarketingOpenSourceWorkbench = lazy(loadOpenSourceWorkbench);
 
 type DemoShellProps = {
   className?: string;

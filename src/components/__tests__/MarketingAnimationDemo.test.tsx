@@ -2,7 +2,7 @@
 import { act, useEffect, useState, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { renderToString } from 'react-dom/server';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const lifecycle = vi.hoisted(() => ({
   mount: vi.fn(),
@@ -25,13 +25,6 @@ vi.mock('@/components/AnimationStudio', () => ({
   },
 }));
 
-// The app build turns next/dynamic into a lazy component the server renders in
-// place; resolve it synchronously here so render timing matches that build.
-vi.mock('next/dynamic', async () => {
-  const live = await import('../MarketingAnimationStudioLive');
-  return { default: () => live.default };
-});
-
 import MarketingAnimationDemo from '../MarketingAnimationDemo';
 import MarketingAnimationStudioLive from '../MarketingAnimationStudioLive';
 
@@ -47,6 +40,16 @@ function renderServerHtml(element: ReactElement) {
 }
 
 describe('landing Animation editor loading and visibility', () => {
+  // The editor is a React.lazy chunk. Resolve it once so every later render,
+  // including server rendering, is synchronous as it is once the chunk loads.
+  beforeAll(async () => {
+    vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+    const warm = createRoot(document.createElement('div'));
+    await act(async () => warm.render(<MarketingAnimationDemo eager />));
+    act(() => warm.unmount());
+    vi.unstubAllGlobals();
+  });
+
   let host: HTMLDivElement;
   let root: Root;
   let visibility: DocumentVisibilityState;
