@@ -26,6 +26,8 @@ autosave, responsive behavior, and performance-sensitive subscriptions.
 - Autosave only a fully prepared current document, never a stale render snapshot.
 - Clean up observers, animation frames, media listeners, and object URLs.
 - Return stable callbacks/objects where downstream render cost is significant.
+- `useExitGhost` leaves an inert, role-free copy of a closed overlay for its exit
+  animation; the real element unmounts at once.
 
 ## Common tasks → first action
 

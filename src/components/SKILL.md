@@ -15,8 +15,12 @@ Canvas/WebGL/Lottie rendering, export UI, and documentation presentation.
 - `StudioApp.tsx` owns projects, tabs, active tool, and identity selection.
 - `StudioToolWorkspace.tsx` is the public tool-to-editor switch. It loads each
   editor in `tools/` as its own `next/dynamic` chunk and exports
-  `preloadToolModule` for hover/focus prefetch. `tools/ToolShell.tsx` and
+  `preloadToolModule` for hover/focus and idle prefetch. `tools/ToolShell.tsx` and
   `tools/ToolFields.tsx` hold the shared shell and inspector fields.
+- Studio editors have no `next/dynamic` `loading` fallback: they suspend to the
+  workspace boundary in `StudioApp`, whose tool, project and first-mount swaps
+  are deferred renders, so the current editor stays on screen until the next one
+  has loaded. Layers crossfade with opacity only (`.studio-workspace-layer`).
 - `ShaderLabStudio.tsx` is Design Lab despite the historical filename. It owns
   state, history, export and the Browser API adapter; rendering lives in memoized
   modules: `DesignLabStage` (layers, live materials, artboards),
@@ -63,6 +67,9 @@ Canvas/WebGL/Lottie rendering, export UI, and documentation presentation.
   presentation state, never a document mutation. Keep heading actions outside it.
 - Long-running exports expose progress and a stable Browser API action.
 - Pause hidden/offscreen animation and honor reduced motion where applicable.
+- Overlays that unmount on close (menus, popovers, the search) get exit motion
+  from `useExitGhost`, not by staying mounted. The source drawer loads through
+  `LazySourceCodeDrawer`.
 - The landing hero renders the real editor in initial HTML; do not put its
   primary UI behind idle/admission timers. Presentation mode skips portable
   source/autosave work, not editing or authentic rendering.
