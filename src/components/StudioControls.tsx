@@ -759,6 +759,8 @@ function SelectedFrameContentControls({
   const isText = selectedSource.kind === 'text';
   return (
     <>
+      {/* Text and image layers share this row's shape, so following playback
+          from one kind of scene to the other never moves the controls below. */}
       {isText ? (
         <label className='animation-layer-text-field'>
           <span><T>Text</T></span>
@@ -770,7 +772,12 @@ function SelectedFrameContentControls({
             value={selectedSource.text}
           />
         </label>
-      ) : null}
+      ) : (
+        <label className='animation-layer-text-field'>
+          <span><T>Image</T></span>
+          <input aria-label={gt('Selected layer image')} readOnly type='text' value={selectedSource.name} />
+        </label>
+      )}
       {motion && playhead ? (
         <>
           <AnimationPoseControls

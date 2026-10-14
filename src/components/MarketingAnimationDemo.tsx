@@ -47,7 +47,14 @@ export default function MarketingAnimationDemo({ eager = false }: { eager?: bool
     >
       {/* Retain this one editor's state after loading; visibility suspends work,
           not the user's edits or their chosen play/pause state. */}
-      {island.props ? null : runtimeReady ? <MarketingAnimationStudioLive viewportVisible={visible} /> : <AnimationStudioPlaceholder />}
+      {island.props ? null : (
+        <>
+          {runtimeReady ? <MarketingAnimationStudioLive viewportVisible={visible} /> : <AnimationStudioPlaceholder />}
+          {/* The editor's HTML streams in; until this last element is parsed, CSS keeps
+              the half-parsed editor hidden instead of painting its panels out of place. */}
+          <i aria-hidden='true' data-shell-end hidden />
+        </>
+      )}
     </div>
   );
 }

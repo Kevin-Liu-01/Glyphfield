@@ -62,3 +62,43 @@ describe('Animation export playback lock', () => {
     expect(props.onSeek).toHaveBeenCalledTimes(before);
   });
 });
+
+describe('Timeline playhead updates during playback', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+  let publish: (timeMs: number) => void = () => {};
+  beforeEach(() => {
+    container = document.createElement('div'); document.body.append(container);
+    root = createRoot(container);
+  });
+  afterEach(() => { act(() => root.unmount()); container.remove(); vi.restoreAllMocks(); });
+
+  it('rewrites the readout text in place, 15 times a second, with a stepped screen-reader value', () => {
+    let now = 1_000;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    const props: ComponentProps<typeof TimelinePanel> = { audio: createEmptyAnimationAudioState(), currentMsRef: { current: 0 }, isPlaying: true,
+      onAudioClipChange: vi.fn(), onAudioFiles: vi.fn(), onAudioMutedChange: vi.fn(), onAudioRemoveClip: vi.fn(),
+      onAudioSelectedClipChange: vi.fn(), onAudioSplitClip: vi.fn(), onAudioVolumeChange: vi.fn(),
+      onPlayChange: vi.fn(), onRateChange: vi.fn(), onSeek: vi.fn(), onSelectSource: vi.fn(),
+      onSelectTransition: vi.fn(), playbackRate: 1, previewSources: [], selectedAudioClipId: null,
+      selectedSourceId: null, selectedTransitionIndex: null, settings: { ...DEFAULT_SETTINGS, fps: 10 },
+      subscribeToPlayhead: (listener) => { publish = listener; return () => {}; }, sources: [], totalMs: 1000, transitionSettings: [] };
+    act(() => root.render(<TimelinePanel {...props} />));
+    const output = container.querySelector('output')!;
+    const text = output.firstChild;
+    const handle = container.querySelector<HTMLElement>('[aria-label="Storyboard playhead"]')!;
+
+    now += 100; publish(120);
+    expect(output.textContent).toBe('0.12s / 1.00s');
+    // A playback frame inside the readout interval moves only the playhead.
+    now += 16; publish(136);
+    expect(output.textContent).toBe('0.12s / 1.00s');
+    now += 60; publish(196);
+    expect(output.textContent).toBe('0.20s / 1.00s');
+    // Replacing the text node would be a DOM insertion that re-runs every :has() rule up the tree.
+    expect(output.firstChild).toBe(text);
+    expect(handle.getAttribute('aria-valuenow')).toBe('0');
+    now += 100; publish(260);
+    expect(handle.getAttribute('aria-valuenow')).toBe('250');
+  });
+});

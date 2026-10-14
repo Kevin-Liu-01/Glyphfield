@@ -206,6 +206,14 @@ const CanvasViewportToolbar = memo(function CanvasViewportToolbar({
   );
 });
 
+/**
+ * An auto-fitted stage stays hidden, on the server too, until its first fit:
+ * showing it at 100% first would move it the moment the fit lands.
+ */
+function revealsAfterFirstFit(autoFit: boolean, focusKey: string | undefined): boolean {
+  return autoFit && !focusKey;
+}
+
 export default function CanvasViewport({
   actionHistory,
   autoFit = false,
@@ -286,7 +294,8 @@ export default function CanvasViewport({
   const constrainedZoom = clampCanvasZoom(zoom, minZoom, maxZoom);
   const zoomRef = useCommittedRef(constrainedZoom);
   const [panOffset, setPanOffset] = useState(initialPan);
-  const [viewInitialized, setViewInitialized] = useState(initialViewReady);
+  const fitBeforeReveal = revealsAfterFirstFit(autoFit, focusKey);
+  const [viewInitialized, setViewInitialized] = useState(() => initialViewReady && !fitBeforeReveal);
   const viewInitializedRef = useCommittedRef(viewInitialized);
   const viewInitializing = !initialViewReady || !viewInitialized;
   const panOffsetRef = useCommittedRef(panOffset);
@@ -465,6 +474,7 @@ export default function CanvasViewport({
     panOffsetRef.current = nextPan;
     setPanOffset(nextPan);
     applyStageTransform(nextPan.x, nextPan.y);
+    if (!viewInitializedRef.current) setViewInitialized(true);
   }
 
   useMountEffect(() => {
@@ -588,8 +598,14 @@ export default function CanvasViewport({
   useLayoutEffect(() => {
     if (!initialViewReady) return;
     if (!focusKey) {
-      setViewInitialized(true);
-      return;
+      if (!fitBeforeReveal) {
+        setViewInitialized(true);
+        return;
+      }
+      // The first fit reveals an auto-fitted stage, including one that became ready after mount.
+      if (viewInitializedRef.current) return;
+      const frame = window.requestAnimationFrame(fitCanvas);
+      return () => window.cancelAnimationFrame(frame);
     }
     const scrollElement = scrollRef.current;
     const stageElement = stageRef.current;
@@ -623,7 +639,7 @@ export default function CanvasViewport({
       return () => observer.disconnect();
     }
     focusTarget();
-  }, [focusKey, focusOffsetY, initialViewReady, viewInitializedRef, zoomRef]);
+  }, [fitBeforeReveal, focusKey, focusOffsetY, initialViewReady, viewInitializedRef, zoomRef]);
 
   function resetView() {
     if (wheelCommitRef.current) commitWheelZoom();

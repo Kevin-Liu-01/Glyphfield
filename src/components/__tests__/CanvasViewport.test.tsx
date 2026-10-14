@@ -437,3 +437,14 @@ describe('canvas map and forced pan integration', () => {
     }
   });
 });
+
+describe('auto-fitted canvas reveal', () => {
+  it('serves an auto-fitted stage hidden, so it first appears at its fitted size and place', async () => {
+    const { renderToStaticMarkup } = await import('react-dom/server');
+    const fitted = renderToStaticMarkup(<CanvasViewport autoFit identityId='fit-test' toolId='animation'><i /></CanvasViewport>);
+    const fixed = renderToStaticMarkup(<CanvasViewport identityId='fit-test' toolId='animation'><i /></CanvasViewport>);
+    expect(fitted).toContain('data-canvas-initializing="true"');
+    expect(fitted).toContain('visibility:hidden');
+    expect(fixed).not.toContain('data-canvas-initializing');
+  });
+});

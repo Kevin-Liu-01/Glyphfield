@@ -76,8 +76,8 @@ describe('Studio interaction performance contracts', () => {
     const styles = readSource('src/app/globals.css');
 
     expect(studio).toContain('requestPreviewFrameRef.current = requestTick;');
-    expect(studio).toContain('if (isPlayingRef.current) requestTick();');
-    expect(studio).toContain('publishPlayhead(playheadRef.current);');
+    expect(studio).toContain('if (isPlayingRef.current) requestNextPlaybackTick(timestamp);');
+    expect(studio).toContain('if (frameIsDue) publishPlayhead(playheadRef.current);');
     expect(studio).not.toContain("const previewFrameInterval = isPlayingRef.current");
     expect(timeline).toContain('subscribeToPlayhead(syncPlayheadUi)');
     expect(timeline).toContain('style.transform = `translate3d(${progress}%, 0, 0)`');

@@ -53,6 +53,46 @@ script requests, and native clock updates per display opportunity. Neither
 callback timing nor clock advancement proves GPU completion
 or monitor presentation FPS.
 
+### 2026-10-14 hero playback cost and layout stability
+
+Playback cost came from page work, not script. The timeline readout replaced its
+text node on every frame; each replacement is a DOM insertion that re-runs the
+`html:has(...)` and `body:has(...)` rules, so every frame restyled the whole
+document. The readout now rewrites its one text node in place. While playing,
+the readout and scrubber update 15 times a second and the playhead's
+screen-reader value steps every 250ms; the storyboard playhead still moves every
+drawn frame as a compositor transform. The playhead UI is published only on
+frames the preview draws, and playback sleeps between due frames instead of
+requesting every display refresh.
+
+The served editor now matches the settled one:
+
+- The identity mark's scene exists before the image decodes. It draws nothing
+  until the decode lands, so the scene stack, selection and inspector are complete
+  in the server HTML.
+- A controlled `StudioSelect` names its label in the trigger on the server.
+- An auto-fitted canvas, and its zoom toolbar, stay hidden until the first fit,
+  so the artboard first appears at its fitted size and place.
+- Text and image layers share the inspector's first row shape, and the landing
+  presentation keeps its first selection during playback.
+- The editor shell stays hidden until its last element is parsed, so a phone
+  never paints the half-parsed editor with the sidebar on top.
+- The GitHub star count reserves three digits.
+
+Measured on the local production build, Chromium, hero in view and playing.
+Main-thread task time per second, before → after:
+
+| | Desktop 1440×900 | Phone 390×844, 4× CPU throttle |
+|---|---|---|
+| All main-thread tasks | 431 → 170ms | 996 → 441ms |
+| Style recalculation | 122 → 9ms | 299 → 27ms |
+| Layout | 47 → 6ms | 112 → 18ms |
+| Frames per second (120 Hz display) | 120 → 120 | 72 → 118 |
+| Layout shift | 0.0092 → 0 | one 0.1378 shift (sidebar) → none |
+
+The remaining phone cost is mostly the per-frame main-frame pass on a large page,
+which the landing's own shaders also request at the display rate.
+
 ### 2026-09-09 local production-build verification
 
 #### Strict 250ms startup follow-up (target not met)

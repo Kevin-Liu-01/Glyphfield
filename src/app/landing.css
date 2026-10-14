@@ -2204,6 +2204,11 @@ html.dark .marketing-page-v5 .marketing-v5-capability-grid article:hover::after 
   min-height: 0;
 }
 
+/* Hidden until the editor's last element is parsed; see MarketingAnimationDemo. */
+.marketing-animation-lazy-shell:not(:has(> [data-shell-end])) > * {
+  visibility: hidden;
+}
+
 .marketing-animation-placeholder {
   position: relative;
   width: 100%;

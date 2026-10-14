@@ -131,6 +131,25 @@ function formatTime(timeMs: number): string {
   return `${(Math.max(0, timeMs) / 1000).toFixed(2)}s`;
 }
 
+// While playing, the playhead's screen-reader value steps four times a second, not every frame.
+const PLAYING_ARIA_STEP_MS = 250;
+// While playing, the readout and scrubber repaint 15 times a second; the storyboard
+// playhead keeps every frame because moving it is a compositor-only transform.
+const PLAYING_READOUT_INTERVAL_MS = 1000 / 15;
+
+/**
+ * Rewrites an element's single text node in place. Replacing the node is a DOM
+ * insertion, which re-runs every `:has()` rule on its ancestors up to `<html>`.
+ */
+function writeText(element: HTMLElement, text: string) {
+  const node = element.firstChild;
+  if (node instanceof Text && node === element.lastChild) {
+    if (node.data !== text) node.data = text;
+    return;
+  }
+  element.textContent = text;
+}
+
 function sourceLabel(source: StudioSource): string {
   return source.kind === 'text' ? source.text : source.name;
 }
@@ -215,24 +234,33 @@ function TimelinePanel({
     return Math.max(0.0001, width / Math.max(1, layout.totalMs));
   // contentRef is a stable ref object from useTimelineFollow.
   }, [layout.totalMs, timelineWidth]);
-  const syncPlayheadUi = useCallback((timeMs = currentMsRef.current) => {
+  const readoutWrittenAtRef = useRef(0);
+  const syncPlayheadUi = useCallback((timeMs = currentMsRef.current, immediate = false) => {
     follow(timeMs);
     const currentMs = Math.min(timeMs, totalMs);
     const progress = totalMs === 0 ? 0 : currentMs / totalMs * 100;
+    const ariaMs = isPlaying ? Math.floor(currentMs / PLAYING_ARIA_STEP_MS) * PLAYING_ARIA_STEP_MS : Math.round(currentMs);
     for (const playhead of [storyboardPlayheadRef.current, audioPlayheadRef.current]) {
       if (!playhead) continue;
       playhead.style.transform = `translate3d(${progress}%, 0, 0)`;
       const handle = playhead.querySelector<HTMLElement>('[data-timeline-playhead-handle]');
-      handle?.setAttribute('aria-valuenow', String(Math.round(currentMs)));
-      handle?.setAttribute('aria-valuetext', formatTime(currentMs));
+      if (handle && handle.getAttribute('aria-valuenow') !== String(ariaMs)) {
+        handle.setAttribute('aria-valuenow', String(ariaMs));
+        handle.setAttribute('aria-valuetext', formatTime(ariaMs));
+      }
     }
-    if (outputRef.current) outputRef.current.value = `${formatTime(currentMs)} / ${formatTime(totalMs)}`;
-    if (inputRef.current) {
-      inputRef.current.value = String(currentMs);
-      const rangeProgress = totalMs === 0 ? 0 : Number(inputRef.current.value) / totalMs * 100;
-      inputRef.current.style.setProperty('--studio-range-progress', `${rangeProgress}%`);
+    const now = performance.now();
+    if (isPlaying && !immediate && now - readoutWrittenAtRef.current < PLAYING_READOUT_INTERVAL_MS) return;
+    readoutWrittenAtRef.current = now;
+    if (outputRef.current) writeText(outputRef.current, `${formatTime(currentMs)} / ${formatTime(totalMs)}`);
+    const input = inputRef.current;
+    const inputValue = String(Math.round(currentMs));
+    if (input && input.value !== inputValue) {
+      input.value = inputValue;
+      const rangeProgress = totalMs === 0 ? 0 : Number(input.value) / totalMs * 100;
+      input.style.setProperty('--studio-range-progress', `${rangeProgress}%`);
     }
-  }, [currentMsRef, follow, totalMs]);
+  }, [currentMsRef, follow, isPlaying, totalMs]);
 
   useEffect(() => subscribeToPlayhead(syncPlayheadUi), [subscribeToPlayhead, syncPlayheadUi]);
 
@@ -261,7 +289,7 @@ function TimelinePanel({
     if (disabledRef.current) return;
     onSeek(timeMs);
     follow(timeMs, true);
-    syncPlayheadUi(timeMs);
+    syncPlayheadUi(timeMs, true);
   }
 
   function applyPlayheadDrag(session: PlayheadDragSession) {
@@ -360,7 +388,7 @@ function TimelinePanel({
         </div>
 
         <div className='animation-timeline-status'>
-          <output ref={outputRef}>{formatTime(currentMsRef.current)} / {formatTime(totalMs)}</output>
+          <output ref={outputRef}>{`${formatTime(currentMsRef.current)} / ${formatTime(totalMs)}`}</output>
           <label>
             <span><T>Rate</T></span>
             <StudioSelect

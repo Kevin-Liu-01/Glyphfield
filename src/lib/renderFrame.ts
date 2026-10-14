@@ -112,7 +112,8 @@ export type StudioSource =
   | (StudioSourceBase & { kind: 'text'; text: string })
   | (StudioSourceBase & {
       height: number;
-      image: CanvasImageSource;
+      /** Null while the file decodes; the scene keeps its place and draws nothing yet. */
+      image: CanvasImageSource | null;
       kind: 'image';
       name: string;
       url?: string;
@@ -394,6 +395,7 @@ function drawImageContent(
   anchor: { x: number; y: number },
   scale: number
 ): MaterialBounds {
+  if (!source.image || source.width <= 0 || source.height <= 0) return { height: 0, width: 0, x: anchor.x, y: anchor.y };
   const availableWidth = config.width * 0.78;
   const availableHeight = config.height * 0.74;
   const containScale = Math.min(availableWidth / source.width, availableHeight / source.height);

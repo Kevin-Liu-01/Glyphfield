@@ -1533,6 +1533,12 @@ body {
   transition: color 140ms ease, border-color 140ms ease, background-color 140ms ease, opacity 140ms ease;
 }
 
+/* The count arrives after load; three monospace digits of room keep the header still. */
+.github-star-button__count > span {
+  min-width: 3ch;
+  text-align: center;
+}
+
 .github-star-button__count svg {
   width: 11px;
   height: 11px;
@@ -6165,6 +6171,11 @@ html.dark .studio-app .studio-app-header > a img {
   background: hsl(var(--raised-background) / 0.94);
   box-shadow: var(--studio-shadow-ring-sm);
   backdrop-filter: blur(12px);
+}
+
+/* The zoom readout appears with the stage it describes, after the first fit or focus. */
+.canvas-viewport[aria-busy='true'] > .canvas-viewport-toolbar {
+  visibility: hidden;
 }
 
 .canvas-zoom-range {

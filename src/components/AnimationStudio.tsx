@@ -229,6 +229,11 @@ async function loadStoredImage({
   };
 }
 
+/** The identity mark before it decodes: its scene, name and selection exist, its pixels do not yet. */
+function pendingImageSource(path: string, name: string): StudioSource {
+  return { height: 0, id: 'brand-logo', image: null, kind: 'image', name, url: path, width: 0 };
+}
+
 async function loadImageSource(path: string, name: string): Promise<StudioSource> {
   const image = new Image();
   image.src = path;
@@ -977,6 +982,7 @@ function AnimationStudio({
   );
   const [images, setImages] = useState<ImportedImage[]>([]);
   const [brandLogo, setBrandLogo] = useState<StudioSource | null>(null);
+  const [failedBrandLogoPath, setFailedBrandLogoPath] = useState<string | null>(null);
   const [includeBrandLogo, setIncludeBrandLogo] = useStudioDraft(
     identityId,
     'animation',
@@ -1141,13 +1147,21 @@ function AnimationStudio({
       })),
     [images]
   );
+  // Until the identity mark decodes, a stand-in holds its scene, so the first
+  // render (the server's included) already lists every scene and the selection.
+  const pendingBrandLogoAsset = brandLogoAssetFor(identity, sequenceBackground.colorA);
+  const shownBrandLogo = useMemo(() => brandLogo ?? (
+    pendingBrandLogoAsset && pendingBrandLogoAsset.path !== failedBrandLogoPath
+      ? pendingImageSource(pendingBrandLogoAsset.path, pendingBrandLogoAsset.label)
+      : null
+  ), [brandLogo, failedBrandLogoPath, pendingBrandLogoAsset]);
   const baseSources = useMemo(
     () => [
-      ...(includeBrandLogo && brandLogo ? [brandLogo] : []),
+      ...(includeBrandLogo && shownBrandLogo ? [shownBrandLogo] : []),
       ...textSources,
       ...imageSources,
     ],
-    [brandLogo, imageSources, includeBrandLogo, textSources]
+    [imageSources, includeBrandLogo, shownBrandLogo, textSources]
   );
   const resolvedFrameSettings = useMemo(
     () => Object.fromEntries(baseSources.map((source) => [
@@ -1284,7 +1298,7 @@ function AnimationStudio({
   }, [animationFonts, fontSourcesRef]);
   useEffect(() => {
     if (initialSelectionAppliedRef.current || sources.length === 0) return;
-    if (selectedSourceId === 'brand-logo' && includeBrandLogo && !brandLogo) return;
+    if (selectedSourceId === 'brand-logo' && includeBrandLogo && !shownBrandLogo) return;
     initialSelectionAppliedRef.current = true;
     const initialSource = sources.find(({ id }) => id === selectedSourceId) ?? sources[0];
     setSelectedSourceId(initialSource.id);
@@ -1292,7 +1306,7 @@ function AnimationStudio({
     setSelectedEffectTarget('content');
     setBackgroundEditScope('sequence');
     playheadRef.current = 0;
-  }, [brandLogo, includeBrandLogo, selectedSourceId, sources]);
+  }, [includeBrandLogo, selectedSourceId, shownBrandLogo, sources]);
   useEffect(() => {
     if (selectedTransitionIndex === null) return;
     if (sources.length < 2 || selectedTransitionIndex >= sources.length) {
@@ -1791,6 +1805,7 @@ function AnimationStudio({
       })
       .catch(() => {
         if (!cancelled) {
+          setFailedBrandLogoPath(brandLogoAsset.path);
           setError(translateRef.current('The brand logo could not be loaded.'));
           setSelectedSourceId((current) => current === 'brand-logo' ? 'text-0' : current);
         }
@@ -1872,14 +1887,30 @@ function AnimationStudio({
     }
 
     let animationFrame: number | null = null;
+    let sleepTimer = 0;
     let disposed = false;
     let previousTimestamp = performance.now();
     const framePacer = createLiveMaterialFramePacer();
     let previousRenderedSourceId = '';
 
     function requestTick() {
+      window.clearTimeout(sleepTimer);
+      sleepTimer = 0;
       if (disposed || animationFrame !== null) return;
       animationFrame = requestAnimationFrame(tick);
+    }
+
+    // Playback wakes for due frames only. Every requested frame costs the page a
+    // style, layout and layerize pass, so a 60 fps preview on a 120 Hz display
+    // would otherwise pay that twice per drawn frame.
+    function requestNextPlaybackTick(frameTime: number) {
+      // The pacer runs on frame timestamps; the work already done this frame is spent.
+      const delayMs = framePacer.delayUntilNext(frameTime) - Math.max(0, performance.now() - frameTime);
+      if (delayMs < 10) {
+        requestTick();
+        return;
+      }
+      sleepTimer = window.setTimeout(requestTick, delayMs - 8);
     }
 
     function tick(timestamp: number) {
@@ -1920,10 +1951,19 @@ function AnimationStudio({
           setIsPlaying(false);
         }
       }
-      publishPlayhead(playheadRef.current);
+      const frameIsDue = framePacer.shouldDraw(
+        timestamp,
+        resolvedPreviewFrameRate,
+        !isPlayingRef.current || previewDirtyRef.current || resetClock
+      );
+      // The playhead UI moves on the frames the preview draws: on a 120 Hz display a
+      // 60 fps preview would otherwise pay for timeline updates nobody sees drawn.
+      if (frameIsDue) publishPlayhead(playheadRef.current);
 
       const position = resolveSequencePosition(playheadRef.current, currentLayout);
-      if (playbackWasRunning) selectDisplayedSource(position.index);
+      // The landing's presentation keeps its first selection: following each scene
+      // would re-render the inspector and move its rows on every cut.
+      if (playbackWasRunning && !presentationMode) selectDisplayedSource(position.index);
       const previousActiveTimeline = activeTimelineRef.current;
       if (
         timelineRequiresShaderSyncRef.current
@@ -1941,11 +1981,7 @@ function AnimationStudio({
         currentSettings,
         currentSources,
         dragPreview: dragPreviewRef.current,
-        frameIsDue: framePacer.shouldDraw(
-          timestamp,
-          resolvedPreviewFrameRate,
-          !isPlayingRef.current || previewDirtyRef.current || resetClock
-        ),
+        frameIsDue,
         frameSettings: frameSettingsRef.current,
         position,
         previewDirty: previewDirtyRef.current,
@@ -1957,7 +1993,7 @@ function AnimationStudio({
         previousRenderedSourceId = previewRender.sourceId;
         previewDirtyRef.current = false;
       }
-      if (isPlayingRef.current) requestTick();
+      if (isPlayingRef.current) requestNextPlaybackTick(timestamp);
     }
 
     const handleVisibilityChange = () => {
@@ -1971,6 +2007,7 @@ function AnimationStudio({
       requestPreviewFrameRef.current = () => undefined;
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (animationFrame !== null) cancelAnimationFrame(animationFrame);
+      window.clearTimeout(sleepTimer);
       for (const image of imagesRef.current) URL.revokeObjectURL(image.url);
     };
   });
@@ -1993,7 +2030,7 @@ function AnimationStudio({
     setStoredSequenceBackground(next.sequenceBackground);
     setBackgroundOverrides(next.backgroundOverrides);
     setSequenceOrder(next.sequenceOrder);
-    setSelectedSourceId(next.sequenceOrder[0] ?? (includeBrandLogo && brandLogo ? 'brand-logo' : 'text-0'));
+    setSelectedSourceId(next.sequenceOrder[0] ?? (includeBrandLogo && shownBrandLogo ? 'brand-logo' : 'text-0'));
     setSelectedTransitionIndex(null);
     setBackgroundEditScope('sequence');
     setSelectedEffectTarget('content');
@@ -2291,7 +2328,7 @@ function AnimationStudio({
         return [index > removedIndex ? `text-${index - 1}` : key];
       }));
     }
-    setSelectedSourceId(brandLogo ? 'brand-logo' : 'text-0');
+    setSelectedSourceId(shownBrandLogo ? 'brand-logo' : 'text-0');
     setSelectedTransitionIndex(null);
     setSelectedEffectTarget('content');
     setBackgroundEditScope('sequence');
@@ -3047,7 +3084,7 @@ function AnimationStudio({
     currentArtboardSnapshotRef.current = restoredSnapshot;
     setArtboards(restoredWorkspace.artboards);
     setActiveArtboardId(restoredWorkspace.activeArtboardId);
-    setSelectedSourceId(next.sequenceOrder[0] ?? (next.includeBrandLogo && brandLogo ? 'brand-logo' : 'text-0'));
+    setSelectedSourceId(next.sequenceOrder[0] ?? (next.includeBrandLogo && shownBrandLogo ? 'brand-logo' : 'text-0'));
     setSelectedTransitionIndex(null);
     setBackgroundEditScope('sequence');
     setSelectedEffectTarget('content');
@@ -3303,7 +3340,7 @@ function AnimationStudio({
     backgroundOverrideCount: backgroundOverrideSourceIds.length,
     backgroundOverrideSourceIds,
     backgroundScope: backgroundEditScope,
-    brandLogoAvailable: Boolean(brandLogo),
+    brandLogoAvailable: Boolean(shownBrandLogo),
     compact: compactControls,
     frameSettings: selectedFrameSettings,
     hasSelectedBackgroundOverride: Boolean(selectedSource && backgroundOverrides[selectedSource.id]),

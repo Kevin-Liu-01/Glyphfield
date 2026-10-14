@@ -36,6 +36,9 @@ export default function StudioSelect({
   title,
   value,
 }: StudioSelectProps) {
+  // Radix fills the trigger from the hidden list only after mount, so a server
+  // render would show an empty select. A controlled select names its label here.
+  const selectedLabel = value === undefined ? undefined : options.find((option) => option.value === value)?.label;
   return (
     <Select.Root
       defaultValue={defaultValue}
@@ -50,7 +53,7 @@ export default function StudioSelect({
         title={title}
       >
         {leadingIcon ? <span className='inline-flex shrink-0 text-muted-foreground' data-studio-select-leading>{leadingIcon}</span> : null}
-        <Select.Value className='block min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap' placeholder={placeholder} />
+        <Select.Value className='block min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap' placeholder={placeholder}>{selectedLabel}</Select.Value>
         <Select.Icon asChild>
           <ChevronDown className='size-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180' />
         </Select.Icon>

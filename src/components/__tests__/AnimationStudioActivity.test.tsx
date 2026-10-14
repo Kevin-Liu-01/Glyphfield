@@ -160,6 +160,8 @@ describe('Animation Studio viewport playback lifecycle', () => {
     vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => visibility);
     frames = new Map();
     timestamp = performance.now();
+    // Playback sleeps between due frames on a timer, then asks for the next frame.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     let frameId = 0;
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
       frames.set(++frameId, callback);
@@ -183,6 +185,7 @@ describe('Animation Studio viewport playback lifecycle', () => {
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -196,6 +199,7 @@ describe('Animation Studio viewport playback lifecycle', () => {
 
   function advanceFrame(elapsed = 50) {
     timestamp += elapsed;
+    act(() => { vi.advanceTimersByTime(elapsed); });
     act(() => {
       const pending = [...frames.values()];
       frames.clear();
@@ -443,6 +447,8 @@ describe('Animation Studio viewport playback lifecycle', () => {
     await render(true);
     advanceFrame();
     expect(selectedScene()).toBe('text-0');
+    // Let mount-time settles (the 180 ms document input) land before counting frame renders.
+    act(() => { vi.advanceTimersByTime(500); });
     const holdRenderCount = vi.mocked(StudioControls).mock.calls.length;
     for (let index = 0; index < 5; index += 1) advanceFrame();
     expect(vi.mocked(StudioControls).mock.calls.length).toBe(holdRenderCount);

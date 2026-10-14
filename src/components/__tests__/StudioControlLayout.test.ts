@@ -216,7 +216,7 @@ describe('shared Studio control layout', () => {
     expect(timeline).toMatch(/<header className='animation-timeline-toolbar'>[\s\S]*?<div className='animation-timeline-storyboard-control'>[\s\S]*?<div className='animation-timeline-scrubber'>[\s\S]*?<\/header>/);
     expect(timeline).toMatch(/<div className='animation-timeline-status'>\s*<output[\s\S]*?<label>[\s\S]*?<T>Rate<\/T>/);
     expect(timeline).not.toMatch(/<\/header>\s*<div className='animation-timeline-scrubber'>/);
-    expect(timeline).toMatch(/inputRef\.current\.value = String\(currentMs\);[\s\S]*?--studio-range-progress/);
+    expect(timeline).toMatch(/input\.value = inputValue;[\s\S]*?--studio-range-progress/);
     expect(timeline).toContain("step='1'");
     expect(preview).toContain('renderFrame(');
     expect(preview).toContain('previewPosition(kind, staticSources.length)');
