@@ -1,54 +1,55 @@
 ---
-title: Studio
-description: Use $glyphfield-studio to operate the live browser workspace through accessible controls and exact source round trips.
+title: Studio skill
+description: Use the $glyphfield-studio skill to operate an open Glyphfield Studio in the browser through accessible controls and exact source round trips.
 icon: PanelsTopLeft
 ---
 
-`$glyphfield-studio` owns the live workspace and authentic browser renderer. Use it when work depends on an open project, Canvas, WebGL, local fonts, local files, Lottie, visual placement, or project-local saved state.
+`$glyphfield-studio` covers the live Studio workspace and its browser renderer. Use it when the work depends on an open project, Canvas, WebGL, local fonts or files, Lottie, visual placement or project state saved in the browser. The skill works through the Studio Browser API, `window.glyphfield.studio`.
 
-<DocsMedia alt='Glyphfield Studio with project tabs, tool navigation, and an active identity' caption='Operate the same workspace a person sees' meta='Accessible controls · exact source · browser renderer' src='/screenshots/studio-gt-identity-light-2026.webp' />
+<DocsMedia alt='Glyphfield Studio with project tabs, tool navigation, and an active identity' caption='The skill operates the same workspace a person sees' meta='Accessible controls · exact source · browser renderer' src='/screenshots/studio-gt-identity-light-2026.webp' />
 
-## Connect
+## Connection
 
-1. Open the authorized origin at `/studio`.
+1. Open `/studio?tool=<tool id>` on the authorized origin.
 2. Wait for `window.glyphfield.studio` or the `glyphfield:studio-api-ready` event.
 3. Call `describe()` and `controls()` before using labels or tool-specific actions.
-4. Re-read the global after switching tools because each tool installs its own adapter.
+4. Read the global again after switching tools, because each tool installs its own adapter. The API cannot click the Studio sidebar, so switch tools by loading a new `/studio?tool=` URL.
 
 ```js
 const studio = window.glyphfield.studio;
-const contract = await studio.describe();
-const controls = await studio.controls();
+const contract = studio.describe();
+const controls = studio.controls();
 ```
 
-## Choose an operation
+## Operations
 
-| Method | Use it for |
+| Method | Use |
 | --- | --- |
 | `activate(label)` | Buttons and other activatable controls |
-| `set(label, value)` | Text, number, select, checkbox, contenteditable, and file controls |
+| `set(label, value)` | Text, number, select, checkbox, contenteditable and file controls |
 | `readSource()` | The active tool's complete editable source |
-| `applySource(source)` | Validated, source-preserving document changes |
-| `invoke(action, input)` | Export, sequence, and stable long-running actions |
-| `download(artifact)` | Saving an already verified artifact |
+| `applySource(source)` | Validated document changes that keep the rest of the source |
+| `invoke(action, input)` | Exports, sequences and other tool actions |
+| `download(artifact)` | Saving an artifact you have already checked |
 
-Accessible labels are part of the programmatic contract. Discover them from `controls()`; do not invent them from visible text or reuse a label from another tool.
+Accessible labels are part of the programmatic contract. Read them from `controls()`. Labels are scoped to the active workspace, so a label from another tool or project does not match.
 
-## Safe source round trip
+## Source round trip
 
 ```js
-const before = JSON.parse(await studio.readSource());
-const next = {
-  ...before,
-  metadata: { ...before.metadata, name: 'Launch signal' },
-};
+const descriptor = studio.describe();
+if (!descriptor.source.read || !descriptor.source.apply) {
+  throw new Error('The active tool does not expose editable source.');
+}
 
-await studio.applySource(next);
-const normalized = JSON.parse(await studio.readSource());
+const source = JSON.parse(studio.readSource());
+// Change only the fields the task needs and keep everything else.
+await studio.applySource(source);
+const normalized = JSON.parse(studio.readSource());
 ```
 
-Preserve unknown fields, schema versions, IDs, assets, pages, and ordering. An `applySource()` resolution marks the React commit boundary, not necessarily the end of image decoding, font loading, WebGL settling, or encoding.
+Keep unknown fields, schema versions, IDs, assets, pages and order. `applySource()` resolves after the React commit. Image decoding, font loading, WebGL rendering and encoding can still be running at that point.
 
-Design Lab's public ID is `material`; `logo-shader` is an internal compatibility scope and must not appear in external automation.
+Design Lab's public tool ID is `material`. `logo-shader` is an internal compatibility scope, and external automation should not use it.
 
-For output, continue with [`$glyphfield-export`](/docs/skills/export) and verify the returned Blob before downloading it.
+For output, continue with [`$glyphfield-export`](/docs/skills/export) and check the returned Blob before saving it.

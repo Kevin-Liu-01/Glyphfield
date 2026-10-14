@@ -1,15 +1,15 @@
 ---
-title: Errors and limits
-description: Handle validation responses, request limits, content types, and retries safely.
+title: API errors and limits
+description: Read the structured errors from the generation and brand APIs, stay within the request limits, and handle Browser API exceptions without unsafe retries.
 icon: TriangleAlert
 ---
 
-Validation failures use a structured response:
+`POST /api/generate`, `POST /api/brand/validate` and `POST /api/brand/kit` return errors as JSON with the failing field:
 
 ```json
 {
   "error": {
-    "code": "invalid_request",
+    "code": "invalid_dimensions",
     "field": "settings.width",
     "message": "settings.width must be an integer between 64 and 4096."
   },
@@ -17,61 +17,73 @@ Validation failures use a structured response:
 }
 ```
 
-## Status codes
+## Error codes
 
-| Status | Meaning | Response |
+| Code | Status | Cause |
 | --- | --- | --- |
-| 400 | Malformed JSON or invalid field | Correct the named field |
-| 413 | Request body exceeds 5 MB (5,250,000 bytes) | Reduce or recompress embedded assets |
-| 415 | Content-Type is not JSON | Send `Content-Type: application/json` |
-| 429 | Production request rate limit exceeded | Wait for the limit window before retrying |
-| 500 | Artifact generation failed | Log the response and retry only if appropriate |
+| `invalid_json` | 400 | The body is not valid JSON |
+| `unknown_field` | 400 | A top-level field or an identity override is not part of the contract |
+| `invalid_request` | 400 | A field has the wrong type, an out-of-range value or an unlisted enum value |
+| `unknown_identity` | 400 | `identity.id` is not a built-in identity ID |
+| `invalid_identity` | 400 | A complete identity object is invalid, or `{ id }` came with other fields. `/api/brand/kit` also uses it for an identity that fails validation |
+| `invalid_dimensions` | 400 | A background `width` or `height` is not an integer from 64 to 4096 |
+| `pixel_limit` | 400 | A background's width × height is over 12,000,000 pixels |
+| `request_too_large` | 413 | The body is larger than 5,250,000 bytes |
+| `unsupported_media_type` | 415 | `Content-Type` is not `application/json` |
+| `generation_failed` | 500 | `/api/generate` could not render the artifact |
+| `brand_request_failed` | 500 | A brand route failed unexpectedly |
+
+`POST /api/brand/validate` answers an invalid identity with status 200, `ok: false` and path-level `issues`. It returns an error status only for a malformed request.
+
+A production deployment can also answer `POST /api/generate` with `429` from its edge rate limit. That response comes from the hosting provider before the request reaches Glyphfield, so it may not use the JSON format above. See [API security](/docs/reference/api-security).
 
 ## Retry policy
 
-Do not retry an unchanged validation request. Read `error.field`, correct the input, and submit a new request. Unknown top-level request fields fail with `unknown_field` rather than silently falling back to defaults.
+- After a 400, 413 or 415 response, read `error.field`, correct the input and send a new request. Resending the same request returns the same error.
+- After a `429`, stop parallel requests and wait before retrying. Do not retry several requests at once.
+- After a 500 response, retry a few times with exponential backoff and keep the original request for diagnosis. The same input to the same contract produces the same output.
 
-For `429`, stop concurrent work and wait for the rate-limit window. Do not fan out retries.
+## Limits
 
-For transient 5xx responses, use bounded exponential backoff and retain the original request for diagnosis. Generation is deterministic for the same contract and inputs.
+| Limit | Value |
+| --- | --- |
+| Request body | 5,250,000 bytes |
+| Image data URL (`logoDataUrl`, `backgroundImageDataUrl`, `partnerLogoDataUrl`) | 5,000,000 characters, base64 PNG, JPEG, WebP, GIF or SVG |
+| Background `width` and `height` | Integers from 64 to 4096 |
+| Background area | 12,000,000 pixels |
+| Template `title` | 240 characters |
+| Template `body` | 1000 characters, or 4000 for `terminal` |
+| Design sequence `texts` | 32 layers of up to 1000 characters each |
+| Remote URLs | Not accepted. The API does not fetch remote assets |
 
-## Important limits
+[Identities and custom assets](/docs/agents/identity-assets#identity-fields) lists the limits for identity overrides.
 
-- Request body: 5 MB maximum (5,250,000 bytes)
-- Data URL asset: 5 MB maximum
-- Background width and height: 64–4096
-- Background total pixels: 12,000,000 maximum
-- Template title: 240 characters
-- Template body: 1000 characters; 4000 for `terminal`
-- Design sequence text layers: 32
-- Remote asset URLs: unsupported
+## Contract versions
 
-## Contract drift
+Read `GET /api/generate` and check its `schemaVersion` (currently 3). If the client does not know that version, stop and update the client instead of guessing fields.
 
-Always read `GET /api/generate` and check `schemaVersion`. If the schema version is unknown, stop and update the client rather than silently guessing.
+## Browser API errors
 
-## Browser API failures
+The Studio Browser API (`window.glyphfield.studio`) throws JavaScript exceptions instead of returning status codes.
 
-Browser automation uses JavaScript errors rather than HTTP status codes:
-
-| Error | Typical cause | Response |
+| Exception | Cause | Response |
 | --- | --- | --- |
-| `TypeError` | Malformed action input, unsupported source, wrong control value, empty artifact | Correct the input; do not retry unchanged |
-| `RangeError` | Accessible control label or action is not exposed by the active adapter | Re-read `describe()` and `controls()`; confirm the active tool |
-| `Error` from a renderer | WebGL context, image decode, Canvas, GIF, MP4, font, or codec failure | Preserve source, capture the exact capability failure, retry only when conditions changed |
+| `TypeError` | Malformed action input, a tool without source support, a wrong control value, or an artifact without a Blob and file name | Correct the input. Do not retry it unchanged |
+| `RangeError` | No control in the active workspace has that accessible label, or the active tool has no such action | Read `describe()` and `controls()` again and confirm `activeTool()` |
+| `Error`: “This Studio workspace is no longer active” | The handle belongs to a tool or project that is no longer visible | Read `window.glyphfield.studio` again |
+| `Error`: “No active Studio workspace is ready for automation” | `window.glyphfield.studio` was read while a tool was loading | Wait for the `glyphfield:studio-api-ready` event |
+| `Error` from a renderer | A WebGL, WebGPU, image decode, Canvas, GIF, MP4, font or codec failure | Keep the source, record the failure, and retry only after the cause has changed |
 
-After a tool switch, the global adapter is replaced. A stale reference can report the old action set or mutate the wrong tool. Wait for `glyphfield:studio-api-ready` and re-read `window.glyphfield.studio`.
+A handle read from `window.glyphfield.studio` stays bound to the workspace that created it. After a tool or project switch, the old handle's `describe()` still reports the old tool and its `controls()` returns an empty list. Its `readSource`, `applySource`, `activate`, `set` and `invoke` methods throw. Wait for `glyphfield:studio-api-ready` and read `window.glyphfield.studio` again.
 
-Do not swallow export errors and report success because the source was valid. A valid document and a rendered file are separate completion checkpoints.
+Report a failed export as a failure. A valid source document and a rendered file are separate checks.
 
-## Recovery-safe behavior
+## Recovery after a render failure
 
-When rendering fails after source application:
+1. Read the source again and keep it.
+2. Record `activeTool()`, `describe()`, the browser, the requested format, the dimensions and the action.
+3. Stop a running shader-sequence preview with `design.sequence.stop`, and wait for any export in progress to finish.
+4. Retry only after the cause of the failure has changed.
+5. If the browser cannot encode the requested format, report that limitation. Do not substitute another format.
 
-1. Re-read the source and retain it.
-2. Record `activeTool()`, `describe()`, browser capability, requested format, dimensions, and action.
-3. Stop sequence preview or release any active export job.
-4. Retry only after changing the actual failure condition.
-5. If the browser lacks the requested codec, report that limitation without substituting a different format.
-
-For human-facing Studio, storage, WebGL, and export diagnosis, continue with [Troubleshooting and recovery](/docs/reference/troubleshooting). For deployment abuse controls, see [API security](/docs/reference/api-security).
+For Studio, storage, WebGL and export problems that a person can see, continue with [Troubleshooting and recovery](/docs/reference/troubleshooting).

@@ -1,10 +1,10 @@
 ---
 title: Motion overview
-description: Choose between Animation, Lottie, and Design Lab for motion work, and compare their inputs, timing models, and exports.
+description: Choose between Animation, Lottie, and Design Lab for motion work by comparing their inputs, timing models, frame rates, and export formats.
 icon: Blend
 ---
 
-Glyphfield has three tools that produce motion. They share the [Shader Library](/docs/studio/shader-library), its palettes, and its material time model, and they export through the same browser GIF and MP4 encoders.
+Glyphfield Studio has three tools that produce motion: Animation, Lottie, and Design Lab (the layered composition tool). All three take live materials from the [Shader Library](/docs/studio/shader-library) with its palettes and material time model. All three encode GIF with the same library and encode MP4 in the browser with the same encoder.
 
 <DocsMediaGrid>
   <DocsMedia alt='General Translation Animation sequence with storyboard and inspector' caption='Animation' meta='Scenes · keyframes · audio' src='/screenshots/studio-gt-animation-dark-2026.webp' />
@@ -18,23 +18,23 @@ Glyphfield has three tools that produce motion. They share the [Shader Library](
 | A layered poster whose shaders move, or a clip that cuts through several shaders | [Design Lab](/docs/studio/design-lab) |
 | Choosing and tuning a live material | [Shader Library](/docs/studio/shader-library) |
 
-## Compare the tools
+## Tool comparison
 
 | | Animation | Lottie | Design Lab |
 | --- | --- | --- | --- |
-| Input | Text frames, the brand mark, local images, audio files | Built-in studies, local `.lottie` or JSON | Layers on artboards |
-| Timing | Per-scene hold and outgoing transition on a storyboard, layer keyframes | The Lottie file's frames, in and out points, markers, speed, direction | Shader time; optional shader sequence of 8–12 cuts |
-| Background | Solid, gradient, or a Shader Library material for the whole sequence, with per-scene overrides | Transparent, solid color, or a live material | Any number of shader layers |
+| Input | Text frames, the brand mark, local images, audio files | Built-in studies, local `.lottie` or JSON files | Layers on artboards |
+| Timing | A hold and an outgoing transition per scene on a storyboard, and layer keyframes | The Lottie file's frames, in and out points, markers, speed, and direction | Shader time, and an optional shader sequence of 8–12 materials |
+| Background | Solid, gradient, or a Shader Library material behind every scene, with per-scene overrides | Transparent, a solid color, or a live material | Any number of shader layers |
 | Exports | GIF, MP4 with audio, PNG poster frame, project file | PNG frame, GIF, MP4, edited JSON or the original `.lottie` | PNG, JPG, GIF, MP4, shader-sequence GIF and MP4, project file |
 | Frame rates | 10, 15, 20, 24, 30 FPS | GIF 25 FPS, MP4 30 FPS | 12, 15, 24, 30, 60 FPS |
-| Audio | Yes, MP4 only | No | No |
+| Audio | Yes, in MP4 only | No | No |
 | Browser API | `animation.*` | `lottie.*` | `design.*` |
 
 ## Shared rules
 
-- Exports run one at a time, because the canvases and encoders are shared.
+- Each tool runs one export at a time.
 - GIF has no audio channel.
-- MP4 needs a browser video encoder. Glyphfield prefers H.264 and reports a missing encoder instead of substituting GIF.
-- Stateful materials, such as Fluid Energy and the interactive Shaders.com materials, cannot be reproduced from a time value. Animation refuses to export a stateful background; Design Lab exports exact stills of them but refuses timestamp-sampled motion.
-- A continuous animation clock is not a seamless loop. Inspect several frames and the seam of every looping file.
-- The Studio respects `prefers-reduced-motion`, and **Reduce motion** in Visual settings pauses decorative effects. Exports are explicit actions and always contain the requested motion.
+- MP4 needs a browser video encoder. Glyphfield tries H.264 first and reports a missing encoder as an error. It does not produce a GIF in place of the MP4.
+- Stateful materials, such as Fluid Energy and the interactive Shaders.com materials, cannot be reproduced from a time value. Animation and Lottie refuse to export motion over a stateful background. Design Lab exports exact stills of them and refuses motion that samples them by timestamp.
+- A continuous animation clock does not make a seamless loop. Inspect several frames and the seam of every looping file.
+- Studio follows the `prefers-reduced-motion` setting, and **Reduce motion** in Visual settings pauses decorative effects. Exports still contain the full requested motion.

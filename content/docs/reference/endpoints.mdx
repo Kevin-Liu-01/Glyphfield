@@ -1,10 +1,10 @@
 ---
 title: Endpoint reference
-description: Every public route for discovery, identities, elements, materials, generation, brand validation, the brand kit, documentation, search, and social images.
+description: Look up every public Glyphfield HTTP route with its method, response shape, cache header, size limit and error codes before calling it from code.
 icon: Braces
 ---
 
-All routes are public and need no API key. Agent routes send these CORS headers:
+Every route on this page is public and needs no API key. The agent routes send these CORS (cross-origin resource sharing) headers:
 
 ```text
 Access-Control-Allow-Origin: *
@@ -16,80 +16,80 @@ Access-Control-Allow-Headers: Content-Type, Accept
 
 ## Discovery
 
-| Method | Route | Response | Cache |
+| Method | Route | Response | Cache-Control |
 | --- | --- | --- | --- |
-| GET | `/llms.txt` | Plain-text agent router | Static file |
-| GET | `/llms-full.txt` | The complete documentation corpus as plain text, generated from the current MDX | `max-age=0, must-revalidate` |
-| GET | `/api/docs/{slug}` | One processed documentation page as Markdown. `/docs/<path>.md` is rewritten to this route | `max-age=0, must-revalidate` |
-| GET | `/api/agent` | The manifest: `{ name, version, schemaVersion, description, execution, interfaces, policies, resources, skills, studioBrowserApi, brand, generation }` | `max-age=300` |
-| GET | `/openapi.json` | OpenAPI 3.1 document | |
-| GET | `/api/catalog` | Studio tools, resource links, the Shader Library summary, and the deterministic surface library | None |
-| GET | `/api/labs` | `{ categories, count, plugins, schemaVersion: 2 }`; each plugin is a Studio tool with `agentAccess`, `browserWorkspace`, and `capabilities` (`browserActions`, `browserApi`, `controlAutomation`, `directHttpGeneration`, `exports`, `sharedShaderLibrary`, `shaderFrameCapture`, `source`, `sourceEditing`) | `max-age=300` |
-| GET | `/api/materials` | The Shader Library: `{ categories, kinds, shaderEffects, controls, count, defaults, engines, lookPresets, materials, framePersistence, palettes, schemaVersion, sharedBy, imageEffects }` | `max-age=300` |
-| GET | `/api/identities` | `{ agentPresetField, identities, localIdentityPersistence, schemaVersion: 2 }` with the nine built-in `BrandIdentity` records | |
-| GET | `/api/elements` | `{ categories, count, elements, generation, schemaVersion: 1 }` with the 89 brand elements | |
-| GET | `/api/search` | Documentation search (Fumadocs and Orama) | |
+| GET | `/llms.txt` | Plain-text router for agents | Static file |
+| GET | `/llms-full.txt` | The complete documentation as plain text, generated from the current MDX source | `public, max-age=0, must-revalidate` |
+| GET | `/api/docs/{slug}` | One processed documentation page as Markdown. Requests for `/docs/<path>.md` are rewritten to this route | `public, max-age=0, must-revalidate` |
+| GET | `/api/agent` | The agent manifest: `{ name, version, schemaVersion, description, execution, interfaces, policies, resources, skills, studioBrowserApi, brand, generation }` | `public, max-age=300` |
+| GET | `/openapi.json` | The OpenAPI 3.1 document | `public, max-age=300` |
+| GET | `/api/catalog` | Studio tools and categories, resource links, the Browser API contract, the Shader Library, the surface library and the skills | Not set |
+| GET | `/api/labs` | `{ categories, count, plugins, schemaVersion: 2 }`. Each plugin is a Studio tool with `agentAccess`, `browserWorkspace` and `capabilities` (`browserActions`, `browserApi`, `controlAutomation`, `directHttpGeneration`, `exports`, `sharedShaderLibrary`, `shaderFrameCapture`, `source`, `sourceEditing`) | `public, max-age=300` |
+| GET | `/api/materials` | The Shader Library: `{ categories, kinds, shaderEffects, controls, count, defaults, engines, lookPresets, materials, framePersistence, palettes, schemaVersion, sharedBy, imageEffects }` | `public, max-age=300` |
+| GET | `/api/identities` | `{ agentPresetField, identities, localIdentityPersistence, schemaVersion: 2 }` with every built-in `BrandIdentity` record | Not set |
+| GET | `/api/elements` | `{ categories, count, elements, generation, schemaVersion: 1 }` with every brand element | Not set |
+| GET | `/api/search` | Documentation search (Fumadocs with Orama) | Not set |
 
-`/api/materials` lists the materials the Shader Library shows. Retired materials are not listed, and image effects are listed separately under `imageEffects` (`{ categories, count, effects, requiresWebGPU, usage }`). See [Shader Library](/docs/studio/shader-library#http) for the material fields.
+`/api/materials` lists only the materials that the Shader Library shows. Retired materials are left out. Image effects are listed separately under `imageEffects` (`{ categories, count, effects, requiresWebGPU, usage }`). [Shader Library](/docs/studio/shader-library#http) describes the material fields.
 
 ## Generation
 
 | Method | Route | Content |
 | --- | --- | --- |
-| GET | `/api/generate` | The current contract (`schemaVersion` 3): request schema, kinds, identity forms, limits, and examples. Cached for 300 seconds |
-| POST | `/api/generate` | Request `application/json`; response JSON, or `image/svg+xml` with `output: "raw"`. `Cache-Control: no-store` |
-| OPTIONS | `/api/generate` | CORS preflight |
+| GET | `/api/generate` | The current generation contract (`schemaVersion: 3`) with the request schema, kinds, identity forms, limits and examples. `Cache-Control: public, max-age=300` |
+| POST | `/api/generate` | Request body `application/json`. The response is JSON, or `image/svg+xml` when the request sets `output: "raw"`. `Cache-Control: no-store` |
+| OPTIONS | `/api/generate` | CORS preflight (204) |
 
-Kinds are `template` (the default), `background`, `element-brief`, and `design-sequence`. `design-sequence` returns a response-schema-1 envelope whose `document` is a version-3 compatibility source for Design Lab. Apply it with `applySource` in `/studio`; Design Lab normalizes it to CanvasDocument schema 2 with Design Lab source 4. Re-read the source, then export with `design.export`. See [Generation API](/docs/agents/generate).
+The kinds are `template` (the default), `background`, `element-brief` and `design-sequence`. A `design-sequence` response is a response-schema-1 envelope whose `document` is a version-3 compatibility source for Design Lab, the layered composition tool. Apply that document with `applySource` in `/studio`. Design Lab normalizes it to CanvasDocument schema 2 with Design Lab source version 4. Read the source again, then export with `design.export`. [Generation API](/docs/agents/generate) has the request fields.
 
 Errors return `{ error: { code, field, message }, schemaVersion: 1 }`:
 
 | Status | Codes |
 | --- | --- |
 | 400 | `invalid_json`, `invalid_request`, `unknown_field`, `unknown_identity`, `invalid_identity`, `invalid_dimensions`, `pixel_limit` |
-| 413 | `request_too_large`: body over 5,250,000 bytes |
-| 415 | `unsupported_media_type`: `Content-Type` is not JSON |
-| 429 | Rate limit on the production deployment |
+| 413 | `request_too_large`: the body is over 5,250,000 bytes |
+| 415 | `unsupported_media_type`: `Content-Type` is not `application/json` |
+| 429 | The production deployment's rate limit (see [API security](/docs/reference/api-security)) |
 | 500 | `generation_failed` |
 
 ## Brand identity
 
 | Method | Route | Content |
 | --- | --- | --- |
-| GET | `/api/brand/validate` | `{ description, endpoint, example, logoSlots, maximumRequestBytes, mergeRules, method, patchSchema, request, response, schema, schemaVersion }`: the BrandIdentity JSON Schema, the merge-patch schema, merge rules, and logo slots |
-| POST | `/api/brand/validate` | Request `{ identity, mode?: 'full' \| 'patch' }` (default `full`); response `{ ok, issues, identity, health, schemaVersion }` |
-| GET | `/api/brand/kit` | The kit contract and formats |
-| POST | `/api/brand/kit` | Request `{ identity, format: 'dtcg' \| 'css' \| 'tailwind' \| 'markdown' }`; response is the file |
-| OPTIONS | `/api/brand/validate`, `/api/brand/kit` | CORS preflight |
+| GET | `/api/brand/validate` | `{ description, endpoint, example, logoSlots, maximumRequestBytes, mergeRules, method, patchSchema, request, response, schema, schemaVersion }`. It holds the BrandIdentity JSON Schema, the merge-patch schema, the merge rules and the logo slots |
+| POST | `/api/brand/validate` | Request `{ identity, mode?: 'full' \| 'patch' }` (default `full`). Response `{ ok, issues, identity, health, schemaVersion }` |
+| GET | `/api/brand/kit` | The brand kit contract and its formats |
+| POST | `/api/brand/kit` | Request `{ identity, format: 'dtcg' \| 'css' \| 'tailwind' \| 'markdown' }`. The response is the file |
+| OPTIONS | `/api/brand/validate`, `/api/brand/kit` | CORS preflight (204) |
 
-`POST /api/brand/kit` responds with `Content-Type: <type>; charset=utf-8` and `Content-Disposition: inline` with the file name `tokens.json`, `brand.css`, `tailwind.css`, or `brand.md`. The CSS and Tailwind files reference fonts at `../fonts/…`; the font files themselves come only from the browser action `identity.export.kit`, as do the ZIP and the logo pack.
+Both GET routes send `Cache-Control: public, max-age=300` and both POST routes send `no-store`. `POST /api/brand/kit` responds with `Content-Type: <type>; charset=utf-8` and `Content-Disposition: inline` with the file name `tokens.json`, `brand.css`, `tailwind.css` or `brand.md`. The CSS and Tailwind files reference fonts at `../fonts/…`. The font files, the ZIP and the logo pack come only from the Browser API action `identity.export.kit`.
 
-Both routes are stateless: nothing is stored and no remote URL is fetched. Asset and font paths must be `data:` URLs or paths on the Glyphfield origin. Invalid source is not an HTTP error on `/api/brand/validate`: it returns `ok: false` with `issues[]`, each with a `path`, a `code`, and a `message`. `/api/brand/kit` returns `400 invalid_identity` naming the first invalid path. Both return `400 invalid_json`, `400 unknown_field`, `413` above 5,250,000 bytes, `415` for non-JSON, and `500 brand_request_failed`.
+Both routes are stateless. They store nothing and fetch no remote URL. Asset and font paths must be `data:` URLs or paths on the Glyphfield origin. Invalid source is not an HTTP error on `/api/brand/validate`. That route returns `ok: false` with `issues[]`, and each issue has a `path`, a `code` and a `message`. `/api/brand/kit` returns `400 invalid_identity` and names the first invalid path. Both routes return `400 invalid_json`, `400 unknown_field`, `413 request_too_large` above 5,250,000 bytes, `415 unsupported_media_type` for a body that is not JSON, and `500 brand_request_failed`.
 
 ## Browser API
 
-Every active Studio tool registers `window.glyphfield.studio` (version 1). It operates controls by accessible label, reads and applies source, runs tool actions, and downloads returned Blobs. See [Studio Browser API](/docs/reference/browser-api).
+Every active Studio tool registers the Browser API (`window.glyphfield.studio`, version 1). It operates controls by accessible label, reads and applies source, runs tool actions and downloads returned Blobs. [Studio Browser API](/docs/reference/browser-api) documents it.
 
 ## Supporting routes
 
 | Method | Route | Content |
 | --- | --- | --- |
-| GET | `/api/surface-textures/{assetId}/{map}` | One allowlisted CC0 surface map |
+| GET | `/api/surface-textures/{assetId}/{map}` | One allowlisted CC0 surface texture map |
 | GET | `/api/github-stars` | The repository star count for the site header |
-| GET | `/api/og` | A 1200 × 630 PNG with `title`, `description`, `url`, and `accent` parameters ([Social previews](/docs/reference/social-previews)) |
-| GET | `/api/og-home` | The home page's social image |
-| GET | `/og/docs/{slug}/image.png` | A documentation page's social image |
+| GET | `/api/og` | A 1200 × 630 PNG built from the `title`, `description`, `url` and `accent` query parameters ([Social previews](/docs/reference/social-previews)) |
+| GET | `/api/og-home` | The home page's 1200 × 630 social image |
+| GET | `/og/docs/{slug}/image.png` | A documentation page's 1200 × 630 social image |
 
-`/api/surface-textures/{assetId}/{map}` accepts only the eleven asset IDs in the surface catalog and the maps `color`, `displacement`, `metalness`, `normal`, and `roughness`. It is not a URL proxy. Responses carry `X-Surface-License` and `X-Surface-Provider` and are cached (`max-age=86400, s-maxage=2592000, stale-while-revalidate=604800`). An unknown asset or map, or a missing map, returns `404`; an unreachable upstream returns `502`.
+`/api/surface-textures/{assetId}/{map}` accepts only the asset IDs in the open surface library (`/api/catalog` lists them under `surfaceLibrary.openPbrAssets`) and the maps `color`, `displacement`, `metalness`, `normal` and `roughness`. It does not proxy arbitrary URLs. Responses carry `X-Surface-License` and `X-Surface-Provider` headers and `Cache-Control: public, max-age=86400, s-maxage=2592000, stale-while-revalidate=604800`. An unknown asset or map, or a map that the asset does not include, returns `404`. An unreachable or failing upstream host returns `502`.
 
-`/api/github-stars` is optional product chrome. Consumers must accept `503` with `stars: null`.
+`/api/github-stars` caches a successful count for five minutes (`s-maxage=300, stale-while-revalidate=3600`). When GitHub does not answer, it returns `503` with `stars: null`, and clients must accept that response.
 
-## Recommended discovery order
+## Discovery order
 
-1. `/llms.txt`, then `/api/agent`
-2. `/api/labs`
-3. The task-specific catalog: `/api/materials`, `/api/identities`, `/api/elements`, or `/api/catalog`
-4. `GET /api/generate` before an HTTP generation request
-5. `/api/docs/{slug}` or `/llms-full.txt` for operating detail
+1. `/llms.txt`, then `/api/agent`.
+2. `/api/labs`.
+3. The catalog for the task: `/api/materials`, `/api/identities`, `/api/elements` or `/api/catalog`.
+4. `GET /api/generate` before an HTTP generation request.
+5. `/api/docs/{slug}` or `/llms-full.txt` for operating detail.
 
-Catalog IDs, schemas, and action lists are authoritative. The contract returned by `GET /api/generate` wins over prose in these docs.
+Catalog IDs, schemas and action lists returned by these routes are authoritative. When the contract from `GET /api/generate` differs from this documentation, the contract is correct.

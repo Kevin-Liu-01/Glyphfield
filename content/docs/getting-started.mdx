@@ -1,40 +1,42 @@
 ---
 title: Getting started
-description: Open the Studio, choose or create a project, set the identity, compose an artifact, and export a file.
+description: Open the Glyphfield Studio, create or copy a brand project, fill in its identity, compose a first design in Design Lab and export it as a file.
 icon: Sparkles
 ---
 
 ## Open the Studio
 
-Use the hosted Studio at [glyphfield.com/studio](https://www.glyphfield.com/studio), or run it locally:
+The Studio is Glyphfield's visual workspace. Use the hosted Studio at [glyphfield.com/studio](https://www.glyphfield.com/studio), or run it on your own computer:
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-The local Studio runs at `http://localhost:3012/studio`. Glyphfield uses pnpm 11; see [Self-hosting](/docs/reference/self-hosting) for production builds.
+The local Studio runs at `http://localhost:3012/studio`. The repository uses pnpm 11. [Self-hosting](/docs/reference/self-hosting) describes production builds.
 
 ## 1. Choose a project
 
-A project holds one brand identity and the work of every tool. Projects open as tabs above the tool. The **Projects** menu sorts them into four folders:
+A project holds one brand identity and the work of every tool. Open projects appear as tabs above the tool. The **Projects** menu sorts them into four folders:
 
-- **Templates**: the Starter identity, original Glyphfield work to start from.
-- **Examples**: reference identities for Basement, General Translation, Ramp, Mintlify, Tailwind CSS, Vite+, Cloudflare, and Stripe.
-- **My brands**: projects you create, copy, or import.
-- **All projects**: everything.
+| Folder | Contents |
+| --- | --- |
+| **All projects** | Every project in this browser |
+| **Templates** | The Starter identity, original Glyphfield work to start from |
+| **My brands** | Projects you create, copy or import |
+| **Examples** | Reference identities for Basement, General Translation, Ramp, Mintlify, Tailwind CSS, Vite+, Cloudflare and Stripe |
 
-Closing a tab only closes its view; the project stays in **Projects**. Built-in projects can be edited in place and restored to their shipped version.
+Closing a tab closes its view only. The project stays in **Projects**. You can edit a built-in project in place and later restore its shipped version.
 
-The **+** beside the tabs (**Add brand project**) opens **New project**:
+The **+** button beside the tabs (**Add brand project**) opens **New project**:
 
-- **Start from scratch** with an empty **Design Lab** design, **Animation**, or **Brand identity**.
-- **Use a template** to copy one of the nine built-in identities into a new project named `<Name> copy 1`.
-- **Import project…** to open a `.glyphfield.json` file as a new project. Glyphfield validates the file in the browser and opens it in Design Lab or Animation. An invalid file shows an error and creates nothing.
+- **Start from scratch** creates an empty **Design Lab** design, **Animation** or **Brand identity**.
+- **Use a template** copies one of the nine built-in identities into a new project named `<Name> copy 1`. The number rises if that name is taken.
+- **Import project…** opens a `.glyphfield.json` project file of up to 128 MB as a new project. The browser validates the file and opens it in Design Lab or Animation. An invalid file shows an error and creates nothing.
 
-**Project → Duplicate active project** copies the identity, the current work in every tool, assets, and saved checkpoints, including edits still waiting to autosave. The copy opens in a new tab and is independent. If the copy fails, **Could not duplicate project: show details** explains why.
+**Project → Duplicate active project** copies the identity, the current work in every tool, assets and saved checkpoints. The copy includes edits that are still waiting to autosave. It opens in a new tab and does not share state with the original. If the copy fails, an **Error** button (**Could not duplicate project: show details**) explains the cause.
 
-Agents use the same controls by accessible label: activate **Add brand project**, then the menu item. For a file chooser, provide a `File` built from authorized bytes. In Brand identity, `identity.project.create` creates a project directly. After a project opens, wait for `glyphfield:studio-api-ready`, then call `readSource()` before editing.
+The Browser API (`window.glyphfield.studio`) reaches only the controls of the active tool, so it cannot open **Add brand project**. A browser automation tool clicks **Add brand project** by its accessible label and then the menu item. For a file chooser, it provides a `File` built from bytes it is allowed to use. In Brand identity, the Browser API action `identity.project.create` creates a project directly. After a project opens, wait for the `glyphfield:studio-api-ready` event, then call `readSource()` before editing.
 
 <DocsMedia
   alt='Glyphfield Brand identity workspace for the General Translation project'
@@ -45,40 +47,44 @@ Agents use the same controls by accessible label: activate **Add brand project**
 
 ## 2. Set the identity
 
-Open **Brand identity**. The overview shows the brand cover, the brand health score, and what is defined. The editors cover:
+Open **Brand identity**. **Overview** shows the brand cover, the brand health score and what the identity defines. The editors are:
 
-- **Voice & strategy**: challenge, concept, promise, outcome, pillars, personality, voice principles and examples, audiences, products with one-line summaries, proof, customers, and sample content for templates.
-- **Logos & assets**: five logo slots, the asset library with licenses and sources, and the conversion library.
-- **Color system**: palette colors with shares and the declared text pairs.
-- **Typography**: font files and the Display, Body, Accent, and Code roles, and the type scale.
-- **System defaults**: density, radius, logo scale, the graphic device, pattern, and rules.
-- **Direction & references**: the art-direction dossier, applications, and references.
+| Editor | Contents |
+| --- | --- |
+| **Voice & strategy** | Challenge, concept, promise, outcome, pillars, personality, voice principles and examples, audiences, products, proof, customers and sample content for templates |
+| **Logos & assets** | Five logo slots, the asset library with licenses and sources, and the conversion library |
+| **Color system** | Palette colors with their shares and the declared text pairs |
+| **Typography** | Font files, the Display, Body, Accent and Code roles, and the type scale |
+| **System defaults** | Density, corner radius, logo scale, the graphic device, the pattern and the system rules |
+| **Direction & references** | The art direction dossier, applications and references |
 
-**Set up with agent** gives Claude Code, Codex, or Cursor a prompt that fills these sections from the brand's own website, repository, or design files. **Brand health** lists what is missing or failing, with one-click fixes. **Brand kit** downloads tokens and guidelines for code. Every tool reads the saved identity, so a change here flows into boards, the brand book, templates, components, motion, and Design Lab defaults. See [Brand identity](/docs/studio/brand-settings).
+**Set up with agent** gives Claude Code, Codex or Cursor a prompt that fills these sections from the brand's own website, repository or design files. **Brand health** lists missing or failing items, many with a one-click fix. **Brand kit** downloads tokens and guidelines for use in code. Every tool reads the saved identity, so a change here appears in boards, the brand book, templates, components, motion and Design Lab defaults. [Brand identity](/docs/studio/brand-settings) describes each editor.
 
 ## 3. Find a tool
 
-Use the left navigation, or press ⌘K / Ctrl+K and search for a capability such as `email`, `logo`, `dither`, `slide`, or `terminal`. Tools are grouped into Brand, Motion, Foundations, Expressions, and Components. The [Studio overview](/docs/studio) lists all fifteen.
+Choose a tool in the left navigation, or press ⌘K (Ctrl+K on Windows and Linux) and search for a word such as `email`, `logo`, `dither`, `slide` or `terminal`. The navigation groups tools into Brand, Motion, Foundations, Expressions and Components. The [Studio overview](/docs/studio) lists every tool.
 
 ## 4. Compose and inspect
 
 Most tools share one layout:
 
-- The left sidebar holds libraries, catalogs, and sources.
-- The center canvas renders the artifact. Scroll to zoom, drag empty space to pan, and use the toolbar to fit or reset the view.
-- The right inspector edits the selected layer or the tool's settings.
-- **File → Edit source code** opens the artifact's exact JSON in a drawer. **Apply code** validates and applies it; an invalid edit leaves the artifact unchanged.
-- The tool header holds saving and export.
+| Area | Purpose |
+| --- | --- |
+| Left sidebar | Libraries, catalogs and sources |
+| Center canvas | The artifact. Scroll to zoom, drag empty space to pan, and use the toolbar to fit or reset the view |
+| Right inspector | Settings of the selected layer or of the tool |
+| Tool header | Saving and export |
+| **File → Edit source code** | The artifact's exact JSON in a drawer. **Apply code** validates and applies it, and an invalid edit leaves the artifact unchanged |
 
-**Visual customization** sets the Studio theme (Light, Dark, Auto), accent, canvas background, corners, density, reduced motion, and the interface font: Helvetica Neue (the default), Be Vietnam Pro, Schibsted Grotesk, or Rethink Sans. These settings never change brand colors in an artifact.
+**Visual customization** in the Studio header changes the theme, accent color, canvas background, corners, density, motion, tooltips and interface font of the Studio. These settings do not change brand colors in an artifact. [Visual settings](/docs/studio#visual-settings) lists every option.
 
-For a first composition, open **Design Lab**:
+For a first composition, open **Design Lab**, the layered composition tool:
 
-1. Choose **Artboard setup** for the output size, for example Wide 1600 × 900 or OG Social 1200 × 630.
-2. Add text (T), a brand mark (M), an image (I), or pick a shader from the Shader Library.
-3. Select a layer to edit its geometry, appearance, opacity, and material.
-4. Scrub shader time to choose an exact frame, and **Capture shader frame** to keep it.
-5. **Save checkpoint** before producing variants.
+1. Open **Artboard setup** and choose an output size, for example Wide 1600 × 900 or OG Social 1200 × 630.
+2. Add text (T), a brand mark (M) or an image (I), or choose a shader from the Shader Library in the left sidebar.
+3. Select a layer to edit its geometry, appearance, opacity and material.
+4. Scrub shader time to choose an exact frame, and select **Capture shader frame** to keep it.
+5. Select **Save checkpoint** before you make variants.
 
 <DocsMedia
   alt='Glyphfield Design Lab with a brand mark over a live material'
@@ -89,17 +95,20 @@ For a first composition, open **Design Lab**:
 
 ## 5. Export
 
-Export actions are specific to each tool. Common outputs:
+Each tool has its own export actions.
 
-- PNG for lossless stills from every visual tool
-- JPG for smaller opaque Design Lab stills
-- GIF for Design Lab, Animation, and Lottie motion
-- MP4 for browser-encoded video, including Animation audio
-- PDF for the Brand book and slide decks
-- SVG for expression tools, moodboards, and HTTP templates and backgrounds
-- HTML for brand element emails
-- JSON for identities, briefs, project files, and Lottie
+| Format | Produced by |
+| --- | --- |
+| PNG | Design Lab, Animation (poster frame), Lottie (frame), Brand elements, Moodboard and the five expression tools |
+| JPG | Design Lab |
+| GIF | Design Lab, Animation and Lottie |
+| MP4 | Design Lab, Animation (with its audio track) and Lottie |
+| PDF | Brand book (print) and Slide templates |
+| SVG | The five expression tools, Moodboard, and HTTP templates and backgrounds |
+| HTML | Brand element emails |
+| JSON | Identities, brand element briefs, Design Lab and Animation project files, and Lottie source |
+| Tokens and code | Color tokens, Typography, Component library and the brand kit |
 
-Check dimensions, clipping, background, text contrast, motion, and file type in the export review before downloading. A click is not the artifact: confirm the downloaded file is non-empty and opens in its target application.
+Most exports open **Review export** first. It shows the finished file with its dimensions, file size and editable file name. The download button names the format, for example **Download PNG**. Check clipping, background, text contrast and motion in that preview. After the download, open the file in its target application and confirm that it is not empty.
 
-Continue with [Download and use artifacts](/docs/artifacts/download-and-use), [Source code editing](/docs/studio/source-editing), and [Source formats](/docs/reference/source-formats).
+Continue with [Download and use artifacts](/docs/artifacts/download-and-use), [Source code editing](/docs/studio/source-editing) and [Source formats](/docs/reference/source-formats).

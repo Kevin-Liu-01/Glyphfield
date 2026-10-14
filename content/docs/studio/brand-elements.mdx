@@ -1,12 +1,12 @@
 ---
 title: Brand elements
-description: Apply the identity to 89 templates for email, product UI, developer, social, editorial, event, and physical use, and export PNG at real pixel size, HTML email, or a JSON brief.
+description: Apply the brand identity to 89 templates for email, product, developer, social, editorial, event and print use, and export PNG, HTML email or JSON.
 icon: LayoutGrid
 ---
 
-Brand elements (tool ID `brand-elements`) applies the active identity to a catalog of 89 templates. Each element renders at its own pixel size with the identity's fonts, colors, corner radius, logos, and graphic device, then scales to fit the canvas. Select an element, edit its copy on the artboard or in the inspector, adjust the composition, and export a PNG, an HTML email, or a JSON brief.
+Brand elements (tool ID `brand-elements`) is the Glyphfield Studio tool that applies the active brand identity to a catalog of 89 templates. Each element renders on an artboard at its own pixel size with the identity's fonts, colors, corner radius, logos and graphic device, then scales to fit the canvas. Select an element, edit its copy on the artboard or in the inspector, adjust the composition, and export a PNG, an HTML email or a JSON brief.
 
-Every template is filled from the identity: products and their one-line summaries, proof, customers, published plans, the code sample and install command, and the sample person and event (see [Brand identity](/docs/studio/brand-settings#voice--strategy)). A template never falls back to Glyphfield's own product copy.
+Every template takes its content from the identity: products and their one-line summaries, proof, customers, published plans, the code sample and install command, and the sample person and event (see [Brand identity](/docs/studio/brand-settings#voice--strategy)). A template does not fall back to Glyphfield's own product copy.
 
 <DocsMedia
   alt='General Translation Brand elements workspace with the element catalog and a rendered welcome email'
@@ -19,18 +19,47 @@ Every template is filled from the identity: products and their one-line summarie
 
 | Region | Contents |
 | --- | --- |
-| Tool header | **File** (**Export PNG at 2×**, **Export HTML email**, **Download element brief**, **Edit source code**) and **Export PNG** |
-| Left sidebar | **Search brand elements** (name, output, use, or keyword), **Brand element category** (All elements or one of seven categories), and the catalog grouped by category with counts |
-| Canvas | The element at its pixel size, a hint that text on the artboard is editable, and chips with the catalog size and format. On narrow screens an **Active brand element** select replaces the sidebar |
+| Tool header | **File** (**Export PNG at 2×**, **Export HTML email**, **Download element brief** and **Advanced** → **Edit source code**) and **Export PNG** |
+| Left sidebar | A search field that matches name, category, description, size, format and keywords, the **Brand element category** select (**All elements** or one of seven categories), and the catalog grouped by category |
+| Canvas | The element at its pixel size, the hint "Click any text on the artboard to edit it in place.", and chips with the catalog size and format. On narrow screens the **Active brand element** select replaces the sidebar. |
 | Right sidebar | The **Element editor** |
 
 ## Catalog
 
-`GET /api/elements` returns the catalog with each element's `id`, `name`, `category`, `dimensions`, `format`, `symbol`, `keywords`, and `preview` family. The catalog size is the intended production size. When it is a pixel size with the artboard's proportions, such as the 3000 × 3000 podcast cover, the PNG export renders at that size. Component sizes (a 420 × 560 pricing card) and print sizes in millimetres or inches describe the subject, and those elements export at their artboard size.
+`GET /api/elements` returns the catalog with each element's `id`, `name`, `category`, `dimensions`, `format`, `symbol`, `keywords` and `preview` family. The catalog size (`dimensions`) is the intended production size. When it is a pixel size with the same proportions as the artboard and larger than it, the PNG export renders at the catalog size. The 3000 × 3000 podcast cover is one example. Component sizes such as the 420 × 560 pricing card and print sizes in millimeters or inches describe the subject, so those elements export at their artboard size. The tables list the PNG size at 1×.
 
 ### Digital (35)
 
-The 26 emails render at 640 px wide and their content height, and export as HTML: Welcome email (`welcome-email`), Start setup (`onboarding-day3-no-api-key-email`), Translate (`onboarding-day3-api-key-email`), Translation live (`onboarding-day3-live-email`), Setup reminder (`onboarding-day5-no-api-key-email`), First translation (`onboarding-day6-api-key-email`), Activated guidance (`onboarding-day6-live-email`), Payment confirmation (`onboarding-payment-confirmation-email`), Magic link (`auth-magic-link-email`), Organization invitation (`membership-invitation-email`), Enterprise introduction (`enterprise-intro-email`), Enterprise follow-up (`enterprise-day3-follow-up-email`), Enterprise final follow-up (`enterprise-day7-follow-up-email`), Credit balance warning (`balance-soft-limit-email`), Credit balance depleted (`balance-hard-limit-email`), Free credit warning (`free-credit-soft-limit-email`), Free credits exhausted (`free-credit-hard-limit-email`), Usage limit warning (`usage-soft-limit-email`), Usage limit reached (`usage-hard-limit-email`), Payment failed (`billing-payment-failed-email`), Plan canceled (`billing-plan-canceled-email`), Plan activated (`upgrade-confirmation-email`), Locadex setup complete (`locadex-setup-complete-email`), Locadex PR reminder (`locadex-pr-reminder-email`), Newsletter (`newsletter-email`), Event invitation (`event-invitation-email`). The enterprise emails are plain-text emails.
+The 26 emails render 640 px wide at their content height and export as HTML. Their catalog size is "640 px / responsive". The three enterprise emails are plain-text emails.
+
+| Email | ID |
+| --- | --- |
+| Welcome email | `welcome-email` |
+| Start setup | `onboarding-day3-no-api-key-email` |
+| Translate | `onboarding-day3-api-key-email` |
+| Translation live | `onboarding-day3-live-email` |
+| Setup reminder | `onboarding-day5-no-api-key-email` |
+| First translation | `onboarding-day6-api-key-email` |
+| Activated guidance | `onboarding-day6-live-email` |
+| Payment confirmation | `onboarding-payment-confirmation-email` |
+| Magic link | `auth-magic-link-email` |
+| Organization invitation | `membership-invitation-email` |
+| Enterprise introduction | `enterprise-intro-email` |
+| Enterprise follow-up | `enterprise-day3-follow-up-email` |
+| Enterprise final follow-up | `enterprise-day7-follow-up-email` |
+| Credit balance warning | `balance-soft-limit-email` |
+| Credit balance depleted | `balance-hard-limit-email` |
+| Free credit warning | `free-credit-soft-limit-email` |
+| Free credits exhausted | `free-credit-hard-limit-email` |
+| Usage limit warning | `usage-soft-limit-email` |
+| Usage limit reached | `usage-hard-limit-email` |
+| Payment failed | `billing-payment-failed-email` |
+| Plan canceled | `billing-plan-canceled-email` |
+| Plan activated | `upgrade-confirmation-email` |
+| Locadex setup complete | `locadex-setup-complete-email` |
+| Locadex PR reminder | `locadex-pr-reminder-email` |
+| Newsletter | `newsletter-email` |
+| Event invitation | `event-invitation-email` |
 
 | Element | ID | Catalog size | PNG at 1× |
 | --- | --- | --- | --- |
@@ -79,7 +108,7 @@ The 26 emails render at 640 px wide and their content height, and export as HTML
 | GitHub README hero | `github-readme` | 1280 × 640 | 1280 × 640 |
 | Documentation header | `docs-header` | 1440 × 480 | 1440 × 480 |
 | Package card | `package-card` | 512 × 320 | 512 × 320 |
-| API reference hero | `api-reference-hero` | 1440 × 720 | 1280 × 640 |
+| API reference hero | `api-reference-hero` | 1440 × 720 | 1440 × 720 |
 | Code playground | `code-playground` | 960 × 640 | 960 × 640 |
 | Release notes | `release-notes` | 1200 × 630 | 1200 × 630 |
 
@@ -93,7 +122,7 @@ The 26 emails render at 640 px wide and their content height, and export as HTML
 | Social avatar | `social-avatar` | 400 × 400 | 1200 × 720 |
 | Product launch card | `launch-card` | 1600 × 900 | 1600 × 900 |
 | Video thumbnail | `video-thumbnail` | 1280 × 720 | 1280 × 720 |
-| Podcast cover | `podcast-cover` | 3000 × 3000 | 1200 × 1200 |
+| Podcast cover | `podcast-cover` | 3000 × 3000 | 3000 × 3000 |
 | Social carousel | `social-carousel` | 1080 × 1350 | 1080 × 1350 |
 
 ### Editorial (7)
@@ -130,45 +159,51 @@ The 26 emails render at 640 px wide and their content height, and export as HTML
 
 ## Controls
 
-Click a headline, supporting copy, action, name, role, or partner name on the artboard to edit it in place. The accessible labels are **Edit headline in place**, **Edit supporting copy in place**, and so on. In-place edits stay in sync with the inspector, the source, and the brief.
+Click a headline, supporting copy, action, name, role or partner name on the artboard to edit it in place. The accessible labels are **Edit headline in place**, **Edit supporting copy in place** and so on. In-place edits stay in sync with the inspector, the source and the brief.
+
+The **Element editor** shows only the controls an element supports:
 
 | Section | Controls |
 | --- | --- |
-| Content | **Reset element**; Headline, Supporting copy, Action; Name and Role for person elements; Partner name for the partnership lockup |
-| Composition | Layout (Split, Stacked, Centered); Type scale (Compact, Balanced, Bold); Pattern (None, Dots, Grid, Dither); Pattern opacity 0–100% |
-| Typography | Font role (any identity role) and weight 100–550 for display type. Body and code text keep the identity's Body and Code faces |
-| Shared asset | Library asset (identity and proof assets, or none), Placement (Background, Header, Banner, Card), Asset opacity 0–100% |
-| Artwork | For artwork elements: Horizontal and Vertical offset −120 to 120 px, Scale 40–200% |
-| Color | Background, Text, Accent |
-| Brand details | Show logo, logo appearance (invert, dither, alpha-aware outline, shadow), Show website |
+| **Content** | **Reset element**, **Headline**, **Supporting copy** and **Action**. Person elements have **Name** and **Role**. The partnership lockup has **Partner name**. |
+| **Composition** | **Layout** (Split, Stacked, Centered), **Type scale** (Compact, Balanced, Bold), **Pattern** (None, Dots, Grid, Dither) and **Pattern opacity** (0–100%) |
+| **Typography** | **Font role** (any identity role) and **Weight** (100–550) for the display type |
+| **Shared asset** | **Library asset** (an identity or proof asset, or **No shared asset**), **Placement** (Background, Header, Banner, Card) and **Asset opacity** (0–100%) |
+| **Artwork** | **Horizontal** and **Vertical** offset (−120 to 120 px) and **Scale** (40–200%) |
+| **Color** | **Background**, **Text** and **Accent** |
+| **Brand details** | **Show logo** with the logo appearance controls (invert, dither, outline and shadow), and **Show website** |
 
-Settings are stored per project and element. **Reset element** removes the element's override and returns it to the identity defaults.
+Settings are stored per project and per element. **Reset element** removes the element's settings and returns it to the identity defaults.
 
 ## Export
 
+The export preview is the dialog that shows an export with its file name and a download button.
+
 | Action | Result |
 | --- | --- |
-| **Export PNG** | Renders the element, with every edit, at its PNG size and opens it in the export review |
-| **File → Export PNG at 2×** | Renders at twice the PNG size and downloads it |
-| **File → Export HTML email** | Downloads a send-ready HTML email. Enabled for email elements |
-| **File → Download element brief** | Downloads the JSON brief |
+| **Export PNG** | Renders the element with every edit at its PNG size and opens it in the export preview |
+| **File** → **Export PNG at 2×** | Renders at twice the PNG size and downloads it |
+| **File** → **Export HTML email** | Downloads a send-ready HTML email. Enabled for email elements only. |
+| **File** → **Download element brief** | Opens the JSON brief in the export preview |
 
-PNG files embed the brand fonts and are named `<identity>-<element>.png`, or `<identity>-<element>@2x.png`.
+PNG files embed the brand fonts and are named `<identity>-<element>.png` or `<identity>-<element>@2x.png`. HTML files are named `<identity>-<element>.html`.
 
-The HTML email is a 600 px table layout with inlined styles, an Outlook (MSO) wrapper, a hidden preheader of up to 140 characters, a bulletproof button, absolute image URLs, and an unsubscribe link to the identity website's `/account` page. Variants:
+The HTML email is a 600 px table layout with inlined styles, an Outlook (MSO) wrapper, a hidden preheader of up to 140 characters, a table-based button that renders in Outlook, and absolute image URLs. Its footer links to **Unsubscribe** at `/account` on the identity's website. The content differs by element:
 
-- **Lifecycle emails**: wordmark, header art, greeting, and supporting cards.
-- **Enterprise emails**: plain text with no header or art.
-- **Newsletter**: a "What changed" section.
-- **Event invitation**: date, time, and place facts.
-- **Email signature**: a standalone signature block instead of the 600 px layout.
-- **Email system sheet**: no HTML export.
+| Email | Content |
+| --- | --- |
+| Lifecycle emails | A wordmark header, header art, a greeting with the sample person's first name, the body, an action button and the template's supporting cards. The Welcome email lists up to three products when its template has no cards. |
+| Enterprise emails | Plain text with a greeting and a signature from the sample person. No header or art. |
+| Newsletter | Up to three items from the identity's latest update and up to three products |
+| Event invitation | The date, time and place of the sample event above the headline |
+| Email signature | A standalone signature block instead of the 600 px layout |
+| Email system sheet | No HTML export |
 
-Header art is GT's motion GIF, linked by absolute URL, for General Translation. For other identities it is a 1200 × 380 PNG of the brand device embedded as a data URL; host it and replace the `src` before sending through clients that block data URLs, such as Gmail.
+The wordmark header and header art appear while **Show logo** is on. General Translation's lifecycle emails use GT's animated GIF header art, linked by absolute URL. Every other email uses a 1200 × 380 PNG of the brand's graphic device, embedded as a data URL. Host that PNG and replace its `src` before you send through a client that blocks data URLs, such as Gmail.
 
 ## Source format
 
-**File → Edit source code** shows the selected element as `glyphfield.brand-element` version 2:
+**File** → **Edit source code** shows the selected element as `glyphfield.brand-element` version 2:
 
 ```json
 {
@@ -183,24 +218,26 @@ Header art is GT's motion GIF, linked by absolute URL, for General Translation. 
 }
 ```
 
-Applying source selects `elementId` when present and stores only values that differ from the identity defaults, so untouched copy keeps following identity edits. Omitted settings keep their current values, so `{ "elementId": "x-post" }` only selects an element. Colors are six-digit HEX; enums must match the editor options; numbers are clamped (artwork offset ±120, artwork scale 40–200, opacities 0–100, font weight 100–900, displayed at most 550). Text limits are headline 400, body 2000, action 200, role 200, name and partner name 120 characters. Unknown keys are ignored. Version 1 documents without `elementId` apply to the selected element.
+Applying source selects `elementId` when it is present. It stores only the values that differ from the identity defaults, so untouched copy keeps following identity edits. Omitted settings keep their current values, so `{ "elementId": "x-post" }` only selects an element. Colors are six-digit HEX, and enum values must match the editor options. Numbers are clamped: artwork offsets to ±120, artwork scale to 40–200, opacities to 0–100 and font weight to 100–900 (displayed at most 550). Text is limited to 400 characters for the headline, 2000 for the body, 200 for the action and the role, and 120 for the name and the partner name. Unknown keys are ignored. A version 1 document has no `elementId` and applies to the selected element.
 
 ## Browser API
 
+The Browser API (`window.glyphfield.studio`) exposes these actions while Brand elements is the active tool. An export artifact is an object with a non-empty `blob` and a `fileName`.
+
 | Action | Input | Output |
 | --- | --- | --- |
-| `brand-element.export.png` | `{ elementId?, scale?: 1 \| 2, download? }` | Export artifact; `width` and `height` are the PNG size. Selects `elementId` first |
-| `brand-element.export.html` | `{ elementId?, assetOrigin?, download? }` | Export artifact; `previewText` holds the HTML. `assetOrigin` sets the origin of image URLs (default: the Studio origin). It renders `elementId` without selecting it |
-| `brand-element.export.brief` | None | Export artifact with the brief JSON |
+| `brand-element.export.png` | `{ elementId?, scale?: 1 \| 2, download? }` | An export artifact. `width` and `height` are the PNG size. Selects `elementId` first. |
+| `brand-element.export.html` | `{ elementId?, assetOrigin?, download? }` | An export artifact. `previewText` holds the HTML. `assetOrigin` sets the origin of image URLs (default: the Studio origin). It renders `elementId` without selecting it. |
+| `brand-element.export.brief` | None | An export artifact with the brief JSON |
 
 The browser brief is `{ element, settings, identity: { colors, id, name, shortName, tagline, typography, voice, website }, schemaVersion: 2 }`.
 
 ## HTTP
 
-`GET /api/elements` returns `{ categories, count, elements, generation, schemaVersion: 1 }`. `POST /api/generate` with `kind: "element-brief"` and an `elementId` returns `{ element, generation: { previewFamily, source }, identity, schemaVersion: 1 }`. The HTTP brief resolves the element against an identity but has no editor settings. See [Generation API](/docs/agents/generate#element-brief). A drawer document is not an HTTP request body.
+`GET /api/elements` returns `{ categories, count, elements, generation, schemaVersion: 1 }`. `POST /api/generate` with `kind: "element-brief"` and an `elementId` returns `{ element, generation: { previewFamily, source }, identity, schemaVersion: 1 }`. The HTTP brief resolves the element against an identity but has no editor settings. See [Generation API](/docs/agents/generate#element-brief). A document from the source drawer is not an HTTP request body.
 
 ## Limits
 
-- PNG export at 1× or 2× of the deliverable size (the catalog pixel size when it matches the artboard's proportions, otherwise the artboard size); HTML export for email elements only.
+- PNG export at 1× or 2× of the PNG size, which is the catalog pixel size when it matches the artboard's proportions and the artboard size otherwise.
+- HTML export for email elements only.
 - Font weights display up to 550.
-- The catalog size and the PNG size differ for elements whose artboard is a presentation frame, such as Pricing card (420 × 560 catalog, 1200 × 760 PNG).

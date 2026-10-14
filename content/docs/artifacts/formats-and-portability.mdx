@@ -1,43 +1,43 @@
 ---
 title: Formats and portability
-description: Understand SVG, PNG, JPG, GIF, MP4, PDF, JSON, Lottie, fonts, assets, loops, and codec boundaries.
+description: Learn how each Glyphfield output format behaves, including SVG, PNG, JPG, GIF, MP4, PDF, JSON and Lottie, and what a file needs to stay portable.
 icon: Files
 ---
 
 ## SVG
 
-HTTP-generated templates and backgrounds are standalone UTF-8 SVG documents.
+Templates and backgrounds generated over HTTP are standalone UTF-8 SVG documents. The expression tools (OpenGraph, Terminal card, Partnership lockup, Blog cover and Slide templates) and Moodboard also export standalone SVG.
 
-- Dimensions are fixed on the root SVG.
-- Authorized data-URL images and bundled marks can be embedded.
-- Deterministic filters/patterns travel with the file.
-- Text normally remains text and therefore depends on the documented font stack.
-- The downloaded file does not depend on the Glyphfield deployment.
+- The dimensions are fixed on the root `<svg>` element.
+- Brand fonts, bundled marks and authorized data-URL images are embedded in the file.
+- Filters and patterns are deterministic and travel with the file.
+- Template text stays text and renders in the embedded brand font.
+- The file does not load anything from the Glyphfield deployment.
 
-Keep SVG as the canonical API artifact and rasterize per destination.
+Keep SVG as the master copy of an API artifact and rasterize it for each destination.
 
 ## PNG
 
-PNG is a lossless browser still. It preserves transparency where the tool supports it and is appropriate for social images, slide backgrounds, documentation, product surfaces, and archival proofs.
+PNG is a lossless still. It keeps transparency where the composition has it, and it suits social images, slide backgrounds, documentation, product surfaces and archived proofs.
 
-Design Lab PNG resolves the complete layer stack: background, shaders at the selected frame, converter effects, text effects, assets, marks, stickers, opacity, blend, and transforms.
+A Design Lab PNG renders the complete layer stack: background, shaders at the selected frame, converter effects, text effects, assets, marks, stickers, opacity, blend modes and transforms. Design Lab, the layered composition tool, freezes the shader frame that is visible on screen and then composes the PNG or JPG at the selected output size. The export leaves playback paused and stores no shader-frame assets. To keep an editable checkpoint of the shader's appearance as well as the rendered file, capture the shader frame explicitly with **Capture shader frame** and keep the portable CanvasDocument source.
 
-Design Lab freezes the currently visible native shader frame before composing a PNG or JPG at the selected output dimensions. The export leaves playback paused and does not create stored shader-frame assets. To preserve an editable appearance checkpoint as well as a rendered artifact, explicitly capture the shader frame and retain the portable CanvasDocument source.
+The expression tools export PNG at twice the page size, capped at 4800 px on the longest edge.
 
 ## JPG
 
-JPG is an opaque Design Lab still. Transparent pixels are composited against the selected canvas background before encoding. Use it when file size matters more than transparency or pixel-perfect flat-color edges.
+JPG is an opaque Design Lab still. Transparent areas are composited over the artboard background before encoding. Use it when file size matters more than transparency or exact flat-color edges.
 
 ## GIF
 
-GIF is palette-based motion and has no audio channel. Glyphfield protects important brand and text colors. Design Lab builds a global palette, or a per-frame palette at Best quality; Animation and Lottie use one global palette.
+GIF stores motion with a limited color palette and has no audio channel. Glyphfield reserves palette entries for important brand and text colors. Design Lab builds one palette for the whole GIF, or a palette per frame at **Best** quality. Animation and Lottie build one palette for the whole GIF, and Lottie GIFs run at 25 FPS.
 
-Design Lab has two loop modes; Animation and Lottie record the clip as it plays:
+Design Lab has two loop modes. Animation and Lottie record the clip as it plays.
 
-- **Raw motion** records the requested interval without seam correction. Use it for already periodic motion or intentional hard cuts.
-- **Blended loop** captures overlap, blends the tail toward recorded head frames, and verifies closure against the seam anchor.
+- **Raw motion** records the requested interval without correcting the loop point. Use it for motion that already repeats or for an intended hard cut.
+- **Blended loop** records extra frames past the end, blends them toward the frames recorded at the start, and checks that the end meets the start.
 
-The GIF loop flag only repeats playback; it does not make the last visual state match the first. Inspect the actual seam.
+The GIF loop flag only repeats playback. It does not make the last frame match the first, so inspect the actual loop point.
 
 <DocsMediaGrid>
   <DocsMedia alt='Animated General Translation mark morph' caption='Morph package' height={300} meta='GIF · exact frame preparation' src='/examples/gt-morph.gif' width={1000} />
@@ -46,43 +46,43 @@ The GIF loop flag only repeats playback; it does not make the last visual state 
 
 ## MP4
 
-MP4 is browser-encoded video for higher color fidelity and motion efficiency. Design Lab encodes the standard live composition or shader-cut sequence. Animation can mix overlapping audio clips into the exported video.
+MP4 is video encoded in the browser, with better color and smaller files for motion than GIF. Glyphfield tries the H.264 codec first and then the other codecs the browser can encode. Design Lab encodes either the standard composition or the shader-sequence cut. Animation can mix overlapping audio clips into the video. Lottie MP4s run at 30 FPS.
 
-Codec availability depends on the browser. If MP4 encoding is unavailable, keep the source and report the limitation; do not silently substitute GIF.
+Codec support depends on the browser. When no MP4 video codec is available, the export fails with "This browser cannot encode an MP4 video." Keep the source and report the limitation. Glyphfield does not substitute GIF.
 
-Design Lab GIF/MP4 explicitly samples motion from the current frame anchor and restores that paused pose afterward, without persisting captured-frame assets. A saved PNG preserves appearance, not simulation history: stateful Fluid supports exact still export, but timestamp-sampled motion export is unavailable.
+Design Lab GIF and MP4 exports sample motion from the current frame and restore that paused pose afterward, without storing captured-frame assets. A saved PNG keeps the appearance of a frame but not the simulation history behind it. Fluid Energy is a stateful simulation, so it supports still export, but its motion cannot be exported from a timestamp.
 
 ## PDF
 
-Brand Book uses the browser print/export path to produce a paginated standards document. PDF is a snapshot of the current identity-derived pages, not the editable source. Re-export after changing the identity.
+The Brand book prints through the browser's print dialog to a paginated PDF of the brand standards, one 16 × 10 in page per sheet. The PDF is a snapshot of the pages built from the current identity and is not editable source, so export it again after changing the identity. Slide templates export a PDF deck directly, with each slide embedded as an image at twice its size.
 
 ## JSON and CanvasDocument
 
-JSON may represent:
+JSON can hold:
 
 1. A `BrandIdentity`.
-2. An identity-resolved element brief.
-3. An API artifact envelope with embedded SVG.
+2. An element brief resolved against an identity.
+3. An API envelope with embedded SVG.
 4. A Studio tool's source configuration.
 5. A CanvasDocument scene graph.
 6. Raw Lottie JSON.
 
-Retain `schemaVersion`, tool metadata, stable IDs, asset references, ordering, and unknown fields. Design Lab's current source is CanvasDocument schema 2 with Design Lab metadata source version 4.
+Keep `schemaVersion`, tool metadata, stable IDs, asset references, ordering and unknown fields. Design Lab's current source is CanvasDocument schema 2 with Design Lab metadata source version 4.
 
 ## Lottie
 
-Raw Lottie JSON can be edited, recolored, and downloaded. A binary `.lottie` archive remains binary and can be replayed/downloaded without being misrepresented as expanded JSON.
+Raw Lottie JSON can be edited, recolored and downloaded. A binary `.lottie` archive stays binary. It can be replayed and downloaded, and it is not presented as expanded JSON.
 
 ## Fonts and assets
 
-Browser-local fonts and object URLs are not automatically portable. A rendered PNG/JPG/GIF/MP4 captures their visible result, but an editable JSON document may still require the original authorized bytes. Embedded data URLs increase document size but improve portability.
+Fonts installed in the browser and temporary object URLs do not travel with editable source by themselves. A rendered PNG, JPG, GIF or MP4 contains their visible result, but an editable JSON document can still need the original authorized files. Embedding files as data URLs makes a document larger and more portable.
 
-For durable handoff, preserve:
+For a lasting handoff, keep:
 
 - The editable source or saved design.
-- Authorized original images and fonts not embedded in source.
+- The authorized original images and fonts that the source does not embed.
 - The rendered artifact.
-- The requested dimensions, frame rate, duration, loop mode, and codec expectations.
-- Attribution/license records for upstream shader and material sources.
+- The requested dimensions, frame rate, duration, loop mode and codec.
+- The attribution and license records for third-party shaders and materials.
 
-See [Storage and privacy](/docs/artifacts/storage-and-privacy) and [Source formats](/docs/reference/source-formats).
+[Storage and privacy](/docs/artifacts/storage-and-privacy) and [Source format reference](/docs/reference/source-formats) cover storage and source in detail.

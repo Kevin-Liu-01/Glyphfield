@@ -1,57 +1,50 @@
 ---
 title: Browser-agent workflow
-description: Operate the Studio when generation depends on WebGL, Canvas, local files, visual placement, Lottie, GIF, or MP4 capture.
+description: Operate the Glyphfield Studio from a browser-driving agent when the output depends on WebGL, Canvas, local files, visual placement, Lottie, GIF or MP4.
 icon: MonitorCog
 ---
 
-Some capabilities intentionally render in the browser because their output depends on browser graphics APIs or interactive composition. They remain programmatically available through the Studio Browser API.
+Some outputs can only be made in the browser, because they depend on browser graphics APIs or on interactive composition. An agent that drives a browser (for example with Playwright) reaches them through the Studio Browser API, `window.glyphfield.studio`.
 
-<DocsMedia alt='Glyphfield Design Lab showing the authentic shader canvas, layers, and output inspector an agent operates' caption='The Browser API operates this exact workspace' meta='No separate agent-only renderer' src='/screenshots/studio-gt-design-lab-dark-2026.webp' />
+<DocsMedia alt='Glyphfield Design Lab showing the shader canvas, layers, and output inspector an agent operates' caption='The Browser API operates this workspace' meta='The same renderer as the UI' src='/screenshots/studio-gt-design-lab-dark-2026.webp' />
 
-## Use the browser for
+## Browser-only work
 
 - Moodboard PNG up to 4800 × 7200
-- Animation GIF and MP4 packages, including MP4 audio
-- Live Design Lab shaders, WebGPU image effects, stills, GIFs, MP4, and shader sequences
-- PNG and SVG output from the expression tools, PNG and HTML email from Brand elements
-- Local font, image, logo, and shader inputs
-- Visual placement, opacity, scale, and zoom inspection
-- Shared Brand identity settings that update all browser-local designs
-- Exact source editing for the active artifact through the right-side Code drawer
+- Animation GIF and MP4, with audio in MP4
+- Design Lab live shaders, WebGPU image effects, stills, GIF, MP4 and shader sequences
+- PNG and SVG from OpenGraph, Terminal card, Blog cover, Partnership lockup and Slide templates, and a PDF deck from Slide templates
+- PNG and HTML email from Brand elements
+- Lottie PNG frames, GIF, MP4, and edited JSON or `.lottie` files
+- Local font, image, logo and shader inputs
+- Visual placement, opacity, scale and zoom inspection
+- Changes to the shared Brand identity, which every browser-local design reads
+- Exact source edits to the active artifact
 
-## Discovery before operation
+## Procedure
 
-1. Fetch `/api/catalog`.
-2. Select the exact tool `id` or visible `name`.
-3. Open `/studio`.
-4. Choose a built-in identity or create a local project.
-5. Open the matching tool with navigation or Studio search.
-6. Read `window.glyphfield.studio.describe()` and `controls()`.
-7. Configure by accessible label with `activate`/`set`, or use `readSource`/`applySource` for exact source editing.
-8. Resolve any inline validation error before continuing; an error means the visual document was not changed.
-9. Verify the canvas at a useful inspection zoom and use Reset/Fit when needed.
-10. Invoke the tool's export action and verify the returned artifact.
+1. Read `/api/catalog` and pick the exact tool `id`.
+2. Open `/studio?tool=<id>&project=<project id>`. Without `project`, the Studio opens the last active project.
+3. If the task needs a new brand project, create it with `identity.project.create` in the Brand identity tool.
+4. Wait for the `glyphfield:studio-api-ready` event, then call `describe()` and `controls()`.
+5. Change settings by accessible label with `activate(label)` and `set(label, value)`, or edit the exact source with `readSource()` and `applySource()`.
+6. Resolve any validation error before you continue. A rejected source leaves the document unchanged.
+7. Inspect the canvas at a zoom level where details are visible.
+8. Call the tool's export action and check the returned artifact.
 
-## Stable programmatic interface
+## API calls
 
 ```js
-window.glyphfield.studio.describe();
-window.glyphfield.studio.controls();
-const nextToolReady = new Promise((resolve) => {
-  window.addEventListener('glyphfield:studio-api-ready', resolve, { once: true });
-});
-window.glyphfield.studio.activate('Design Lab');
-await nextToolReady;
-
-// Re-read the adapter after switching tools.
+// On /studio?tool=material
 const studio = window.glyphfield.studio;
+console.log(studio.describe(), studio.controls());
 
 if (studio.activeTool() !== 'material') {
   throw new Error(`Expected Design Lab, received ${studio.activeTool()}`);
 }
 
 const current = JSON.parse(studio.readSource());
-// Design Lab source is a CanvasDocument: the artboard background is the page background.
+// Design Lab source is a CanvasDocument. The page background is the artboard background.
 current.pages[current.pageIds[0]].background = '#111216';
 await studio.applySource(current);
 
@@ -61,56 +54,38 @@ const artifact = await studio.invoke('design.export', {
 });
 ```
 
-The page dispatches `glyphfield:studio-api-ready` whenever the active tool adapter is ready. Listen for that event when automation starts before Studio has finished loading.
+The page dispatches `glyphfield:studio-api-ready` each time the active tool's adapter changes. Listen for it when automation starts before the Studio has loaded, and read `window.glyphfield.studio` again after every switch. The Browser API covers only the active tool's workspace, so it cannot click the Studio sidebar or the project tabs. To change tools, load a new `/studio?tool=` URL or click the sidebar with the browser driver.
 
-Generic actions are `source.read`, `source.apply`, `controls.list`, `control.activate`, `control.set`, and `artifact.download`. `describe()` lists any additional actions exposed by the active tool. An export can return a Blob without saving it, save immediately with `download: true`, or be saved later with `studio.download(artifact)`.
+Every adapter supports the standard actions `controls.list`, `control.activate`, `control.set` and `artifact.download` through `invoke`. Tools with source also support `source.read` and `source.apply`. `describe()` lists the additional actions of the active tool. An export action returns the artifact without saving it. Pass `download: true` where the action accepts it, or call `studio.download(artifact)` later.
 
 ## Reliable interaction
 
-- Prefer visible labels and accessible names over coordinates.
-- Wait for imported images, fonts, and shader previews to finish rendering.
-- Use the canvas at 100% for final inspection.
-- Confirm surface and logo reversal in both light and dark compositions.
-- Treat browser download completion as the terminal success condition.
-- For Blob-only export, require a non-empty Blob with the expected MIME type and filename.
-- Inspect multiple motion frames and verify the seam when a perfect loop is required.
-- Do not delete projects unless the user explicitly requests deletion.
-- Do not assume the drawer document is a `/api/generate` payload. Use the tool's [source format](/docs/reference/source-formats).
+- Use accessible labels from `controls()` instead of screen coordinates.
+- Wait for imported images, fonts and shader previews to finish rendering.
+- Inspect the canvas at 100% zoom before the final export.
+- Check surfaces and logo reversal in both light and dark compositions.
+- Treat a finished download as the success condition. For an export that only returns a Blob, require a non-empty Blob with the expected MIME type and file name.
+- Inspect several motion frames, and check the seam when the loop must be seamless.
+- Delete a project only when the user asks for it.
+- Use the tool's [source format](/docs/reference/source-formats) for source edits. A source document is not a `/api/generate` request.
 
-## Canvas and artboard ownership
+## Canvas and artboards
 
-`design.workspace.describe` returns `{ activeSurface, canvas: { layerIds }, artboards }`.
-Call `design.workspace.activate` with `{ target: 'canvas' }` or an artboard ID to
-choose where the existing layer controls and source API edit.
+Design Lab has a free canvas for loose layers and any number of artboards. Only artboards export as images or motion.
 
-`design.workspace.move` accepts `{ target, layerIds, placement?: 'preserve' | 'beside' }`.
-Layers must belong to the active surface. The default preserves world-space boxes
-and native text sizing; `beside` places ideas next to their source artboard when
-moving to the canvas. IDs are retained unless the destination already contains
-one (for example, a duplicated artboard). Re-read source after moving.
+- `design.workspace.describe` returns `{ activeSurface, canvas: { layerIds }, artboards }`.
+- `design.workspace.activate` takes `{ target }`, where `target` is `'canvas'` or an artboard ID. It sets the surface that the layer controls and the source API edit.
+- `design.workspace.move` takes `{ target, layerIds, placement }` and moves layers of the active surface. The default placement is `preserve`, which keeps world-space boxes and text sizing. `beside` places the layers next to their source artboard when they move to the canvas. Layer IDs stay the same unless the destination already uses one, which happens after an artboard is duplicated. Read the source again after a move.
+- `design.workspace.frameSelection` creates an artboard around the loose layers selected with the layer controls. It keeps their on-canvas scale and moves them into the new artboard.
 
-Select loose layers using the layer controls, then invoke
-`design.workspace.frameSelection` to create an output artboard around that selection.
-This preserves on-canvas scale and moves the selected layers into the new artboard.
+The source format is CanvasDocument schema 2 with Design Lab metadata source version 4, and it also opens projects that have only artboards. `metadata.designLab.workspace.canvas` stores the loose layers separately from `workspace.artboards`. `activeSurfaceId: 'canvas'` means that the active page shows the loose layers. The canvas container has a fixed origin and size, and its layers can sit anywhere. Keep the container and its unknown fields as they are, and do not treat it as an artboard. An artboard's optional `displayScale` keeps the on-screen size of a frame created around a selection. It does not change export dimensions.
 
-CanvasDocument schema 2 / Design Lab metadata source 4 remains compatible with
-artboard-only projects. `metadata.designLab.workspace.canvas` stores the loose-layer
-snapshot separately from `workspace.artboards`; `activeSurfaceId: 'canvas'` means
-the active page represents those loose layers, not an output. The internal canvas
-coordinate container has a fixed origin and dimensions; its layers are unbounded.
-Preserve it, including unknown fields, rather than treating it as an artboard or
-changing its dimensions. Optional artboard `displayScale` preserves the physical
-size of a frame created around a selection and does not change export dimensions.
+Image and motion exports need an active artboard and throw while the canvas is active. `design.export.project` packages every artboard and the loose canvas layers, with authorized image and font bytes and captured shader frames. The HTTP `design-sequence` contract has no workspace actions.
 
-Image and motion exports require an active artboard. `design.export.project`
-includes every artboard **and** loose canvas layer, with authorized image and font
-bytes and captured shader frames. The deterministic HTTP `design-sequence`
-contract is unchanged; use Browser actions for workspace ownership and framing.
+## Persistence
 
-## Persistence boundary
+Project identities, navigation, tabs and most tool drafts are stored in `localStorage`. Design Lab named designs, autosaves, converted assets and captured shader frames are stored in IndexedDB, and a small `localStorage` entry recovers an interrupted autosave. The Browser API reads and changes the same active project state. HTTP requests do not change projects, so pass a generated document to `applySource` to use it. See [Storage and privacy](/docs/artifacts/storage-and-privacy).
 
-Project identity, navigation, tabs, and most tool drafts persist in `localStorage`. Design Lab named designs, complete autosaves, and converted assets use IndexedDB with a small synchronous recovery journal where needed. The Browser API reads and mutates the same active project state. Stateless HTTP requests do not silently mutate projects; generated apply-ready documents must be passed explicitly to `applySource`.
+## API or browser
 
-## Choosing API versus browser
-
-If `/api/generate` can represent the artifact, prefer it. Use the Studio Browser API when visual judgment or browser-native rendering is part of the requested result.
+Prefer `/api/generate` when it can represent the artifact. Use the Browser API when the result needs visual judgment or browser rendering.

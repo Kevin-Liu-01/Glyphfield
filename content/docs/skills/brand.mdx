@@ -1,14 +1,14 @@
 ---
-title: Brand
-description: Use $glyphfield-brand to set up or improve a brand identity from its own sources, audit it and export the brand kit.
+title: Brand skill
+description: Use the $glyphfield-brand skill to set up or improve a brand identity from the brand's own sources, pass the health audit and export the brand kit.
 icon: BadgeCheck
 ---
 
-`$glyphfield-brand` turns a coding agent into a brand setup tool. It researches the brand from the user's website, repository or design files, applies a validated identity through the Brand identity Browser API, adds logo and font files, runs the health audit until it is clean, and exports the brand kit.
+`$glyphfield-brand` sets up the Brand identity tool, which holds the shared identity that every Glyphfield tool reads. The skill researches the brand from the user's website, repository or design files. It applies a validated identity through the Studio Browser API (`window.glyphfield.studio`), adds logo and font files, runs the brand health audit until no errors remain, and exports the brand kit.
 
 <DocsMedia alt='Brand identity tool with the brand cover and health summary' caption='The skill fills the identity every Glyphfield tool reads' meta='Research · apply · audit · kit' src='/screenshots/studio-gt-identity-dark-2026.webp' />
 
-## Use it for
+## Example requests
 
 - “Set up our brand in Glyphfield from acme.com and this repo.”
 - “Fill the gaps the brand health audit found.”
@@ -27,12 +27,12 @@ skills/glyphfield-brand/
 
 ## Procedure
 
-1. Open the project: `/studio?tool=identity&project=<id>`. For a new brand, `identity.project.create { from: 'starter' | 'scratch', name }` creates and opens one; read `window.glyphfield.studio` again afterwards. `identity.setup.prompt { mode }` returns the same prompt as **Set up with agent**.
-2. Research the authorized sources and record each in `sourceNotes`.
-3. Draft a merge patch; check it with `identity.validate`. Patch validation skips cross-references, so `identity.apply` can still reject the merged result.
-4. Apply it with `identity.apply`.
+1. Open the project at `/studio?tool=identity&project=<id>`. For a new brand, `identity.project.create { from, name }` creates and opens a project, with `from` set to `'starter'` or `'scratch'`. Read `window.glyphfield.studio` again afterwards. `identity.setup.prompt { mode }` returns the same prompt as **Set up with agent**.
+2. Research the authorized sources and record each one in `sourceNotes`.
+3. Draft a merge patch and check it with `identity.validate`. In the browser, patch validation merges the patch into the active identity, so it reports the same errors as `identity.apply` when no `replace` or `remove` option is used.
+4. Apply the patch with `identity.apply`.
 5. Add logos with `identity.asset.add { file, slot }` and fonts with `identity.font.add { file, roles, license }`.
-6. Run `identity.audit`; apply `identity.fix` or follow each finding's `agentPrompt`.
-7. `identity.save`, then `identity.export.kit` and verify the Blob.
+6. Run `identity.audit`. Apply `identity.fix` or follow each finding's `agentPrompt`.
+7. Call `identity.save`, then `identity.export.kit`, and check the returned Blob.
 
-The skill never invents facts, never writes browser storage directly, and never passes a filesystem path or remote URL into the Studio. Combine it with [`$glyphfield-studio`](/docs/skills/studio) for other tools and [`$glyphfield-export`](/docs/skills/export) for downstream artifacts. The full workflow is in [Brand setup with an agent](/docs/agents/brand-setup).
+The skill uses only facts from authorized sources. It changes the identity only through `window.glyphfield.studio.invoke` and does not write browser storage. Files enter the Studio as `File` objects, and filesystem paths or remote URLs are not accepted. Combine the skill with [`$glyphfield-studio`](/docs/skills/studio) for other tools and [`$glyphfield-export`](/docs/skills/export) for files made from the brand. [Brand setup with an agent](/docs/agents/brand-setup) describes the full workflow.

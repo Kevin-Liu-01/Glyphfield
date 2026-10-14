@@ -1,44 +1,51 @@
 ---
 title: Shaders and time
-description: Add and tune Design Lab shader layers, set the live preview quality, select shader time, capture exact frames, and build shader-cut sequences.
+description: Tune Design Lab shader layers and the live preview quality, pick and capture exact shader frames, and build sequences that cut between several shaders.
 icon: Sparkles
 ---
 
-A shader layer renders one material from the shared [Shader Library](/docs/studio/shader-library). A material can also fill a text, mark, image, or sticker layer, clipped to that layer's shape. This page covers how Design Lab uses shaders. The Shader Library page covers the catalog, engines, filters, and native controls.
+A shader layer in Design Lab, the layered composition tool, renders one material from the shared [Shader Library](/docs/studio/shader-library). A material can also fill a text, mark, image, or sticker layer, clipped to that layer's shape. The Shader Library page describes the catalog, engines, filters, and native controls.
 
 ## Add or replace a shader
 
-Click a library card to add a shader layer, or to replace the material of the selected shader layer. With a text, mark, or image layer selected, a card applies the material as that layer's fill. A material picked from the library takes the identity palette and keeps the layer's opacity, blend mode, and zoom. New Design Lab compositions start with Gem Smoke (`paper-gem-smoke`).
+Click a library card to add a shader layer, or to replace the material of the selected shader layer. With a text, mark, image, or sticker layer selected, a card applies the material as that layer's fill. A material picked from the library takes the identity palette and keeps the layer's opacity, blend mode, and zoom. New Design Lab compositions start with Gem Smoke (`paper-gem-smoke`).
 
-When a material is replaced, the previous material stays on screen, paused, until the new one has drawn its first frame. It then fades out over 160 ms. If the new material does not become ready within 8 seconds, the old one is released anyway. Hovering or focusing a card starts loading the code for Shaders.com and ShaderGradient materials, so they open faster when clicked.
+When a material is replaced, the previous material stays on screen in a paused state until the new one has drawn its first frame. The old material then fades out over 160 ms. If the new material is not ready within 8 seconds, the old one fades out anyway. A card starts loading the engine code for Shaders.com and ShaderGradient materials when the pointer enters it or it receives focus, so those materials open faster when clicked.
 
 ## Shader inspector
 
 | Section | Controls |
 | --- | --- |
-| Shader color | **Shader base color**, **Shader mid color**, **Shader light color** (HEX, OKLCH, opacity); palette buttons for the identity palette and seven presets (Monochrome chrome, Mercury, Ultraviolet, Signal lime, Copper heat, Arctic, Vermilion ink); **Reset shader**; a link to the material's source when it has one |
-| Effect settings | Shaders.com materials only: the material's native controls ([details](/docs/studio/shader-library#native-shaderscom-controls)) |
-| Shader settings | **Shader zoom** 0.1×–10× on a logarithmic slider; **Layer opacity**; blend mode Normal, Screen, Overlay, or Multiply; **Center X** and **Center Y** (Paper materials); **Shader speed** 0–1.5; **Frequency** 0.5–12; **Warp** 0–1.5; **Detail** 0.5–9; **Texture** (grain) 0–100; **Light** (brightness) 0.35–1.6 |
-| Shader frame | **Horizontal position**, **Vertical position**, **Frame width** and **Frame height** (0.02–3 of the artboard), **Fit shader to canvas** |
-| Advanced | **Amplitude** 0–10, **Density** 0.1–2, **Rotation** −180° to 180° (rotates the material inside the layer) |
+| **Shader color** | **Base color**, **Mid color**, and **Light color**. Palette buttons apply the identity palette or one of seven presets (Monochrome chrome, Mercury, Ultraviolet, Signal lime, Copper heat, Arctic, Vermilion ink). **Reset shader** restores the material's starting settings and zoom. A link opens the material's source when it has one |
+| **Effect settings** | Shaders.com materials only: the material's [native controls](/docs/studio/shader-library#native-shaderscom-controls) |
+| **Shader settings** | **Shader zoom** 0.1×–10× on a logarithmic slider, **Layer opacity**, a blend mode (Normal, Screen, Overlay, or Multiply), **Center X** and **Center Y** (Paper materials), **Shader speed** 0–1.5, **Frequency** 0.5–12, **Warp** 0–1.5, **Detail** 0.5–9, **Texture** (grain) 0–100, and **Light** (brightness) 0.35–1.6 |
+| **Shader frame** | **Horizontal position** and **Vertical position** in pixels, **Frame width** and **Frame height** (2% to 300% of the artboard), **Layer rotation**, and **Fit shader to canvas** |
+| **Advanced** | **Amplitude** 0–10, **Density** 0.1–2, and **Rotation** −180° to 180°. This rotation turns the material inside the layer. **Layer rotation** turns the layer itself |
 
-Shaders.com materials show **Shader speed** and their native controls; Frequency, Warp, Detail, Texture, Light, and the **Advanced** section do not apply to them and are hidden. A native control's range, step, and choices are the ones its `nativeControls` entry in `/api/materials` declares.
+Shaders.com materials show **Shader speed** and their native controls. Frequency, Warp, Detail, Texture, Light, and the **Advanced** section do not apply to them, so Design Lab hides them. Each native control uses the range, step, and choices that its `nativeControls` entry in `/api/materials` declares.
 
-**Shader zoom** below 1× shows more of the field; above 1× moves into its detail. Equal slider travel gives equal visual zoom.
+**Shader zoom** below 1× shows more of the field, and zoom above 1× moves into its detail. Equal slider travel gives equal visual zoom. The value field next to the slider accepts an exact zoom.
 
 ## Preview quality
 
-**Live shader preview quality** in the canvas toolbar cycles through **Auto**, **High**, and **Draft**. It changes only the resolution of live shader previews. Exports always render at output size.
+**Live shader preview quality** in the canvas toolbar cycles through **Auto**, **High**, and **Draft**. It changes only the resolution of live shader previews. Exports always render at the output size.
 
 | Mode | Pixels per shader | Pixels for all shaders |
 | --- | --- | --- |
 | High | 240,000–2,400,000 | 4,800,000 |
 | Draft | 48,000–120,000 | 300,000 |
-| Auto | Starts at High, switches to Draft after sustained slow frames, and returns to High when frames recover | |
+| Auto | Starts at High, switches to Draft after sustained slow frames, and returns to High when frames recover | Follows the current level |
 
-Auto measures frame times only while Design Lab is active, the composition is moving, the page is visible, and reduced motion is off. After a 2-second warm-up it sorts frames into 2.5-second windows. A window is slow when the average frame takes more than 1.15 times a 60 Hz frame and at least 20% of frames are late. A window is smooth when the average frame takes at most 1.05 times a 60 Hz frame and at most 5% of frames are late. Two slow windows in a row switch Auto to Draft. Four smooth windows in a row (10 seconds) switch it back to High. Each later drop doubles the number of smooth windows the next return needs, up to 24 (one minute), so the resolution does not switch back and forth. Every switch restarts the warm-up. The button's tooltip says when Auto has lowered the resolution. The choice is stored in this browser.
+Auto measures frames only while Design Lab is active, the composition is playing and has motion, the page is visible, and reduced motion is off. After a 2-second warm-up it sorts frames into 2.5-second windows. A frame is late when it takes more than 1.35 times a 60 Hz frame. A window is slow when the average frame takes more than 1.15 times a 60 Hz frame and at least 20% of frames are late. A window is smooth when the average frame takes at most 1.05 times a 60 Hz frame and at most 5% of frames are late.
 
-Captured shader frames, saved designs, and project files copy the live preview canvas. Choose **High** before **Capture shader frame** when the saved frame must be sharp at large sizes.
+- Two slow windows in a row switch Auto to Draft.
+- Four smooth windows in a row (10 seconds) switch Auto back to High.
+- After the first return to High, each new drop doubles the number of smooth windows that the next return needs, up to 24 windows (one minute).
+- Every switch restarts the warm-up.
+
+The button's tooltip says when Auto has lowered the resolution. The chosen mode is stored in this browser.
+
+Captured shader frames, saved designs, and project files copy the pixels of the live preview canvas. Choose **High** before **Capture shader frame** when the saved frame must stay sharp at large sizes.
 
 ## Shader time
 
@@ -46,45 +53,57 @@ The strip below the canvas controls the time of the selected shader layer:
 
 | Control | Action |
 | --- | --- |
-| **Freeze current shader frame** / **Resume live shader motion** | Pause or play. Stateful materials show **Start new fluid motion** instead of resume |
+| **Freeze current shader frame** and **Resume live shader motion** | Pause or play. Stateful materials show **Start new fluid motion** in place of resume |
 | **Shader time** | Shows Live or Paused and the time in seconds |
-| **Explore shader time** | A 30-second range in 1/60-second steps |
-| **Previous shader frame (1/60 second)**, **Next shader frame (1/60 second)** | Step one frame |
-| **Extend shader exploration by 30 seconds** | Grow the range by 30 seconds |
+| **Explore shader time** | A slider over a 30-second range in steps of 1/60 second |
+| **Previous shader frame (1/60 second)** and **Next shader frame (1/60 second)** | Step one frame |
+| **Extend shader exploration by 30 seconds** | Lengthen the slider's range by 30 seconds |
 | **Capture shader frame** | Save the visible pixels as a lossless PNG checkpoint |
-| **Shader sequence** | Open shader sequence settings |
+| **Shader sequence** | Open the shader sequence panel |
 
-Pause, play, and scrubbing are editing operations. They do not encode a PNG or write captured-frame assets. Live shaders target 60 FPS regardless of export settings; hidden or paused renderers stop drawing. Playback does not grow the time range.
+Pausing, playing, and scrubbing are editing operations. They do not encode a PNG or write captured-frame assets. Live shaders target 60 FPS whatever the export settings are, and hidden or paused renderers stop drawing. Playback does not lengthen the slider's range.
 
 ### Capture a frame
 
-**Capture shader frame** keeps two things together: a lossless PNG of the pixels on screen, and the editable material recipe with its native engine frame. Saved and duplicated captures display the PNG, so reopening a design does not depend on rendering the same GPU pixels on another device. The PNG is stored once in IndexedDB, keyed by its SHA-256 hash; portable source embeds it in `CanvasDocument.assets`. If a saved PNG cannot be loaded, its preview stays visibly unavailable instead of starting a different live shader.
+**Capture shader frame** stores two things together: a lossless PNG of the pixels on screen, and the editable material recipe with its native engine frame. Saved and duplicated captures display the PNG, so reopening a design does not depend on rendering the same GPU pixels on another device. The PNG is stored once in IndexedDB, keyed by its SHA-256 hash, and portable source embeds it in `CanvasDocument.assets`. A captured PNG must be smaller than 25 MB. If a saved PNG cannot be loaded, its preview stays marked as unavailable. Design Lab does not start a different live shader in its place.
 
 ### Seekable, stateful, and static materials
 
-- **Seekable** materials render any requested time: animated Paper materials, Glyphfield originals, Prismatic Sphere, and every Shaders.com material that is not stateful.
-- **Stateful** materials depend on earlier frames or pointer input: Fluid Energy, the Interactive Shaders.com materials (Smoke, Ink Flow, Boids, Reaction Diffusion, and others), Particles, and Smoke Fill. They can be paused and captured, but a time value cannot reproduce them. Playing from a saved PNG starts a new simulation.
-- **Static** materials (the Paper Dot Grid, Fluted Glass, Halftone CMYK, Halftone Dots, Image Dithering, and Paper Texture families) have no time range.
+- **Seekable** materials render any requested time. These are the animated Paper materials, the Glyphfield originals, Prismatic sphere, and every Shaders.com material that is not stateful.
+- **Stateful** materials depend on earlier frames or on pointer input. These are Fluid Energy, the Interactive Shaders.com materials (Smoke, Ink Flow, Boids, Reaction Diffusion, and others), Particles, and Smoke Fill. They can be paused and captured, but a time value cannot reproduce them. Playing from a saved PNG starts a new simulation.
+- **Static** materials have no time range. These are the Paper Dot Grid, Fluted Glass, Halftone CMYK, Halftone Dots, Image Dithering, and Paper Texture families.
 
-`design.motion.describe` reports each shader layer's provider, motion model, PNG capture support, editable seek support, and loop behavior. A continuous animation is not a finite seamless loop. Prismatic Sphere exposes a configured loop duration; no other material promises a pixel-exact loop.
+`design.motion.describe` reports each shader layer's provider, motion model, PNG capture support, editable seek support, and loop behavior. A continuous animation is not a seamless loop of finite length. Prismatic sphere exposes a configured loop duration, and no material promises a pixel-exact loop.
 
 ## Shader sequences
 
-A shader sequence turns one canvas shader into a timeline of 8 to 12 materials chosen from 12 candidates. Cuts either accelerate (from 1050 ms down to 280 ms) toward the final material or stay even at 620 ms. The final material holds for 3 to 6 seconds. The default is 10 cuts, accelerating, with a 5-second hold.
+A shader sequence turns one shader layer into a timeline of 8 to 12 materials. The first materials are intro cuts taken from a fixed list of 12 candidates, and the last is the layer's own material, which holds at the end. Cuts either accelerate from 1050 ms down to 280 ms or stay even at 620 ms each. The default is 10 materials, accelerating, with a 5-second final hold.
 
-The timeline records material IDs, segment start and end times, the target shader layer, the sequence offset, and the paused frame. Preview, GIF, and MP4 use the same timeline. Stop the sequence preview before saving, copying, exploring time, or exporting: the preview temporarily swaps materials and is not the saved composition. Export a sequence with the GIF or MP4 shader-sequence mode.
+| Control | Values |
+| --- | --- |
+| **Background layer** | The shader layer the sequence replaces |
+| **Cuts** | 8 to 12 shaders |
+| **Final hold** | 3, 4, 5, or 6 seconds |
+| Pacing | **Accelerating** or **Even** |
+| **New cuts** | Rotates to another set of intro materials |
+| **Preview cuts** and **Stop preview** | Play the sequence on the canvas, or stop it |
+| **Export MP4** | Exports the sequence as MP4 |
+
+The timeline records the material IDs, the start and end time of each segment, the target shader layer, the sequence offset, and the paused frame. Preview, GIF, and MP4 use the same timeline. Stop the preview before saving, copying, exploring time, or exporting. The preview swaps materials temporarily and is not the saved composition. The panel's **Export MP4** exports the sequence as MP4. The Browser API exports it as GIF or MP4 with `design.export.shader-sequence.gif` and `design.export.shader-sequence.mp4`.
 
 ## Browser API
 
+The Browser API is `window.glyphfield.studio`. These actions control shader time and sequences:
+
 | Action | Input | Output |
 | --- | --- | --- |
-| `design.frame.pause` | None | `null`; pauses synchronously without writing assets |
+| `design.frame.pause` | None | `null`. Pauses at once without writing assets |
 | `design.frame.play` | None | `null` |
-| `design.frame.seek` | `{ timeMs }`, a non-negative finite number | `null`; rejected for stateful materials |
-| `design.frame.capture` | None | Portable CanvasDocument JSON string with the captured PNG assets |
+| `design.frame.seek` | `{ timeMs }`, a non-negative finite number | `null`. Rejected for stateful materials |
+| `design.frame.capture` | None | A portable CanvasDocument JSON string with the captured PNG assets |
 | `design.motion.describe` | None | `{ timeMs, paused, layers: [{ layerId, materialId, provider, motionModel, supportsPngSnapshot, supportsEditableSeek, loop }] }` |
 | `design.sequence.describe` | None | `{ durationMs, materials, settings }` |
-| `design.sequence.configure` | Partial settings: `cutCount` 8–12, `finalHoldMs` 3000–6000, `pace` `accelerating` or `even` | `null` |
+| `design.sequence.configure` | Partial settings: `cutCount` 8–12, `finalHoldMs` 3000–6000, `pace` (`accelerating` or `even`) | `null` |
 | `design.sequence.preview` | None | `null` |
 | `design.sequence.stop` | None | `null` |
 
@@ -97,4 +116,4 @@ const source = await studio.invoke('design.frame.capture');
 // Keep `source` with its CanvasDocument.assets outside the browser.
 ```
 
-`design.frame.capture` rejects when storage, the renderer, or PNG encoding fails. It never returns an incomplete save.
+`design.frame.capture` rejects when storage, the renderer, or PNG encoding fails. It does not return a partial save.

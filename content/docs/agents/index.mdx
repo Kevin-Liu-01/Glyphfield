@@ -1,64 +1,64 @@
 ---
 title: Agent integration
-description: Give LLMs and coding agents structured discovery, deterministic generation, and a browser fallback for visual capabilities.
+description: Connect a language model or coding agent to Glyphfield through the discovery routes, the generation API, the Studio Browser API and the Markdown docs.
 icon: Bot
 ---
 
-Glyphfield exposes a public, versioned agent interface. An agent can discover the product without scraping application JavaScript, generate portable assets or apply-ready compositions over HTTP, and operate every visual Studio control through the programmatic Browser API.
+Glyphfield is an open-source brand design studio. It gives coding agents and language models three interfaces. The HTTP routes describe the product and generate files. The Studio Browser API (`window.glyphfield.studio`) operates the open Studio in a browser. The documentation is available as Markdown. An agent can read the whole product contract from these interfaces without parsing the application's JavaScript.
 
 <DocsMediaGrid>
-  <DocsMedia alt='Design Lab with shader library, composition canvas, inspector, and layer dock' caption='Authentic browser workspace' meta='Canvas · WebGL · source · export' src='/screenshots/studio-gt-design-lab-dark-2026.webp' />
-  <DocsMedia alt='Animation editor with sequence, timing, material, and output controls' caption='Motion production' meta='Frames · audio · GIF · MP4' src='/screenshots/studio-gt-animation-dark-2026.webp' />
+  <DocsMedia alt='Design Lab with shader library, composition canvas, inspector, and layer dock' caption='Design Lab in the browser' meta='Canvas · WebGL · source · export' src='/screenshots/studio-gt-design-lab-dark-2026.webp' />
+  <DocsMedia alt='Animation editor with sequence, timing, material, and output controls' caption='Animation editor' meta='Frames · audio · GIF · MP4' src='/screenshots/studio-gt-animation-dark-2026.webp' />
 </DocsMediaGrid>
 
-## Discovery surface
+## Discovery routes
 
-| Resource | Purpose |
+| Route | Returns |
 | --- | --- |
-| `/llms.txt` | Canonical operational runbook for language models |
-| `/llms-full.txt` | Complete concatenated documentation corpus generated from current MDX |
-| `/api/docs/{slug}` | One processed documentation page as Markdown |
-| `/api/agent` | Versioned manifest, policies, resources, and generation contract |
-| `/openapi.json` | OpenAPI 3.1 route document |
-| `/api/catalog` | Studio tools and capability keywords |
-| `/api/labs` | Every Studio lab plugin and its shared-library capabilities |
-| `/api/materials` | Every shader, attribution, palette, look preset, and editable control |
-| `/api/identities` | Built-in template and reference identity records |
-| `/api/elements` | Searchable brand application records |
-| `/api/generate` | GET contract and POST generation endpoint |
-| `/api/brand/validate` | BrandIdentity JSON Schema and stateless validation; see [Brand setup with an agent](/docs/agents/brand-setup) |
-| `/studio` | Browser-local visual workspace |
-| `skills/` | Installable task skills for creation, HTTP generation, Studio operation, and export verification |
+| `/llms.txt` | A short guide for language models that routes each task to an interface |
+| `/llms-full.txt` | Every documentation page in one text file, built from the current MDX |
+| `/docs/<path>.md` or `/api/docs/<path>` | One documentation page as processed Markdown |
+| `/api/agent` | The versioned agent manifest with policies, resources, the generation contract and the Browser API contract |
+| `/openapi.json` | The OpenAPI 3.1 document for the HTTP routes |
+| `/api/catalog` | Studio tools, resource URLs, and summaries of the shader and tactile surface libraries |
+| `/api/labs` | Every Studio tool with its capabilities and agent access |
+| `/api/materials` | Every shader material and image effect with attribution, palettes, look presets and controls |
+| `/api/identities` | The nine built-in brand identities |
+| `/api/elements` | The brand element templates with their IDs, sizes and formats |
+| `/api/generate` | The generation contract (`GET`) and the generation endpoint (`POST`) |
+| `/api/brand/validate` | The BrandIdentity JSON Schema (`GET`) and stateless identity validation (`POST`). See [Brand setup with an agent](/docs/agents/brand-setup) |
+| `/api/brand/kit` | Brand kit token files and `brand.md` rendered from an identity (`POST`) |
+| `/api/search?query=<text>` | Ranked documentation search results |
+| `/studio` | The browser workspace that registers the Browser API |
+| `skills/` in the repository | Five installable Agent Skills for composition, HTTP generation, Studio operation, export and brand setup |
 
-## Three connected surfaces
+## Interfaces
 
 ### HTTP generation
 
-Use HTTP when the desired artifact is a template SVG, background SVG, element brief, or an apply-ready Design Lab sequence document. This path is deterministic, portable, and does not require a browser until a requested result depends on live rendering.
+`POST /api/generate` returns template SVGs, background SVGs, element briefs and apply-ready Design Lab documents. The same request always returns the same result, and no browser is involved. See [Generation API](/docs/agents/generate).
 
-### Browser operation
+### Studio Browser API
 
-Use the Studio when a task requires Canvas, WebGL, local fonts, local images, visual placement, high-resolution PNG/JPG rasterization, GIF or MP4 capture, Lottie, or exact source edits to an active browser artifact. Browser-capable agents use `window.glyphfield.studio` to apply validated source, inspect the resulting canvas, operate accessible controls, and export the real composition.
+Open `/studio` in a browser the agent controls when the result needs Canvas, WebGL or WebGPU rendering, local fonts or images, visual placement, PNG or JPG rasters, GIF or MP4 encoding, or Lottie. The Browser API reads and applies the active tool's source. It lists and operates the controls in the active tool's workspace, and it exports the same files as the UI. See [Browser-agent workflow](/docs/agents/browser-workflow).
 
-### Documentation corpus
+### Markdown documentation
 
-Use `/llms.txt` to route the task, `/llms-full.txt` to load the full current product model, and `/api/docs/{slug}` when only one topic is needed. These routes are built from the same documentation source as the human UI.
+Read `/llms.txt` to route a task. Load `/llms-full.txt` for the complete product model, or one page as Markdown when the task needs only one topic. These routes and the human documentation come from the same MDX source.
 
-An agent should use the smallest interface that fully expresses the requested artifact. HTTP and browser operation are deliberately composable rather than mutually exclusive.
+Use the smallest interface that can produce the requested artifact. The interfaces also combine: an HTTP `design-sequence` document is rendered and exported through the Browser API.
 
-## Operating invariant
+## Agent workflow
 
-Agents must discover, mutate, and verify:
+1. Read the live contract and catalog IDs.
+2. Read the current source before changing an open artifact.
+3. Keep unknown fields and apply the smallest change through the tool's validator.
+4. Read the state again after applying it.
+5. Inspect the rendered output when appearance matters.
+6. Check the saved file or the returned Blob. A successful request or click does not prove that the file exists.
 
-1. Discover the live contract and catalog IDs.
-2. Read current source before changing an open artifact.
-3. Preserve unknown fields and apply the smallest change through a validator.
-4. Re-read state after applying it.
-5. Inspect visual output when appearance matters.
-6. Confirm the actual file or Blob, not only the request status.
+## Authentication
 
-## No API key
+The public agent routes do not require authentication. Do not send an `Authorization` header. Read `/api/agent` and `GET /api/generate` at the start of each task, because schemas can change between releases.
 
-The current public agent routes do not require authentication. Do not invent an `Authorization` header. Always re-read `/api/agent` and `GET /api/generate` because availability and schemas may change.
-
-Install or inspect the focused [Glyphfield Skills](/docs/skills), then start with [Choose an interface](/docs/agents/choose-interface), [Connect an agent](/docs/agents/connect), and the complete [Agent recipes](/docs/agents/recipes).
+Install the [Glyphfield Skills](/docs/skills), then continue with [Choose an agent interface](/docs/agents/choose-interface), [Connect an agent](/docs/agents/connect) and [Agent recipes](/docs/agents/recipes).

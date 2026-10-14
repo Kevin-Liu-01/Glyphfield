@@ -1,25 +1,25 @@
 ---
-title: API
-description: Use $glyphfield-api for live catalog discovery, deterministic HTTP generation, batches, and apply-ready Design Lab sequences.
+title: API skill
+description: Use the $glyphfield-api skill to read Glyphfield's live catalogs and generate SVGs, element briefs and Design Lab documents over HTTP without a browser.
 icon: Braces
 ---
 
-`$glyphfield-api` owns deterministic, browser-independent discovery and generation. Use it for template SVG, background SVG, element briefs, batch work, and apply-ready Design Lab sequences.
+`$glyphfield-api` covers discovery and generation over HTTP, which do not depend on a browser. Use it for template SVGs, background SVGs, element briefs, batch work and apply-ready documents for Design Lab, the Studio's layered composition tool.
 
-## Invoke it
+## Invocation
 
 ```text
 Use $glyphfield-api to discover the current slide contract and generate a set
 of source-controlled agenda slides for the General Translation identity.
 ```
 
-## Discover before generating
+## Discovery
 
-1. Read `/api/agent` for current interfaces, policies, resources, and generation kinds.
+1. Read `/api/agent` for the current interfaces, policies, resources and generation kinds.
 2. Read `/api/labs` instead of hard-coding the Studio tool list.
-3. Read the relevant `/api/materials`, `/api/identities`, `/api/elements`, or `/api/catalog` resource.
-4. Read `GET /api/generate` immediately before constructing a POST body.
-5. Use `/openapi.json`, `/llms.txt`, or `/llms-full.txt` when the job needs the complete contract.
+3. Read the `/api/materials`, `/api/identities`, `/api/elements` or `/api/catalog` resource the task needs.
+4. Read `GET /api/generate` right before building a `POST` body.
+5. Use `/openapi.json`, `/llms.txt` or `/llms-full.txt` when the job needs the complete contract.
 
 ```bash
 curl -fsS http://localhost:3012/api/agent
@@ -30,19 +30,19 @@ curl -fsS http://localhost:3012/api/generate
 
 | Kind | Result |
 | --- | --- |
-| `template` | Deterministic slide, blog-cover, or partnership SVG |
-| `background` | Deterministic gradient, pattern, dither, or tactile surface SVG |
-| `element-brief` | One catalog element resolved against an identity |
-| `design-sequence` | An apply-ready layered composition with shader timeline and Browser API commands |
+| `template` | An SVG slide, blog cover, OpenGraph image, terminal card or partnership lockup |
+| `background` | A gradient, grain-gradient, dither, pattern or tactile surface SVG |
+| `element-brief` | One catalog element resolved against an identity, as JSON |
+| `design-sequence` | An apply-ready layered composition with its shader timeline and Browser API commands |
 
-Use `output: "raw"` for direct SVG where the live contract permits it. Other responses use the structured artifact envelope. A `design-sequence` requires the browser for authentic Canvas/WebGL raster or motion output.
+Use `output: "raw"` for a bare SVG from `template` or `background`. Other responses use the JSON envelope. A `design-sequence` document needs the browser for Canvas and WebGL rendering and for raster or motion output.
 
-## Contract boundaries
+## Contract rules
 
-- Send `Content-Type: application/json` and only fields returned by current discovery.
-- Do not invent identity, material, element, surface, or tool IDs.
-- Do not send remote asset URLs. Use supported data URLs or an authorized browser `File`.
-- Treat structured `400`, `413`, `415`, and `429` responses as actionable errors; never retry unchanged invalid input.
-- Remember that HTTP generation does not mutate the open Studio project.
+- Send `Content-Type: application/json` and only the fields that current discovery lists.
+- Do not invent identity, material, element, surface or tool IDs.
+- Do not send remote asset URLs. Use base64 data URLs, or an authorized browser `File` in the Studio.
+- Read the JSON error of a `400`, `413` or `415` response and fix the named field. Do not resend unchanged invalid input. A `429` comes from the deployment's edge rate limit.
+- HTTP generation does not change the open Studio project.
 
-For a rendered Design Lab result, continue with [`$glyphfield-studio`](/docs/skills/studio). For file validation, use [`$glyphfield-export`](/docs/skills/export).
+For a rendered Design Lab result, continue with [`$glyphfield-studio`](/docs/skills/studio). To check the files, use [`$glyphfield-export`](/docs/skills/export).

@@ -1,10 +1,10 @@
 ---
 title: Brand book
-description: Review, edit, and export the active identity as an editorial standards document.
+description: Turn the brand identity into a 54-page standards book, reorder and hide its sections, edit each page's layout and copy, and print it to PDF.
 icon: BookOpenText
 ---
 
-Brand book (tool ID `brand-book`) turns the active identity into a 54-page editorial standards document. Every page is built from the same strategy, logo files, typography, colours, graphic device, image library, voice, applications, and motion used by the rest of Studio, and every page holds one idea.
+Brand book (tool ID `brand-book`) is the Glyphfield Studio tool that turns the active brand identity into a 54-page editorial standards document. Every page is built from the same strategy, logo files, typography, colors, graphic device, image library, voice, applications and motion that the other Studio tools use.
 
 <DocsMedia
   alt='Glyphfield Brand Book overview showing a multi-page General Translation identity system'
@@ -15,48 +15,50 @@ Brand book (tool ID `brand-book`) turns the active identity into a 54-page edito
 
 ## Book structure
 
-Pages are 16:10 on a 12-column grid with consistent margins. A footer on each page carries the identity name, the section number and name, the page title, and the folio; the cover, section openers, device hero, and closing pages have no footer. Each section opens with a full-bleed opener page.
+Pages are 16:10 on a 12-column grid. A footer on each page shows the identity name, the section number and name, the page title and the folio (the page number). The cover, the section openers, the device hero page and the closing page have no footer. Each of the nine middle sections starts with a full-bleed opener page.
 
 | Section | Pages | Content |
 | --- | --- | --- |
 | Introduction | 3 | Cover, contents, and how to use the book |
-| Strategy | 1 + 5 | Brand idea; challenge, promise, and outcome; mission and position; audience and personality; pillars and values |
-| Logo | 1 + 6 | Primary mark, logo family, clear space, minimum size, colorways, misuse |
-| Colour | 1 + 4 | Palette with HEX, RGB, and OKLCH; proportion; every text pairing with its WCAG contrast; tonal ranges |
-| Typography | 1 + 5 | Display specimen, text specimen, pairing, type scale, the role of each face |
-| Graphic device | 1 + 5 | The device, its construction, variations, the icon system, device rules |
-| Imagery | 1 + 3 | Direction, the approved library, image treatment |
-| Voice | 1 + 4 | Principles, do and don't with real lines, messaging hierarchy, a sample email |
-| Applications | 1 + 6 | Layout grid, stationery, digital, social, events, a contact sheet |
-| Motion | 1 + 3 | Easing curves, motion tokens, the device in motion |
+| Strategy | 1 + 5 | Brand idea; challenge, promise and outcome; mission and position; audience and personality; pillars and values |
+| Logo | 1 + 6 | Primary mark, logo family, clear space, minimum size, colorways and misuse |
+| Colour | 1 + 4 | The palette with HEX, RGB and OKLCH values, proportion, every text pairing with its WCAG contrast, and tonal ranges |
+| Typography | 1 + 5 | Display typeface, text typeface, pairing, type scale and the role of each face |
+| Graphic device | 1 + 5 | The device, its construction, variations, the icon system and device rules |
+| Imagery | 1 + 3 | Image direction, the approved library and image treatment |
+| Voice | 1 + 4 | Voice principles, do and don't with real lines, the messaging hierarchy and a sample email |
+| Applications | 1 + 6 | Layout grid, stationery, digital, social, events and a contact sheet of the applications |
+| Motion | 1 + 3 | Motion principles with easing curves, motion tokens and the device in motion |
 | Closing | 1 | The tagline |
 
-"1 +" is the section opener. The nine middle sections can be reordered and hidden; the introduction and closing stay in place.
+"1 +" counts the section opener. You can reorder and hide the nine middle sections. The introduction and the closing page stay in place.
 
 ## Overview and reading modes
 
-**Overview** shows every page as a contact sheet. Clicking a thumbnail opens that page in **Read**, which shows one page at a time with a page inspector. In Read, the left and right arrow keys turn pages and Escape returns to Overview. Read includes hidden pages and counts them. The left section index works in both views.
+**Overview** shows every page as a contact sheet. Click a thumbnail to open that page in **Read**, which shows one page at a time with a page counter and the page inspector. In Read, the Left and Right arrow keys turn pages, and Escape returns to Overview. Read includes hidden pages. The section index on the left works in both views.
 
-**Page thumbnail size** (200–420 px, default 272) changes the contact sheet only. It does not change page dimensions, typography, or the PDF.
+**Page thumbnail size** (200–420 px, default 272) changes the contact sheet only. It does not change the page dimensions, the typography or the PDF.
 
 ## Edit the book
 
-- **Text**: in Read, click any text on the page to edit it in place. The **Copy** section of the inspector lists the same fields.
-- **Pages**: the inspector has **Show page**, **Page layout** (the page's variants), **Page surface** (paper, muted, ink, deep, or accent), **Page image** where the page shows one, and `Page <slot> copy` fields of up to 1200 characters. **Reset page** returns the page to the identity defaults.
-- **Sections**: the left index has `Hide <section> section`, `Move <section> section earlier`, and `Move <section> section later`. The inspector has **Show section** and the same move buttons for the current section.
+| Scope | Controls |
+| --- | --- |
+| Text | In Read, click any text on the page to edit it in place. The **Copy** section of the inspector lists the same fields as `Page <slot> copy` text areas of up to 1200 characters each. |
+| Page | **Show page**, **Layout** (the page's layouts), **Surface** (Paper, Muted, Ink, Deep or Accent) and, on pages that show an image, **Image**. **Reset page** returns the page to the identity defaults. |
+| Section | The left index has `Hide <section> section` (or `Show <section> section`), `Move <section> section earlier` and `Move <section> section later`. The inspector has **Show section**, **Earlier** and **Later** for the current section. |
 
-Hidden pages and sections stay visible, dimmed, in Overview so you can restore them; they are left out of folios, the contents page, and the PDF. Edits are saved per project.
+Hidden pages and sections stay visible but dimmed in Overview, so you can restore them. They are left out of the folios, the contents page and the PDF. Edits are saved per project.
 
-Keep foundational changes in Brand identity. Use book edits for presentation and wording that belong to this document only.
+Keep foundational changes in [Brand identity](/docs/studio/brand-settings). Use book edits for presentation and wording that belong to this document only.
 
 <DocsMediaGrid>
   <DocsMedia alt='Brand book contact sheet in light Studio chrome' caption='Overview in the light theme' meta='Identity output unchanged' src='/screenshots/studio-gt-brand-book-light-2026.webp' />
   <DocsMedia alt='Brand book contact sheet in dark Studio chrome' caption='Overview in the dark theme' meta='Identity output unchanged' src='/screenshots/studio-gt-brand-book-dark-2026.webp' />
 </DocsMediaGrid>
 
-## Edit the book as source
+## Source format
 
-Select **File → Edit source code** to read or apply the book as JSON:
+**File** → **Edit source code** reads and applies the book as JSON:
 
 ```json
 {
@@ -75,27 +77,29 @@ Select **File → Edit source code** to read or apply the book as JSON:
 }
 ```
 
-- The order of the nine reorderable sections follows `sections`; `intro` and `closing` may be listed but do not move.
-- Pages may only appear under their own section. `variant` must be one of the page's `variants`, `tone` one of the five surfaces, and `assetId` an identity image (only on pages with `imageSlot: true`).
-- `copy` keys must be the page's editable slots; each value holds up to 1200 characters. Values equal to the identity defaults are not stored.
-- Sections and pages omitted from a document keep their current settings.
-- `schema` must be `glyphfield.brand-book` and `version` must be 1.
+- When present, `schema` must be `glyphfield.brand-book` and `version` must be 1.
+- Section IDs are `intro`, `strategy`, `logo`, `colour`, `typography`, `device`, `imagery`, `voice`, `applications`, `motion` and `closing`. The order of the nine middle sections follows `sections`. `intro` and `closing` may be listed but do not move.
+- A page may appear only under its own section. `variant` must be one of the page's `variants`, and `tone` one of the five surfaces. `assetId` is an identity image ID, or empty for the graphic device, and applies only to pages with `imageSlot: true`.
+- `copy` keys must be the page's editable slots, and each value holds up to 1200 characters. Values equal to the identity defaults are not stored.
+- Sections and pages that a document omits keep their current settings.
 
 ## Browser API
 
+The Browser API (`window.glyphfield.studio`) exposes one action while Brand book is the active tool:
+
 | Action | Input | Output |
 | --- | --- | --- |
-| `brand-book.print` | None | `null`; opens the browser print dialog for the visible pages |
+| `brand-book.print` | None | `null`. Opens the browser print dialog for the visible pages. |
 
 `readSource()` and `applySource()` read and apply the book document above.
 
 ## Export PDF
 
-**Export PDF** (`brand-book.print`) opens the browser print dialog with one page per sheet at 16 × 10 in, with no margins. Choose **Save as PDF** in the dialog to get a PDF. Only visible pages print, in the edited order. Before exporting:
+**Export PDF** (`brand-book.print`) opens the browser print dialog with one page per sheet at 16 × 10 in and no margins. In the dialog, choose the "Save as PDF" destination to get a PDF file. Only visible pages print, in the edited order. The browser's own print command prints the same pages. Before exporting:
 
 - Resolve missing logo or font assets.
-- Check light and dark mark use.
+- Check the use of the light and dark marks.
 - Review long strategy text for overflow.
-- Confirm reference assets are redistributable when they appear in output.
+- Confirm that reference assets are redistributable when they appear in the output.
 
-The PDF is a snapshot. Re-export after editing the identity or the book.
+The PDF is a snapshot. Export again after you edit the identity or the book.

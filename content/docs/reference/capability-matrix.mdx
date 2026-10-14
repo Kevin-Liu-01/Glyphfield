@@ -1,70 +1,70 @@
 ---
 title: Capability matrix
-description: Every Studio tool with its source document, Browser API actions, exports, and HTTP routes, and every output format with the tools that produce it.
+description: Compare what each Studio tool offers, with its JSON source document, Browser API actions, export formats and HTTP generation routes, in one table.
 icon: TableProperties
 ---
 
-Every one of the fifteen Studio tools has a JSON source document, accessible controls that `controls()`, `activate()`, and `set()` can operate, and tool-specific Browser API actions. `describe().capabilities` returns this information at runtime, and `/api/labs` returns it for every tool.
+Every Studio tool has a JSON source document, accessible controls that the Browser API (`window.glyphfield.studio`) can operate through `controls()`, `activate()` and `set()`, and its own Browser API actions. `describe().capabilities` returns this record for the active tool, and `/api/labs` returns it for every tool.
 
 ## Tools
 
 | Tool | ID | Source document | Browser actions | Exports | HTTP |
 | --- | --- | --- | --- | --- | --- |
-| [Brand identity](/docs/studio/brand-settings) | `identity` | Complete `BrandIdentity` | `identity.*` (12) | Identity JSON; brand kit ZIP, DTCG, CSS, Tailwind v4, `brand.md`, logo ZIP | `/api/identities`, `/api/brand/validate`, `/api/brand/kit` |
-| [Brand elements](/docs/studio/brand-elements) | `brand-elements` | `glyphfield.brand-element` v2 | `brand-element.export.*` (3) | PNG at 1× or 2× of the element size, HTML email, JSON brief | `/api/elements`, `element-brief` |
-| [Moodboard](/docs/studio/moodboards) | `design-board` | `glyphfield.moodboard` v2 | `moodboard.export.*` (3) | PNG up to 4800 px (7200 for Catalog Ultra), SVG, identity JSON | None |
-| [Brand book](/docs/studio/brand-book) | `brand-book` | `glyphfield.brand-book` v1 | `brand-book.print` | PDF through the print dialog, 16 × 10 in pages | None |
-| [Animation](/docs/studio/animation) | `animation` | CanvasDocument v2, `metadata.animation` | `animation.*` (12) | GIF, MP4 with audio, PNG poster, project file | None |
-| [Lottie](/docs/studio/lottie) | `lottie` | CanvasDocument v2, `metadata.studio` | `lottie.*` (9) | PNG frame, GIF (25 FPS), MP4 (30 FPS), edited JSON or `.lottie` | None |
-| [Design Lab](/docs/studio/design-lab) | `material` | CanvasDocument v2, Design Lab source v4 | `design.*` (29) | PNG, JPG, GIF, MP4, shader-sequence GIF and MP4, project file | `design-sequence` |
-| [Color tokens](/docs/studio/colors) | `colors` | Version 2: palette, `colorPairings`, `colorSystem` | `colors.*` (8) | OKLCH CSS, CSS variables, Tailwind v4, DTCG (read or clipboard) | Through `/api/brand/kit` |
-| [Typography](/docs/studio/typography) | `typography` | Version 2: roles, `typeScale`, specimen | `typography.*` (5) | CSS, Tailwind v4, DTCG type tokens (read or clipboard) | Through `/api/brand/kit` |
-| [OpenGraph](/docs/studio/opengraph) | `opengraph` | Expression document (CanvasDocument v2, expression source v2) | `opengraph.*` (15) | PNG at 2×, SVG | `template: opengraph`, `background` |
+| [Brand identity](/docs/studio/brand-settings) | `identity` | Complete `BrandIdentity` | `identity.*` (12) | Identity JSON. Brand kit as ZIP, DTCG, CSS, Tailwind v4, `brand.md` or logo ZIP | `/api/identities`, `/api/brand/validate`, `/api/brand/kit` |
+| [Brand elements](/docs/studio/brand-elements) | `brand-elements` | `glyphfield.brand-element` version 2 | `brand-element.export.*` (3) | PNG at 1× or 2× the element size, HTML email, JSON brief | `/api/elements`, `element-brief` |
+| [Moodboard](/docs/studio/moodboards) | `design-board` | `glyphfield.moodboard` version 2 | `moodboard.export.*` (3) | PNG up to 4800 px wide (Catalog at Ultra is 4800 × 7200), SVG, identity JSON | None |
+| [Brand book](/docs/studio/brand-book) | `brand-book` | `glyphfield.brand-book` version 1 | `brand-book.print` | PDF through the print dialog, one 16 × 10 in page per sheet | None |
+| [Animation](/docs/studio/animation) | `animation` | CanvasDocument schema 2 with `metadata.animation` | `animation.*` (12) | GIF, MP4 with audio, PNG poster, project file | None |
+| [Lottie](/docs/studio/lottie) | `lottie` | CanvasDocument schema 2 with `metadata.studio` | `lottie.*` (9) | PNG frame, GIF at 25 FPS, MP4 at 30 FPS, edited JSON or the `.lottie` archive | None |
+| [Design Lab](/docs/studio/design-lab) | `material` | CanvasDocument schema 2 with Design Lab source version 4 | `design.*` (30) | PNG, JPG, GIF, MP4, shader-sequence GIF and MP4, project file | `design-sequence` |
+| [Color tokens](/docs/studio/colors) | `colors` | Version 2: palette, `colorPairings`, `colorSystem` | `colors.*` (8) | OKLCH CSS, CSS variables, Tailwind v4 or DTCG, returned or copied to the clipboard | Through `/api/brand/kit` |
+| [Typography](/docs/studio/typography) | `typography` | Version 2: roles, `typeScale`, specimen settings | `typography.*` (5) | CSS, Tailwind v4 or DTCG type tokens, returned or copied to the clipboard | Through `/api/brand/kit` |
+| [OpenGraph](/docs/studio/opengraph) | `opengraph` | Expression document (CanvasDocument schema 2, expression source version 2) | `opengraph.*` (15) | PNG at 2×, SVG | `template: opengraph`, `background` |
 | [Terminal card](/docs/studio/terminal-card) | `terminal` | Expression document | `terminal.*` (19) | PNG at 2×, SVG | `template: terminal` |
 | [Partnership lockup](/docs/studio/partnership-lockup) | `partnership` | Expression document | `partnership.*` (18) | PNG at 2×, SVG | `template: partnership` |
 | [Blog cover](/docs/studio/blog-cover) | `blog` | Expression document | `blog.*` (15) | PNG at 2×, SVG | `template: blog` |
-| [Slide templates](/docs/studio/slide-templates) | `slides` | Expression document, one page per slide | `slides.*` (21) | PNG at 2×, SVG, PDF deck | `template: slides` |
-| [Component library](/docs/studio/components) | `buttons` | Version 2: pattern, content, system, palette, typography, theme, code format | `components.*` (3) | React + Tailwind or HTML + CSS code (read or clipboard) | None |
+| [Slide templates](/docs/studio/slide-templates) | `slides` | Expression document with one page per slide | `slides.*` (21) | PNG at 2×, SVG, PDF deck | `template: slides` |
+| [Component library](/docs/studio/components) | `buttons` | Version 2: pattern, content, system, palette, typography, theme, code format | `components.*` (3) | React with Tailwind, or HTML with CSS, returned or copied to the clipboard | None |
 
-Action counts exclude the six standard actions every tool has: `source.read`, `source.apply`, `controls.list`, `control.activate`, `control.set`, and `artifact.download`. The [Studio Browser API](/docs/reference/browser-api) lists every action.
+The action counts leave out the six standard actions that every tool has: `source.read`, `source.apply`, `controls.list`, `control.activate`, `control.set` and `artifact.download`. [Studio Browser API](/docs/reference/browser-api) lists every action. The 2× PNG exports of the expression tools are capped at 4800 px on the longest edge.
 
-The [Shader Library](/docs/studio/shader-library) is not a tool of its own. Design Lab, Animation, Lottie, and the expression tools use it; `/api/materials` publishes it. Deterministic [tactile backgrounds](/docs/studio/logo-background) come from `POST /api/generate` with `kind: "background"`.
+The [Shader Library](/docs/studio/shader-library) is a shared material browser and is not a tool of its own. Design Lab, Animation, Lottie and the expression tools use it, and `/api/materials` publishes it. Deterministic [tactile backgrounds](/docs/studio/logo-background) come from `POST /api/generate` with `kind: "background"`.
 
 ## Output formats
 
 | Format | Producers | Behavior |
 | --- | --- | --- |
-| SVG | HTTP templates and backgrounds; expression tools; Moodboard | Standalone files with embedded fonts and images |
-| PNG | Design Lab, Moodboard, Brand elements, expression tools, Lottie frame, Animation poster | Lossless still; transparency where the composition has it |
+| SVG | HTTP templates and backgrounds, expression tools, Moodboard | Standalone files with the fonts and images embedded |
+| PNG | Design Lab, Moodboard, Brand elements, expression tools, Lottie frame, Animation poster | Lossless still with transparency where the composition has it |
 | JPG | Design Lab | Opaque still composited over the artboard background |
-| GIF | Design Lab, Animation, Lottie | Palette-based motion; Design Lab offers Blended loop or Raw motion; no audio |
-| MP4 | Design Lab, Animation, Lottie | Browser-encoded, H.264 preferred; Animation mixes audio |
-| PDF | Brand book (print dialog), Slide templates (deck) | Brand book prints 16 × 10 in pages; slide PDFs embed 2× page images |
+| GIF | Design Lab, Animation, Lottie | Palette-based motion without audio. Design Lab offers **Blended loop** or **Raw motion** |
+| MP4 | Design Lab, Animation, Lottie | Encoded in the browser with H.264 tried first. Animation mixes in its audio |
+| PDF | Brand book (print dialog), Slide templates (deck) | Brand book prints 16 × 10 in pages. Slide PDFs embed each page as a 2× image |
 | HTML | Brand elements email elements | 600 px table layout with inlined styles |
-| JSON | Identity, element briefs, project files, tool source, Lottie | Keep schema versions, IDs, and unknown fields |
+| JSON | Brand identity, element briefs, project files, tool source, Lottie | Keep the schema versions, IDs and unknown fields |
 | ZIP | Brand kit, logo pack | Stored without compression |
 | `.lottie` | Lottie | The original archive |
-| CSS, Tailwind, DTCG, Markdown | Brand kit, Color tokens, Typography | From the shared brand token serializers |
-| TSX, HTML + CSS | Component library | Generated component code |
+| CSS, Tailwind, DTCG, Markdown | Brand kit, Color tokens, Typography | Written by the shared brand token serializers |
+| TSX, HTML with CSS | Component library | Generated component code |
 
-See [Formats and portability](/docs/artifacts/formats-and-portability) for format details.
+[Formats and portability](/docs/artifacts/formats-and-portability) explains each format in detail.
 
 ## Shared editing systems
 
-| System | Behavior | Invariant |
+| System | Behavior | Guarantee |
 | --- | --- | --- |
-| Color control | Swatch, HEX, OKLCH, hue, optional opacity, screen eyedropper where supported | One normalized value feeds preview and export |
-| Canvas viewport | Zoom, fit, reset, pan, wheel and trackpad zoom | The view never changes artifact geometry |
-| Editable layers | Select, multi-select, drag, resize, nudge, snap | One transform drives canvas, source, saved design, and export |
-| Layer lists | Add, duplicate, hide, lock, reorder, group, align, delete | Ordered IDs are serialized; opacity belongs to each layer |
-| Source drawer | Apply, reset, copy, format, find and replace | Valid source updates the same state as the controls |
-| Saved designs | Named checkpoints and autosave | IndexedDB stores the document; a recovery journal protects unload timing |
-| Browser API | Controls, source, actions, downloads | The same validators and renderers as the visible UI |
+| Color control | Swatch, HEX, OKLCH, hue, optional opacity and a screen eyedropper where the browser supports it | One normalized value feeds the preview and the export |
+| Canvas viewport | Zoom, fit, reset, pan, and wheel or trackpad zoom | Zoom and pan do not change the artifact's geometry |
+| Editable layers | Select, multi-select, drag, resize, nudge, snap | One transform drives the canvas, the source, saved designs and the export |
+| Layer lists | Add, duplicate, hide, lock, reorder, group, align, delete | Layer order is serialized by ID, and each layer owns its opacity |
+| Source drawer | **Apply code**, **Reset**, **Copy**, **Format**, find and replace | Valid source updates the same state as the controls |
+| Saved designs | Named checkpoints and autosave | IndexedDB stores the document, and a small recovery journal covers page unload |
+| Browser API | Controls, source, actions, downloads | It uses the same validators and renderers as the visible interface |
 
 ## Interface choice
 
-- Use HTTP for deterministic, batchable artifacts that the generation contract fully describes.
-- Use the Browser API for anything rendered by Canvas, WebGL, WebGPU, local files, or browser codecs.
+- Use HTTP for deterministic artifacts that the generation contract fully describes, including batches.
+- Use the Browser API for anything rendered with Canvas, WebGL or WebGPU, and for local files and browser codecs.
 - Combine them when HTTP should author a Design Lab document and the browser should render it.
 
-See [Choose the right interface](/docs/agents/choose-interface).
+[Choose the right interface](/docs/agents/choose-interface) compares the two in more detail.

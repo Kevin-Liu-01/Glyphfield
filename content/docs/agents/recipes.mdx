@@ -1,10 +1,10 @@
 ---
 title: Agent recipes
-description: Complete programmatic workflows for discovery, design composition, material selection, saving, verification, and export.
+description: Copy complete agent workflows for discovery, SVG generation, tactile backgrounds, Design Lab sequences, safe source edits, brand setup and checked exports.
 icon: ListChecks
 ---
 
-These recipes show the full operation, including discovery and completion checks. Replace `BASE_URL` with the Glyphfield deployment origin.
+Each recipe includes discovery and a completion check. Set `BASE_URL` to the Glyphfield origin, which is `http://localhost:3012` for a local development server.
 
 ## Discover before generating
 
@@ -18,7 +18,7 @@ curl -fsS "$BASE_URL/api/identities" | jq '.identities[] | {id, name}'
 curl -fsS "$BASE_URL/api/generate" | jq '{schemaVersion, kinds}'
 ```
 
-Cache discovery only within the endpoint's advertised cache window. Fetch the generation contract again before emitting a request if the client may be stale.
+Most discovery routes allow caching for five minutes (`Cache-Control: public, max-age=300`). Read `GET /api/generate` again before a request if the cached copy may be older.
 
 ## Generate and save a raw SVG
 
@@ -39,7 +39,7 @@ curl -fsS -X POST "$BASE_URL/api/generate" \
 test -s one-system.svg
 ```
 
-The terminal success condition is a non-empty SVG file, not a `200` response alone.
+The task is complete when the file exists and is not empty. A `200` status alone does not prove that.
 
 ## Generate a tactile background
 
@@ -70,7 +70,7 @@ curl -fsS -X POST "$BASE_URL/api/generate" \
 
 ## Create and render a Design Lab sequence
 
-First generate the exact composition document:
+Design Lab is the Studio's layered composition tool. First generate the composition document:
 
 ```js
 const baseUrl = 'http://localhost:3012';
@@ -107,23 +107,22 @@ if (!response.ok) throw new Error(await response.text());
 const generated = await response.json();
 ```
 
-Then run inside the open Design Lab page:
+Then open `/studio?tool=material` in the browser and run:
 
 ```js
-await new Promise((resolve) => {
-  if (window.glyphfield?.studio) resolve();
-  else window.addEventListener('glyphfield:studio-api-ready', resolve, { once: true });
-});
-
-let studio = window.glyphfield.studio;
-if (studio.activeTool() !== 'material') {
-  const ready = new Promise((resolve) => {
-    window.addEventListener('glyphfield:studio-api-ready', resolve, { once: true });
+function readyStudio() {
+  return new Promise((resolve) => {
+    try {
+      if (window.glyphfield?.studio) return resolve(window.glyphfield.studio);
+    } catch {
+      // The tool is still loading. Wait for the ready event.
+    }
+    window.addEventListener('glyphfield:studio-api-ready', () => resolve(window.glyphfield.studio), { once: true });
   });
-  studio.activate('Design Lab');
-  await ready;
-  studio = window.glyphfield.studio;
 }
+
+const studio = await readyStudio();
+if (studio.activeTool() !== 'material') throw new Error('Open /studio?tool=material first.');
 
 await studio.applySource(generated.document);
 const artifact = await studio.invoke('design.export', {
@@ -137,7 +136,7 @@ if (!(artifact.blob instanceof Blob) || artifact.blob.size === 0) {
 }
 ```
 
-Re-read `window.glyphfield.studio` after switching tools because the active adapter is replaced.
+The Browser API covers only the active tool's workspace, so it cannot click the Studio sidebar. To change tools, load `/studio?tool=<tool id>&project=<project id>`, wait for the API again and read `window.glyphfield.studio` again.
 
 ## Edit an existing composition safely
 
@@ -159,11 +158,11 @@ if (applied.elements[firstText.id].content !== 'Updated by an agent') {
 }
 ```
 
-Preserve unknown fields from the read document. Do not reconstruct the canvas envelope when a targeted edit is sufficient.
+Keep the unknown fields of the document you read. Edit that document in place instead of rebuilding the canvas envelope.
 
 ## Set up a brand and export its tokens
 
-Validate without a browser, then apply in the Studio. The full workflow is in [Brand setup with an agent](/docs/agents/brand-setup).
+Validate without a browser, then apply in the Studio. [Brand setup with an agent](/docs/agents/brand-setup) describes the full workflow.
 
 ```bash
 curl -fsS "$BASE_URL/api/brand/validate" | jq '{schemaVersion, mergeRules, logoSlots: [.logoSlots[].id]}'
@@ -175,8 +174,11 @@ curl -fsS -X POST "$BASE_URL/api/brand/validate" \
 ```
 
 ```js
-const studio = window.glyphfield.studio; // on /studio?tool=identity&project=<id>
-await studio.invoke('identity.apply', { identity: patch, replace: ['colors', 'colorPairings'] });
+// On /studio?tool=identity&project=<id>
+const studio = window.glyphfield.studio;
+const patch = { tagline: 'Weather you can build on.', colors: [{ id: 'emphasis', hex: '#1F6FEB' }] };
+
+await studio.invoke('identity.apply', { identity: patch });
 const report = await studio.invoke('identity.audit');
 await studio.invoke('identity.save');
 const tokens = await studio.invoke('identity.export.kit', { format: 'tailwind' });
@@ -184,13 +186,16 @@ const tokens = await studio.invoke('identity.export.kit', { format: 'tailwind' }
 
 ## Use a local file
 
+In Design Lab, the file input with the accessible label `Choose logos for the canvas` adds each file as a logo layer:
+
 ```js
-const bytes = await fileHandle.getFile();
-const file = new File([bytes], 'mark.svg', { type: 'image/svg+xml' });
-window.glyphfield.studio.set('Upload mark', file);
+// fileHandle comes from a file picker the user approved.
+const picked = await fileHandle.getFile();
+const file = new File([picked], 'mark.svg', { type: 'image/svg+xml' });
+window.glyphfield.studio.set('Choose logos for the canvas', file);
 ```
 
-Only create a `File` from a source the user authorized. Wait for the preview or source to confirm the asset loaded before exporting.
+Create a `File` only from a source the user authorized. Wait until the new layer appears in the source or on the canvas before exporting.
 
 ## Export every supported format
 
@@ -204,12 +209,14 @@ for (const format of ['png', 'jpg', 'gif', 'mp4']) {
 }
 ```
 
-Do not run these exports concurrently. They share live canvases and browser encoder resources. Generate one, verify it, then continue.
+Do not run these exports in parallel. They share live canvases and browser encoders. Export one format, check it, then start the next.
 
 ## Failure handling
 
-1. For HTTP failures, parse `error.code`, `error.field`, and `error.message`.
-2. Do not retry unchanged validation input.
-3. For Browser API failures, call `describe()` and `controls()` again; the active tool may have changed.
-4. If a browser lacks MP4 encoding, report the capability failure and retain the source document; do not silently substitute GIF.
-5. If WebGL is unavailable, use a deterministic surface/background fallback only when it still satisfies the requested artifact.
+1. For an HTTP failure, read `error.code`, `error.field` and `error.message`.
+2. Do not retry unchanged input after a validation error.
+3. For a Browser API failure, call `describe()` and `controls()` again, because the active tool may have changed.
+4. If the browser cannot encode MP4, report the failure and keep the source document. Do not substitute GIF.
+5. If WebGL is unavailable, use an HTTP `background` SVG only when it still meets the request.
+
+See [API errors and limits](/docs/agents/errors) for every error code.

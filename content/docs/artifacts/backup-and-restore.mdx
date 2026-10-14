@@ -1,40 +1,42 @@
 ---
 title: Backup and restore
-description: Preserve identities, exact editable source, browser-local saves, assets, and rendered artifacts across browsers and Glyphfield versions.
+description: Back up identities, editable source, browser saves and original files outside the browser, and restore them in another browser, device or Glyphfield version.
 icon: Files
 ---
 
-Glyphfield is local-first, not account-synced. Browser storage makes everyday work fast and private, but the browser profile and site origin are not a durable backup. Keep portable source and original assets outside the browser whenever a design must survive device changes, site-data clearing, or a deployment moving to another hostname.
+Glyphfield is local-first: it keeps your work in the browser and has no account that syncs it. Browser storage keeps everyday work fast and private, but a browser profile on one site origin is not a lasting backup. Keep portable source and original files outside the browser whenever a design must survive a new device, cleared site data or a move to another hostname.
 
 <DocsMediaGrid>
   <DocsMedia alt='Glyphfield Design Lab showing a complete layered General Translation composition' caption='Preserve the editable composition' meta='CanvasDocument · assets · settings' src='/screenshots/studio-gt-design-lab-dark-2026.webp' />
   <DocsMedia alt='Glyphfield Animation showing a General Translation motion sequence' caption='Preserve motion intent' meta='Frames · timing · audio references' src='/screenshots/studio-gt-animation-dark-2026.webp' />
 </DocsMediaGrid>
 
-## What needs to be preserved
+## What to back up
 
-| Data | Normal owner | Portable by itself? | Backup action |
+| Data | Where it lives | Portable on its own | How to back it up |
 | --- | --- | --- | --- |
-| Project identity | Browser `localStorage` | Only after copying its validated JSON | Open **Code**, copy the current `BrandIdentity`, and save it as JSON |
-| Tool drafts and navigation | Browser `localStorage` | No | Copy source from each important source-enabled tool |
-| Design Lab autosave and named designs | IndexedDB plus a small recovery journal | Not across profiles or origins | Save a named design, then copy the current CanvasDocument from **Code** |
-| Converted Design Lab assets | IndexedDB and CanvasDocument asset records | Yes only when bytes are embedded | Run export preflight and retain any original file that remains external |
-| Captured shader frames | Content-addressed PNG Blobs in IndexedDB | Yes when PNG bytes are embedded in CanvasDocument assets | Capture the intended look and keep the complete portable source, not only its frame timestamp |
-| Uploaded images, fonts, Lottie, and audio | Browser memory, object URLs, or embedded records depending on the tool | Not always | Keep the original authorized files beside the source |
-| PNG, JPG, SVG, GIF, MP4, PDF | Downloaded file | Yes, but not editable | Keep beside source as the approved rendered proof |
+| Project identity | Browser `localStorage` | After you copy its JSON | In Brand identity, open the source drawer with **Code**, select **Copy** and save the `BrandIdentity` as a JSON file |
+| Tool drafts and navigation | Browser `localStorage` | No | Copy the source of each important tool from its source drawer |
+| Autosaves and named saves in Design Lab, Animation, Lottie and the expression tools | IndexedDB, plus a small recovery journal in `localStorage` | No. They stay in one browser profile and origin | Select **Save checkpoint**, then copy the current CanvasDocument from the source drawer |
+| Converted Design Lab assets | IndexedDB, and asset records in the CanvasDocument | Only when the bytes are embedded | Copy the portable source, and keep any original file that it does not embed |
+| Captured shader frames | PNG files in IndexedDB, named by content hash | When the PNG bytes are embedded in the CanvasDocument assets | Capture the intended look and keep the complete portable source. A timestamp alone does not reproduce the frame |
+| Uploaded images, fonts, Lottie files and audio | Browser memory, object URLs or embedded records, depending on the tool | Not always | Keep the original authorized files beside the source |
+| PNG, JPG, SVG, GIF, MP4, PDF | The downloaded file | Yes, but it is not editable | Keep it beside the source as the approved proof |
 
-Closing a Studio tab does not delete a project. Deleting a browser profile, clearing site data, using private browsing, or changing from one origin to another can remove or isolate local state.
+The expression tools are OpenGraph, Terminal card, Partnership lockup, Blog cover and Slide templates. Design Lab and Animation can also save a project file (`.glyphfield.json`) with **Download project file**. A project file embeds local images, saved frames and fonts, and **Open project file** reopens it.
 
-## Recommended backup bundle
+Closing a Studio tab does not delete a project. Deleting a browser profile, clearing site data, using private browsing, or moving to another origin can remove or hide local state.
 
-For every design that matters, keep one folder containing:
+## Backup folder
+
+For every design that matters, keep one folder that contains:
 
 1. The active identity JSON.
-2. The current tool source JSON or Lottie source.
+2. The current tool source JSON, project file or Lottie source.
 3. The approved rendered artifact.
-4. Original assets and font files that are not embedded in the source.
-5. A short note with identity ID, tool name, output dimensions, frame rate, duration, loop mode, and expected audio.
-6. License and attribution records for third-party marks, materials, fonts, and source media.
+4. Original assets and font files that the source does not embed.
+5. A short note with the identity ID, tool name, output dimensions, frame rate, duration, loop mode and expected audio.
+6. License and attribution records for third-party marks, materials, fonts and source media.
 
 Name the files as one set, for example:
 
@@ -55,17 +57,19 @@ launch-system/
 
 ### In the Studio
 
-1. Open the intended project and **Design Lab**.
-2. Wait until the save status reports that the workspace is autosaved.
-3. Create a named save so the current state has an explicit checkpoint.
-4. Open **Code** and select **Copy**.
-5. Save the copied JSON as `design-name.canvas.json` outside the browser.
-6. Export one PNG proof at the intended dimensions.
-7. If the design moves, export GIF or MP4 and record the selected duration, FPS, quality, and loop mode.
+1. Open the project and **Design Lab**, the layered composition tool.
+2. Wait until the save status shows **Autosaved**.
+3. Select **Save checkpoint** so the current state has a named save.
+4. Open the source drawer with **Code** and select **Copy**.
+5. Save the copied JSON outside the browser as `design-name.canvas.json`.
+6. Export one PNG proof at the intended size.
+7. If the design moves, export a GIF or MP4 and write down the duration, FPS, quality and loop mode.
 
-The Code drawer is the durable source boundary. A named save is still browser-local and should not be treated as an off-device backup.
+The source drawer is where source leaves the browser. A named save stays in the browser, so it is not an off-device backup.
 
-### Through the Browser API
+### With the Browser API
+
+The Browser API (`window.glyphfield.studio`) can capture the shader appearance and return the source in one call:
 
 ```js
 const studio = window.glyphfield.studio;
@@ -77,7 +81,7 @@ if (studio.activeTool() !== 'material') {
 const description = studio.describe();
 if (!description.source.read) throw new Error('Source reading is unavailable.');
 
-// Freeze and persist the actual visible shader appearance before backing it up.
+// Freeze and store the visible shader appearance before backing it up.
 const source = await studio.invoke('design.frame.capture');
 const document = JSON.parse(source);
 
@@ -85,27 +89,27 @@ if (document.schemaVersion !== 2) {
   throw new Error(`Unexpected CanvasDocument schema ${document.schemaVersion}.`);
 }
 
-// Return `source` to the calling agent or save it with the caller's authorized
-// file interface. Do not write directly into Glyphfield browser storage.
+// Return `source` to the calling agent or save it through an authorized
+// file interface. Do not write into Glyphfield's browser storage.
 ```
 
-Read the source again immediately before backup if a user has continued editing. Do not reconstruct a document from an example or from stale application state.
+If someone kept editing, read the source again right before the backup. Do not rebuild a document from an example or from stale state.
 
-Captured PNGs preserve the approved still even when the shader provider, GPU, or browser changes. Keep the editable recipe too. Fluid Energy requires prior simulation state to continue identically; its PNG preserves the still, not the fluid's history.
+A captured PNG keeps the approved still even when the shader engine, GPU or browser changes. Keep the editable recipe too. Fluid Energy needs its earlier simulation state to continue the same way, so its PNG keeps the still and not the simulation's history.
 
 ## Restore a composition
 
 ### In the Studio
 
 1. Open the correct project and tool.
-2. Open **Code**.
-3. Paste the complete saved object.
-4. Select **Apply** and resolve any validation error.
-5. Confirm the layer count and front-to-back order.
-6. Inspect logos, images, fonts, shader frames, converter colors, and output dimensions.
-7. Create a new named save only after the restored composition is visually correct.
+2. Open the source drawer with **Code**.
+3. Paste the complete saved document.
+4. Select **Apply code** and fix any validation error it reports.
+5. Confirm the layer count and the front-to-back order.
+6. Inspect the logos, images, fonts, shader frames, converter colors and output size.
+7. Select **Save checkpoint** only after the restored composition looks right.
 
-### Through the Browser API
+### With the Browser API
 
 ```js
 const studio = window.glyphfield.studio;
@@ -116,64 +120,64 @@ try {
   const restored = JSON.parse(studio.readSource());
   if (restored.schemaVersion !== 2) throw new Error('Restore did not normalize.');
 } catch (error) {
-  // `before` remains the recovery copy for this operation.
+  // `before` is the recovery copy for this operation.
   throw error;
 }
 ```
 
-`applySource()` validates before committing. A failed application should leave the current artifact unchanged, but retain the pre-restore source until the visual result has been verified.
+`applySource()` validates before it changes anything, so a failed application leaves the current artifact unchanged. Keep the source from before the restore until you have checked the visual result.
 
-## Move between browsers, devices, or origins
+## Move to another browser, device or origin
 
-Browser storage is scoped by origin and profile. `http://localhost:3012`, a preview deployment, and the production hostname have separate data stores even when they serve the same Git commit.
+Browser storage is separate for each origin and profile. `http://localhost:3012`, a preview deployment and the production hostname have separate stores, even when they serve the same Git commit.
 
-To move safely:
+To move work:
 
-1. Export source and original assets from the old origin.
+1. Export the source and original files from the old origin.
 2. Open the same or a newer compatible Glyphfield version at the new origin.
-3. Create or select the intended identity.
+3. Create or select the intended project.
 4. Apply the identity source first.
-5. Open each tool and apply its source.
-6. Reattach any non-embedded local font, image, audio, or Lottie file.
-7. Re-export a proof and compare it with the approved artifact.
+5. Open each tool and apply its source or open its project file.
+6. Attach again any local font, image, audio or Lottie file that the source does not embed.
+7. Export a proof and compare it with the approved artifact.
 
-Glyphfield does not currently provide a one-click archive of every project, draft, IndexedDB record, and original local file. Treat the source-plus-assets bundle above as the supported transfer path.
+Glyphfield has no single archive of every project, draft, IndexedDB record and original local file. The source-and-files folder described above is the supported way to move work.
 
 ## Autosave recovery
 
-Design Lab writes a complete autosave to IndexedDB and maintains a small synchronous recovery journal while a newer write is settling. On the same origin and browser profile, reloading the page can restore the newest consistent draft.
+Design Lab, Animation, Lottie and the expression tools write a complete autosave to IndexedDB. While a newer write is still in progress, a small recovery journal in `localStorage` holds the newest source. On the same origin and browser profile, a reload restores the newest complete draft.
 
-If recovery appears stuck:
+If recovery seems stuck:
 
 1. Do not clear site data.
-2. Reload the same origin once and wait for the autosave status to settle.
-3. Open the expected identity and Design Lab workspace.
-4. If source opens, copy it before making more edits.
-5. If IndexedDB is blocked, preserve any readable Code source and original files, then continue in a normal browser profile.
+2. Reload the same origin once and wait for the save status to settle.
+3. Open the expected project and tool.
+4. If the source drawer opens, copy the source before making more edits.
+5. If IndexedDB is blocked, keep any source you can read and the original files, then continue in a normal browser profile.
 
-Cleared site data cannot be reconstructed from Glyphfield unless an external source or artifact backup exists.
+Glyphfield cannot rebuild cleared site data. Recovery then depends on an external source or artifact backup.
 
 ## Migration rules
 
-- CanvasDocument schema 1 is migrated to schema 2 when it parses successfully.
+- A CanvasDocument schema 1 document migrates to schema 2 when it parses.
 - CanvasDocument schema 2 is the current portable scene graph.
-- Design Lab metadata source version 4 is the current complete composition model.
-- A `design-sequence` HTTP response contains a version-3 compatibility document. Apply it first, then re-read the normalized CanvasDocument before storing it as the durable source.
-- Unknown future canvas schema versions are rejected rather than guessed.
-- Stable IDs, page order, asset records, and unknown metadata should remain intact through any manual edit.
+- Design Lab metadata source version 4 is the current composition model.
+- A `design-sequence` HTTP response contains a version-3 compatibility document. Apply it first, then read the normalized CanvasDocument before storing it as the lasting source.
+- Unknown future canvas schema versions are rejected.
+- Keep stable IDs, page order, asset records and unknown metadata intact in any manual edit.
 
-See [Version compatibility](/docs/reference/version-compatibility) for the full matrix and [Troubleshooting](/docs/reference/troubleshooting) for recovery failures.
+[Version compatibility](/docs/reference/version-compatibility) has the full version table, and [Troubleshooting](/docs/reference/troubleshooting) covers recovery failures.
 
-## Restore verification
+## Restore checks
 
-A restore is complete only when:
+A restore is complete when:
 
 - The intended identity and tool are active.
-- Source applies without validation errors.
-- Layer count, order, transforms, opacity, and visibility match.
-- Embedded and local assets resolve.
+- The source applies without validation errors.
+- The layer count, order, transforms, opacity and visibility match.
+- Embedded and local assets load.
 - At least one still export is non-empty and has the expected dimensions.
-- Motion contains changing frames; seamless GIFs close cleanly; MP4 audio is present when required.
-- The restored source is copied again after normalization.
+- Motion exports contain changing frames, seamless GIFs close cleanly, and MP4 audio is present when required.
+- The normalized source has been copied again after the restore.
 
-See [Storage and privacy](/docs/artifacts/storage-and-privacy), [Source code editing](/docs/studio/source-editing), and [Formats and portability](/docs/artifacts/formats-and-portability).
+[Storage and privacy](/docs/artifacts/storage-and-privacy), [Source code editing](/docs/studio/source-editing) and [Formats and portability](/docs/artifacts/formats-and-portability) cover related topics.

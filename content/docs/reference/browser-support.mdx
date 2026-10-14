@@ -1,44 +1,45 @@
 ---
 title: Browser support
-description: Understand the browser capabilities required for Studio editing, persistence, WebGL materials, local files, GIF, MP4, Lottie, and PDF.
+description: Check which browser features the Glyphfield Studio needs for editing, saving, shaders, local files and exports, and what happens when one is missing.
 icon: MonitorCog
 ---
 
-Glyphfield checks browser capabilities rather than browser names. The documentation and deterministic HTTP API work with ordinary modern web features; Studio output depends on the graphics, storage, file, and codec capabilities required by the active tool.
+Glyphfield checks for browser capabilities instead of browser names. The documentation and the deterministic HTTP API need only ordinary modern web features. The Studio needs the graphics, storage, file and codec features that the active tool uses.
 
 <DocsMediaGrid>
   <DocsMedia alt='Glyphfield live material composition in Design Lab' caption='GPU material path' meta='Canvas · WebGL · frame capture' src='/screenshots/studio-gt-design-lab-dark-2026.webp' />
   <DocsMedia alt='Glyphfield Animation workspace with timeline and output controls' caption='Motion path' meta='Canvas · GIF · MP4 · audio' src='/screenshots/studio-gt-animation-light-2026.webp' />
 </DocsMediaGrid>
 
-## Capability matrix
+## Required capabilities
 
-| Capability | Required for | Degraded or failure behavior |
+| Capability | Used for | Behavior when missing |
 | --- | --- | --- |
-| JavaScript, modules, CSS grid/flex | All pages | Glyphfield does not provide a no-JavaScript Studio |
-| Canvas 2D and `canvas.toBlob()` | PNG, JPG, GIF preparation, many previews | Still or motion export reports that Canvas rendering/encoding is unavailable |
-| WebGL2 | Paper, Glyphfield GLSL, Fluid Energy, and ShaderGradient materials; Lottie export | The canvas shows a grey "Shader preview unavailable" placeholder and checks again every 2.5 seconds. Software rendering counts as unavailable |
-| WebGPU | The 70 Shaders.com library materials and every Design Lab image effect | Shaders.com materials show a labelled still; image effect layers pass the layers beneath through. Exports that include them stop with an error |
-| Half-float render targets (WebGL2) | Fluid Energy | The material fails to start |
-| IndexedDB | Named designs, complete autosaves, converted Design Lab assets | Persistence reports unavailable; copy current source before leaving the page |
-| `localStorage` | Projects, tabs, preferences, drafts, recovery journal | State may not survive reload; private or restricted contexts can block writes |
-| File, Blob, object URLs, image decoding | Local images, logos, fonts, Lottie, audio, downloads | The affected input or artifact fails explicitly |
-| Browser video encoder exposed through the MP4 pipeline | MP4 | Export reports codec unavailability; Glyphfield does not silently substitute GIF |
-| Web Audio decoding/encoding | Animation audio and MP4 audio track | Visual export may remain possible, but required audio must be treated as incomplete |
-| Print/PDF support | Brand book PDF | Use the browser print dialog; pagination can vary with print settings |
-| Clipboard API | **Copy tokens**, **Copy code**, **Copy prompt** | The copy fails; the `*.read` Browser actions return the same text |
-| EyeDropper API (HTTPS or localhost) | **Pick screen color** | The button is disabled with an explanation |
-| Brotli and `DecompressionStream` | Reading variable axes from WOFF2 and WOFF font files | Axes show as not readable; fonts still render |
+| JavaScript, ES modules, CSS grid and flexbox | Every page | The Studio does not work without JavaScript |
+| Canvas 2D and `canvas.toBlob()` | PNG and JPG export, GIF frames, most previews | The still or motion export reports that Canvas rendering or encoding is unavailable |
+| WebGL2 | Paper Shaders, Glyphfield GLSL studies, Fluid Energy, ShaderGradient and the other WebGL materials | The canvas shows a grey placeholder labelled "Shader preview unavailable" and checks for WebGL2 again every 2.5 seconds. Software rendering counts as unavailable |
+| WebGL (version 1 or 2) | Lottie playback and Lottie export, which use the dotLottie WebGL renderer | The Lottie frame cannot be read and the export fails |
+| WebGPU | Shaders.com materials and every Design Lab image effect | A Shaders.com material shows its still preview with the note "WebGPU is unavailable here. Showing a still preview." An image Effect layer shows the layers beneath it unchanged. An export that includes either one stops with an error |
+| Float render targets in WebGL2 | Fluid Energy | The material fails to start |
+| IndexedDB | Named saves and complete autosaves in Design Lab, Animation, Lottie and the expression tools, converted assets, and captured shader frames | The save status reports a failure such as **Autosave failed**. Copy the current source before leaving the page |
+| `localStorage` | Projects, tabs, preferences, tool drafts and the autosave recovery journal | State may not survive a reload. Private or restricted contexts can block writes |
+| File, Blob, object URLs and image decoding | Local images, logos, fonts, Lottie files, audio and downloads | The affected import or export fails with an error |
+| WebCodecs video encoding (H.264 is tried first) | MP4 | The export fails with "This browser cannot encode an MP4 video." Glyphfield does not substitute GIF |
+| Web Audio decoding and WebCodecs audio encoding | Animation audio and the MP4 audio track | When the timeline has audio and no audio codec is available, the MP4 export fails with "This browser cannot encode an MP4 audio track." |
+| Printing | Brand book PDF | Pagination can vary with the print settings |
+| Clipboard API | **Copy tokens**, **Copy code**, **Copy prompt** | The copy fails. The matching `*.read` Browser API actions return the same text |
+| EyeDropper API on HTTPS or localhost | **Pick screen color** | The button is disabled and explains why |
+| `DecompressionStream` with Brotli | Reading variable axes from WOFF2 and WOFF files | The axes show as "Not readable in this browser". The fonts still render |
 
-## Baseline recommendation
+## Recommended setup
 
-Use a current desktop browser with hardware acceleration enabled, normal persistent storage, downloads allowed, and enough memory for the selected canvas size. Motion rendering is substantially more demanding than browsing documentation or exporting a small still.
+Use a current desktop browser with hardware acceleration on, persistent storage, downloads allowed, and enough memory for the selected canvas size. Rendering motion needs much more memory and GPU time than reading the documentation or exporting a small still.
 
-For production verification, test the actual target browsers rather than inferring support from a user-agent string. MP4 and WebGL availability can differ across operating systems, GPU drivers, browser settings, and managed-device policies.
+For production checks, test the browsers your audience uses instead of inferring support from a user-agent string. MP4 and WebGL support can differ across operating systems, GPU drivers, browser settings and managed-device policies.
 
 ## Detect features at runtime
 
-An integration can perform a small preflight before opening a large job:
+An integration can run a short check before it starts a large job:
 
 ```js
 // A canvas holds one context type, so each check uses its own canvas.
@@ -48,6 +49,7 @@ const support = {
   canvas2d: Boolean(canvas().getContext('2d')),
   webgl2: Boolean(canvas().getContext('webgl2', { failIfMajorPerformanceCaveat: true })),
   webgpu: 'gpu' in navigator && Boolean(await navigator.gpu.requestAdapter().catch(() => null)),
+  webCodecs: 'VideoEncoder' in window,
   indexedDb: 'indexedDB' in window,
   localStorage: (() => {
     try {
@@ -62,49 +64,51 @@ const support = {
 };
 ```
 
-This is a coarse check. The definitive test for MP4 is starting the real encoder, and the definitive test for a material is rendering it through the active Glyphfield adapter.
+This check is coarse. The reliable test for MP4 is starting the real encoder, and the reliable test for a material is rendering it in the Studio.
 
 ## WebGL and WebGPU behavior
 
-Shader Library cards are static WebP thumbnails, so browsing the library does not start GPU renderers. Live canvases render only while within 160 px of the viewport and stop when the page is hidden. Every WebGL material needs WebGL2; there is no WebGL1 path. Glyph Field renders with Canvas 2D. Design Lab's **Live shader preview quality** limits live shader resolution (see [Shaders and time](/docs/studio/design-lab/shaders#preview-quality)).
+Shader Library cards are static WebP thumbnails, so browsing the library does not start any GPU renderer. A live material canvas renders only while it is within 160 px of the viewport, and it stops while the page is hidden. Every live WebGL material needs WebGL2, and there is no WebGL1 fallback. The Glyph field material draws with Canvas 2D. Design Lab's **Live shader preview quality** setting limits the live shader resolution ([Shaders and time](/docs/studio/design-lab/shaders#preview-quality) explains the options).
 
-If a WebGL context is lost, Glyphfield remounts the renderer after 350 ms, up to five times, then marks the surface failed; after a 2.5-second cooldown it can try again. When recovery cannot restore the renderer, keep the source and use another supported environment. A static thumbnail demonstrates the intended look but does not prove that a requested animated file contains real motion.
+When a material is replaced, the previous material stays on the canvas, paused, until the new one has drawn its first frame (for at most 8 seconds). Then it fades out over 160 ms.
+
+If a WebGL context is lost, Glyphfield remounts the renderer after 350 ms. After five remounts it marks the surface as failed, and after a 2.5-second pause it tries again. When the renderer does not recover, keep the source and continue in another supported browser. A static thumbnail shows the intended look but does not prove that an animated export contains real motion.
 
 ## Motion and memory
 
-Export cost grows with width × height × frame count. A four-second 1920-pixel animation at 30 FPS requires far more memory and GPU/CPU work than a 960-pixel 15 FPS proof.
+Export cost grows with width × height × frame count. A four-second, 1920-pixel animation at 30 FPS needs far more memory and GPU and CPU time than a 960-pixel proof at 15 FPS.
 
-When a browser is under pressure:
+When the browser is under memory pressure:
 
 1. Save and copy the current source.
-2. Close duplicate Studio tabs and stop live sequence preview.
+2. Close duplicate Studio tabs and stop any live sequence preview.
 3. Export one format at a time.
 4. Test at a smaller width or frame rate.
-5. Return to final dimensions only after the pipeline succeeds.
+5. Return to the final dimensions after the smaller export succeeds.
 
-Lowering the proof settings is a diagnostic step, not permission to deliver a lower-quality artifact than requested.
+A smaller proof is a diagnostic step. Deliver the size and quality that were requested.
 
 ## Private browsing and embedded webviews
 
-Private browsing, strict tracking protection, sandboxed iframes, and embedded webviews can limit storage, downloads, file selection, clipboard access, WebGL, or codecs. Glyphfield may remain visually usable while persistence or export is unavailable.
+Private browsing, strict tracking protection, sandboxed iframes and embedded webviews can limit storage, downloads, file selection, clipboard access, WebGL or codecs. The Studio can look normal while saving or exporting is unavailable.
 
-Do not rely on browser-local saves in an ephemeral profile. Copy source and download artifacts during the same session.
+Do not rely on browser-local saves in a temporary profile. Copy the source and download the artifacts during the same session.
 
 ## Reduced motion
 
-The Studio respects `prefers-reduced-motion`, and **Reduce motion** in Visual settings pauses decorative effects. Design Lab's Auto preview quality does not sample frame times while reduced motion is on. Exported motion remains an explicit user action. Products embedding exported animation should provide a still alternative and honor `prefers-reduced-motion` in playback behavior.
+The Studio follows the operating system's `prefers-reduced-motion` setting. **Reduce motion** in the Studio's Visual settings pauses decorative effects and makes interface transitions instant. While the operating system requests reduced motion, Design Lab's Auto preview quality stops measuring frame times. Exporting motion is always an explicit action. A product that embeds exported animation should offer a still alternative and respect `prefers-reduced-motion` during playback.
 
 ## Browser acceptance test
 
-For every supported production environment:
+For each production browser:
 
-1. Load `/docs` and `/studio` without console-fatal errors.
-2. Create a project and confirm it survives reload.
+1. Load `/docs` and `/studio` and confirm that the console shows no fatal errors.
+2. Create a project and confirm that it survives a reload.
 3. Open Design Lab and render a WebGL2 material and a Shaders.com WebGPU material.
-4. Import a small authorized image and confirm it survives a source round trip.
-5. Export PNG and confirm MIME type, dimensions, and non-zero bytes.
-6. Export a short GIF and inspect multiple frames plus the seam.
-7. Export MP4 and confirm video playback; verify audio when required.
-8. Open a saved design after reload and compare it to the exported proof.
+4. Import a small authorized image and confirm that it survives a source round trip.
+5. Export a PNG and confirm its MIME type, dimensions and non-zero size.
+6. Export a short GIF and inspect several frames and the point where it loops.
+7. Export an MP4 and confirm that it plays, with audio when audio is required.
+8. Open a saved design after a reload and compare it with the exported proof.
 
-See [Troubleshooting](/docs/reference/troubleshooting), [Formats and portability](/docs/artifacts/formats-and-portability), and [Accessibility](/docs/reference/accessibility).
+[Troubleshooting](/docs/reference/troubleshooting), [Formats and portability](/docs/artifacts/formats-and-portability) and [Accessibility](/docs/reference/accessibility) cover related topics.

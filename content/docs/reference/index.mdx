@@ -1,29 +1,32 @@
 ---
-title: Reference
-description: Quick access to endpoint, capability, output, and keyboard reference material.
+title: Reference overview
+description: Find the exact routes, Browser API actions, source formats, versions, shortcuts, browser requirements and licenses that Glyphfield documents.
 icon: BookMarked
 ---
 
-Use this section when you already understand the workflow and need exact routes, output availability, or keyboard behavior.
+The reference pages list exact routes, actions, formats, limits and keyboard behavior. Use them when you already know the workflow and need a specific value.
 
-- [Endpoint reference](/docs/reference/endpoints)
-- [Capability matrix](/docs/reference/capability-matrix)
-- [Source format reference](/docs/reference/source-formats)
-- [Version compatibility](/docs/reference/version-compatibility)
-- [Studio Browser API](/docs/reference/browser-api)
-- [Browser support](/docs/reference/browser-support)
-- [Self-hosting](/docs/reference/self-hosting)
-- [API security](/docs/reference/api-security)
-- [Troubleshooting and recovery](/docs/reference/troubleshooting)
-- [Accessibility](/docs/reference/accessibility)
-- [Keyboard shortcuts](/docs/reference/shortcuts)
-- [Social previews](/docs/reference/social-previews)
-- [Licensing](/docs/reference/licensing)
+- [Endpoint reference](/docs/reference/endpoints): every public HTTP route, its response and its errors.
+- [Capability matrix](/docs/reference/capability-matrix): what each Studio tool can read, run and export.
+- [Source format reference](/docs/reference/source-formats): the JSON source behind each tool.
+- [Version compatibility](/docs/reference/version-compatibility): the version numbers and how migration works.
+- [Studio Browser API](/docs/reference/browser-api): `window.glyphfield.studio` methods and actions.
+- [Browser support](/docs/reference/browser-support): the browser features the Studio needs.
+- [Self-hosting](/docs/reference/self-hosting): running your own deployment.
+- [API security](/docs/reference/api-security): input limits, CORS and the production rate limit.
+- [Troubleshooting and recovery](/docs/reference/troubleshooting): symptoms, causes and draft recovery.
+- [Accessibility](/docs/reference/accessibility): keyboard use, reduced motion and accessible exports.
+- [Keyboard shortcuts](/docs/reference/shortcuts): every shortcut in the Studio and the docs.
+- [Social previews](/docs/reference/social-previews): the OpenGraph image routes and how crawlers reach them.
+- [Licensing](/docs/reference/licensing): the MIT license and the material with its own terms.
+
+Machine-readable versions of the same contracts:
+
 - [OpenAPI 3.1 document](/openapi.json)
 - [Agent manifest](/api/agent)
-- [Machine runbook](/llms.txt)
-- [Complete agent corpus](/llms-full.txt)
+- [Agent router](/llms.txt)
+- [Complete documentation as plain text](/llms-full.txt)
 
 <DocsMedia alt='Glyphfield Design Lab illustrating the browser-rendered systems described by the reference' caption='Reference maps to the real Studio' meta='Catalog · source · controls · outputs' src='/screenshots/studio-gt-design-lab-dark-2026.webp' />
 
-The API contract returned by `GET /api/generate` is authoritative when it differs from prose documentation.
+When the contract returned by `GET /api/generate` differs from these pages, the contract is correct.

@@ -1,27 +1,29 @@
 ---
 title: Connect an agent
-description: Discover Glyphfield, choose an identity and capability, submit a generation request, and save the returned artifact.
+description: Point an agent at a Glyphfield deployment, read the discovery routes in order, send a first generation request, and hand Design Lab documents to the browser.
 icon: PlugZap
 ---
 
-## Connection sequence
+An agent connects to a Glyphfield origin: the base URL of a deployment, or `http://localhost:3012` for a local development server. The API routes send `Access-Control-Allow-Origin: *`, so a web page on another origin can call them.
 
-An agent should follow this sequence for every new deployment origin:
+## Discovery order
 
-1. Fetch `/llms.txt` for the concise operating router. Fetch `/llms-full.txt` when the task needs the complete product model.
-2. Fetch `/api/agent` for the current version, policies, resources, and contract.
-3. Fetch `/api/labs` to discover the current Studio plugin surface.
-4. Fetch `/api/catalog` when selecting a deterministic background or tactile surface recipe; its `surfaceLibrary` contains every preset, attribution record, and physical control.
-5. Fetch `/api/materials` when selecting a shader or editing shared material controls.
-6. Fetch `/api/identities` when using any built-in preset.
-7. Fetch `/api/elements` when choosing a brand application.
-8. Fetch `GET /api/generate` immediately before constructing a request and validate against its `requestSchema` when possible.
-9. `POST application/json` to `/api/generate`.
-10. Save the returned artifact, or apply a returned Design Lab document through `window.glyphfield.studio` for browser-native Canvas/WebGL export.
+Follow these steps for each new origin:
 
-Do not infer undocumented enum values. Do not scrape the client bundle when a structured endpoint provides the same information.
+1. Read `/llms.txt` for the short guide. Read `/llms-full.txt` when the task needs the complete product model.
+2. Read `/api/agent` for the API version, policies, resources and contracts.
+3. Read `/api/labs` for the Studio tools.
+4. Read `/api/catalog` when choosing a background or tactile surface. Its `surfaceLibrary` holds every surface preset with its attribution and controls.
+5. Read `/api/materials` when choosing a shader or an image effect.
+6. Read `/api/identities` when using a built-in identity.
+7. Read `/api/elements` when choosing a brand element.
+8. Read `GET /api/generate` right before building a request. Validate the body against its `requestSchema` when the client supports JSON Schema.
+9. Send the request to `/api/generate` as `POST` with `Content-Type: application/json`.
+10. Save the returned artifact. For a `design-sequence` response, apply its `document` through `window.glyphfield.studio` and export in the browser.
 
-## Shell connection check
+Use only the enum values that the contract lists. Read the structured routes instead of the client JavaScript bundle.
+
+## Shell check
 
 ```bash
 BASE_URL=http://localhost:3012
@@ -34,7 +36,7 @@ curl -fsS "$BASE_URL/api/materials" | jq '{ count, engines, sharedBy }'
 curl -fsS "$BASE_URL/api/generate" | jq '{kinds: (.kinds | keys), requestSchema}'
 ```
 
-For a deployed instance, replace `BASE_URL` with its origin.
+For a deployed instance, set `BASE_URL` to its origin.
 
 ## TypeScript discovery client
 
@@ -55,9 +57,9 @@ console.log(identities.identities.length, elements.elements.length);
 console.log(manifest.studioBrowserApi.global);
 ```
 
-Independent discovery requests can run concurrently. Fetch the generation contract again if substantial time passes before generation.
+The discovery requests do not depend on each other, so they can run in parallel. Read the generation contract again if much time passes before the request.
 
-## Minimal generation call
+## First generation request
 
 ```ts
 const response = await fetch(`${baseUrl}/api/generate`, {
@@ -78,11 +80,11 @@ if (!response.ok) throw new Error(await response.text());
 const svg = await response.text();
 ```
 
-The raw response is a complete SVG string.
+With `output: 'raw'`, the response body is a complete SVG document.
 
-## Programmatic Design Lab sequence
+## Design Lab sequence
 
-The HTTP API creates the exact source document; the browser API renders it through the same live shader canvases and compositor as the UI.
+`POST /api/generate` builds the source document for Design Lab, the layered composition tool. The Browser API then renders it with the same shader canvases and compositor as the Studio UI.
 
 ```ts
 const response = await fetch(`${baseUrl}/api/generate`, {
@@ -100,7 +102,7 @@ const response = await fetch(`${baseUrl}/api/generate`, {
 });
 const generated = await response.json();
 
-// Run inside the open /studio page after selecting Design Lab.
+// Run inside /studio?tool=material, the Design Lab page.
 const studio = window.glyphfield.studio;
 if (studio.activeTool() !== 'material') throw new Error('Open Design Lab first.');
 await studio.applySource(generated.document);
@@ -111,11 +113,11 @@ const artifact = await studio.invoke('design.export', {
 });
 ```
 
-Use `studio.describe()` before invoking tool-specific actions. Its action contracts specify exact inputs and outputs, while its capability record distinguishes direct Browser actions, visible Browser controls, and deterministic HTTP generation. `studio.controls()` and the accessible-label `activate`/`set` methods make every visible UI operation programmatically available, including tools without a headless renderer. Export with PNG, JPG, GIF, or MP4; omit `download` when the caller wants only the returned Blob, or call `studio.download(artifact)` later.
+Call `studio.describe()` before tool-specific actions. It returns each action's input and output contract. Its capability record marks each export as a direct Browser action (`browser-action`), a visible control (`browser-control`) or HTTP generation (`http`). `studio.controls()`, `activate(label)` and `set(label, value)` operate the visible controls of the active tool by accessible label, which covers tools that have no export action. `design.export` takes `png`, `jpg`, `gif` or `mp4`. Leave out `download` to receive only the returned Blob, and call `studio.download(artifact)` to save it later.
 
-## Prompting an agent
+## Agent prompt
 
-Point an LLM at the runbook rather than reproducing the full schema in a prompt:
+Give a language model the guide URL instead of pasting the schema into the prompt:
 
 ```text
 Read https://YOUR_ORIGIN/llms.txt and the linked agent manifest.
@@ -124,12 +126,12 @@ Save the raw SVG response as gt-agenda.svg.
 Do not use undocumented enum values.
 ```
 
-This keeps the deployment’s current contract authoritative.
+The deployment's own contract then decides which fields are valid.
 
-For broad implementation work, replace `/llms.txt` with `/llms-full.txt`. For a focused task, load one page such as `/api/docs/studio/design-lab` or `/api/docs/reference/browser-api`.
+For broad implementation work, point to `/llms-full.txt` instead. For a focused task, point to one page, such as `/api/docs/studio/design-lab` or `/api/docs/reference/browser-api`.
 
 ## Browser source workflow
 
-When a task requires an artifact that the public generation API cannot fully express, open the matching Studio tool and use `window.glyphfield.studio`. Prefer `readSource`/`applySource` for exact documents and `controls`/`activate`/`set` for visible operations. Source remains available while the tool is active, whether or not the Code drawer is open; the drawer is the human-facing version of the same workflow.
+When `POST /api/generate` cannot express the artifact, open the matching Studio tool and use `window.glyphfield.studio`. Use `readSource` and `applySource` for exact documents, and use `controls`, `activate` and `set` for visible operations. Source stays readable while the tool is active, whether or not the source drawer is open. The source drawer (**File** → **Edit source code**) shows the same document to a person.
 
-Do not paste an arbitrary Studio source document into `POST /api/generate`. The drawer is the browser-local document for an open tool; the generation route is a separate versioned HTTP contract. `design-sequence` explicitly returns an apply-ready `document`. See [Browser workflow](/docs/agents/browser-workflow), [Source code editing](/docs/studio/source-editing), and [Source formats](/docs/reference/source-formats).
+Do not send a Studio source document to `POST /api/generate`. A source document is the browser-local state of one open tool, and the generation route has its own versioned contract. Only a `design-sequence` response contains an apply-ready `document`. See [Browser-agent workflow](/docs/agents/browser-workflow), [Source code editing](/docs/studio/source-editing) and [Source format reference](/docs/reference/source-formats).

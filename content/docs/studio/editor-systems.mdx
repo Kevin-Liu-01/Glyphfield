@@ -1,188 +1,156 @@
 ---
-title: Editor systems and plugins
-description: Reuse the stateful color, canvas, source, layer, select, material, and persistence primitives that keep Studio tools consistent.
+title: Shared editor components
+description: Reuse the shared shell, color, canvas, layer, source, select and storage components when you build or change a Studio tool in the Glyphfield codebase.
 icon: Blocks
 ---
 
-Glyphfield tools are composed from shared editor systems. A generator should not invent its own color field, zoom bar, layer behavior, select menu, or draft-storage scheme. Reusing these components keeps interaction state, accessibility, and exports consistent across the Studio.
+Studio tools in the Glyphfield codebase are built from shared components and hooks for the tool shell, color fields, zoom, layer editing, select menus, source editing and draft storage. A contributor who builds a tool from them gets the same interaction, accessibility, automation and export behavior as the other tools.
 
 <DocsMediaGrid>
-  <DocsMedia alt='Design Lab showing shared library, canvas viewport, inspector, and layer dock systems' caption='Layered editor systems' meta='Selection · zoom · source · persistence' src='/screenshots/studio-gt-design-lab-dark-2026.webp' />
-  <DocsMedia alt='Brand Elements showing identity-aware artifact controls' caption='Identity-aware systems' meta='Shared assets · color · output' src='/screenshots/studio-gt-brand-elements-dark-2026.webp' />
+  <DocsMedia alt='Design Lab showing shared library, canvas viewport, inspector, and layer dock systems' caption='Layered editor components' meta='Selection · zoom · source · persistence' src='/screenshots/studio-gt-design-lab-dark-2026.webp' />
+  <DocsMedia alt='Brand Elements showing identity-aware artifact controls' caption='Identity-aware controls' meta='Shared assets · color · output' src='/screenshots/studio-gt-brand-elements-dark-2026.webp' />
 </DocsMediaGrid>
 
 ## Component map
 
-| Component | Responsibility | State owner | Reused by |
-| --- | --- | --- | --- |
-| `StudioToolHeader` / `StudioFileMenu` | Shared header hierarchy, explicit file operations, and advanced source access | Host supplies existing action callbacks | Every source-enabled tool |
-| `StudioActionMenu` | Named, keyboard-operable toolbar menus built on the shared context menu | Trigger owns open state; active workspace owns the portal | Project actions and File menus |
-| `LabInspectorSection` | Icon-labeled, collapsible inspector sections; children stay mounted | Local presentation state only | Shared libraries and inspectors |
-| `ColorControl` | Native swatch, HEX, OKLCH, and optional opacity | Parent owns color; component validates and converts edits | Brand identity, Color tokens, Animation, Design Lab, Brand elements, finishes |
-| `CanvasViewport` | Zoom, reset, fit, clipping, pan, and scrollable stage | Persists view state per project and tool | Moodboards, Brand elements, OpenGraph, templates, Design Lab |
-| `EditableCanvasLayer` | Selection, drag, resize, keyboard nudge, and selection handles | Parent owns the transform; component owns the active pointer session | Slide, partnership, blog, and expression canvases |
-| `CanvasLayerPanel` | Layer selection, order, alignment, disabled actions, and reset | Controlled by the host tool; emits semantic layer operations | Template and slide systems, ready for any layered generator |
-| `SourceCodeDrawer` | Right-side source editing, validation feedback, apply, reset, and close | Host supplies the current serialized source and an apply function | Identity, boards, motion, surfaces, templates, foundations, and components |
-| `sourceCode` helpers | Parse JSON objects and read constrained strings, numbers, booleans, arrays, and nested objects | Stateless validation helpers | Every source-enabled Studio tool |
-| `canvasDocument` | Versioned pages, elements, constraints, resources, history, checkpoints, and export preflight | Immutable scene graph and command history | Migration target for every editable artifact and agent operation |
-| `StudioSelect` | Consistent select trigger, popover, keyboard navigation, and value changes | Controlled value | Fonts, assets, materials, layouts, sizes, languages, presets |
-| `MaterialFinishControls` | Reflection, shadow, border, glass, and finish presets | Controlled finish object | Animation and logo-material surfaces |
-| `LogoAppearanceControls` | Inversion, ordered dither, alpha-aware SVG outline, shadow color, blur, opacity, and offsets | Controlled logo appearance object | Design Lab, OpenGraph, and Brand elements |
-| `useStudioDraft` | Project-and-tool-scoped browser persistence | `localStorage` through one shared hook | Tool fields, zoom, layers, surfaces, layout, and export settings |
-| `usePortableCanvasWorkspace` | Canvas serialization and exact autosave lifecycle | CanvasDocument plus IndexedDB/recovery adapter | Design Lab and portable layered workspaces |
-| `studioAutomation` | Accessible controls, source round trips, tool actions, and Blob download | Active tool adapter | Every navigable Studio tool |
+| Component or module | Responsibility | Used by |
+| --- | --- | --- |
+| `ToolShell` (`src/components/tools/ToolShell.tsx`) | Tool header, left and right sidebars, the **File** menu, the lazily loaded source drawer and Browser API registration | Color tokens, Typography, Component library and the five expression tools |
+| `StudioToolHeader` | Header with the tool icon, title, description, a status slot and an actions slot | `ToolShell` and the tools that build their own shell |
+| `StudioFileMenu` | The **File** menu: optional **Open project file** and **Download project file**, tool-specific sections, and **Edit source code** under **Advanced** | Every tool with a source document |
+| `StudioActionMenu` (`src/components/ui/`) | A named toolbar button that opens the shared `StudioContextMenu` in a portal. Arrow keys also open it | **File**, **More exports** and the Studio header |
+| `LabInspectorSection` (`src/components/LabWorkspace.tsx`) | Collapsible inspector section with an icon. Collapsed content stays mounted | Design Lab, Animation, Lottie, Moodboard, Brand elements and Brand book, and every `ControlSection` from `src/components/tools/ToolFields.tsx` |
+| `ColorControl` (`src/components/ui/ColorControl.tsx`) | Swatch, picker, HEX, OKLCH, optional opacity and the screen eyedropper. The parent owns the value | Brand identity, Color tokens, Component library, Design Lab, Brand elements, Lottie, the expression tools and **Visual settings** |
+| `CanvasViewport` | Zoom, fit, view reset, pan, and optional **Undo**, **Redo** and **Action history**. Zoom is saved per project and tool | Design Lab, Animation, Lottie, Moodboard, Brand elements and the expression tools |
+| `EditableCanvasLayer` | Selection, move, resize, keyboard nudge, snapping guides and an optional rotate handle. The parent owns the transform | Design Lab, Animation and the expression tools |
+| `SourceCodeDrawer` and `LazySourceCodeDrawer` | The JSON source drawer. Tools mount `LazySourceCodeDrawer`, which loads the editor and its syntax grammar the first time a drawer opens | Every tool with a source document |
+| `src/lib/sourceCode.ts` | JSON parsing and diagnostics, rich-text space cleanup, formatting, and readers for constrained strings, numbers, Booleans, arrays and objects | Source validators in every tool |
+| `src/lib/canvasDocument.ts` | CanvasDocument schema 2: pages, elements, assets, parsing, serialization, mutations, history helpers and preflight | Design Lab, Animation, Lottie and the expression tools |
+| `StudioSelect` (`src/components/ui/`) | Select trigger and popover built on Radix Select, with keyboard navigation | Fonts, assets, materials, layouts, formats, languages and presets |
+| `MaterialFinishControls` | **Finish preset**, **Shadow**, **Border**, **Reflection** and **Liquid glass** | Animation frames and backgrounds |
+| `LogoAppearanceControls` | Invert, dither, outline and shadow for logos, images and stickers | Design Lab, Brand elements and the expression tools |
+| `useStudioDraft` (`src/hooks/usePersistentState.ts`) | Field state saved in `localStorage` under one key per project, tool and field | Tool fields, zoom, layers, surfaces, layouts and export settings |
+| `usePortableCanvasWorkspace` (`src/hooks/`) | Embeds assets, serializes the CanvasDocument, restores and writes autosave, and registers the project snapshot used when a project is duplicated | Design Lab, Animation, Lottie and the expression tools |
+| `src/lib/studioAutomation.ts` | The Browser API registry (`window.glyphfield.studio`): accessible controls, source round trips, tool actions and Blob downloads | Every Studio tool |
 
 ## Color control
 
-`ColorControl` is one component with optional capabilities rather than separate pickers for every tool.
-
-### States
+`ColorControl` is one component with optional features. By default it is compact: a row with the swatch, the label, the HEX value and the opacity opens a picker popover. `compact={false}` shows the swatch, HEX and OKLCH fields inline for dedicated color-editing surfaces.
 
 | State | Behavior |
 | --- | --- |
-| Resting | Compact row with the current swatch, label, normalized HEX, and optional opacity |
-| Open | Full picker with HEX, OKLCH, hue, saturation/brightness, and optional opacity; `compact={false}` remains available for dedicated color-editing surfaces |
-| Screen eyedropper active | **Pick screen color** (dropper icon) samples any visible screen pixel, including outside the browser; selecting commits one normalized HEX edit without changing opacity; Escape cancels |
-| HEX editing | Commits on blur or Enter; invalid input leaves the current color unchanged |
-| OKLCH editing | Parses perceptual color input and converts it to the shared HEX storage format |
-| With opacity | Adds a zero-to-100-percent range while keeping color and opacity independently controlled |
-| Dragging | Coalesces picker and preview updates to animation frames; the native slider thumb stays responsive and release commits the final value immediately |
+| Resting | The swatch, label, normalized HEX and optional opacity |
+| Open | Saturation and brightness area, hue slider, **Pick screen color**, H, S and V readouts, HEX, OKLCH and optional opacity |
+| HEX editing | Commits on blur or Enter. Escape cancels. Invalid input leaves the color unchanged |
+| OKLCH editing | Parses OKLCH input and converts it to the stored HEX value |
+| With opacity | Adds a 0–100% range. Color and opacity change independently |
+| Dragging | Picker and preview updates are grouped into animation frames. Releasing the pointer commits the final value |
+| Eyedropper active | **Pick screen color** samples any visible pixel on the screen, including outside the browser. A sample commits one HEX edit and leaves opacity unchanged. Escape cancels |
 
-The conversion functions live in `src/lib/color.ts`, so the inspector, generated token CSS, and exported graphics use the same normalization rules.
+The conversion functions (`normalizeHex`, `formatOklch`, `parseOklch`, `oklchToHex`, `hexToHsv` and `hsvToHex`) live in `src/lib/color.ts`.
 
-The screen eyedropper is shared by compact and expanded color pickers. It requires
-a browser with the EyeDropper API on HTTPS or localhost; unsupported browsers show
-a disabled button with an explanation and retain the other color controls. Closing
-the picker or leaving its editor cancels an unfinished sample.
-
-Browser API control discovery exposes the uniquely labeled `{color label} pick screen color`
-button. Screen sampling requires a real user gesture and native screen selection;
-agents should use the existing HEX or OKLCH controls for deterministic edits and
-re-read the source to verify completion. This browser-only interaction does not change
-the source schema, tool catalog, or deterministic HTTP generation contract.
+The eyedropper (`src/components/ui/ScreenColorPicker.tsx`) uses the browser's EyeDropper API, which needs a supporting browser on HTTPS or localhost. Without it, the button is disabled with an explanation, and the other color controls keep working. Closing the picker or unmounting it cancels an unfinished sample. Browser API control discovery lists the button as `<color label> pick screen color`. Screen sampling needs a real user gesture and a native screen selection, so agents set colors through the HEX or OKLCH fields and re-read the source to confirm the change.
 
 ## Canvas viewport
 
-`CanvasViewport` wraps the artifact without changing its intrinsic aspect ratio. The stage scales visually; the export still uses the artifact's declared pixel dimensions.
+`CanvasViewport` wraps the artifact without changing its aspect ratio. The stage scales on screen, and exports keep the artifact's declared pixel size.
 
-### States
+- Zoom runs from 40% to 200% by default. Hosts can change the range: Design Lab uses 5% to 800%.
+- The percentage button restores 100%. **Reset view** restores 100% and the starting pan. **Fit canvas** (F) fits the content at no more than 100%. **Zoom in** (+) and **Zoom out** (−) step by 10%.
+- The mouse wheel or trackpad zooms around the pointer. Dragging on empty workspace, middle-button dragging or Space + drag pans the view.
+- Zoom is stored with `useStudioDraft` for each project and tool. Pan resets when the tool remounts.
+- When the host passes `actionHistory`, the toolbar shows **Undo**, **Redo** and **Action history**, and ⌘/Ctrl + Z and Shift + ⌘/Ctrl + Z work while the pointer is over the canvas or the canvas has focus.
 
-- **Default** — 100-percent zoom with the artifact centered in a scrollable stage.
-- **Zoomed out** — down to 40 percent for complete-board inspection (5 percent in Design Lab).
-- **Zoomed in** — up to 200 percent for alignment and edge inspection (800 percent in Design Lab).
-- **Reset** — selecting the percentage restores 100 percent.
-- **Fit** — restores the stable whole-canvas view.
-- **Persisted** — zoom is stored independently for each brand project and Studio tool.
+These gestures change only the view transform. The document and its export geometry stay the same.
 
-The shared viewport also supports wheel/trackpad zoom, drag-to-pan on empty workspace, and an explicit original-view reset. These gestures change only the view transform; the artifact document and export geometry remain unchanged.
+## Source drawer
 
-## Source code drawer
+`SourceCodeDrawer` keeps source editing next to the canvas. The host controls it through four props:
 
-`SourceCodeDrawer` keeps exact source editing adjacent to the canvas instead of moving users into a separate editor route. The component is intentionally controlled:
+- `source` is the current serialized document of the tool.
+- `onApply` parses and validates the edited text, then updates the host state. An error it throws appears in the drawer and leaves the visual document unchanged.
+- `format` and `title` label the drawer.
+- `onClose` closes it. The tool and the canvas position stay as they were.
 
-- `source` is the host tool's current serialized document.
-- `onApply` parses and validates edits, then updates the host state.
-- Apply errors appear inside the drawer and do not replace the visual document.
-- Reset reloads the current visual snapshot.
-- Closing the drawer preserves the active tool and canvas position.
+The drawer is a shared editing shell, and each tool owns its schema. Each tool checks its own fields and converts valid source into the same state that its visual controls use. Lottie and Animation use CanvasDocument envelopes with their own metadata, the expression tools use expression documents, and the foundation and component tools use their own versioned objects.
 
-The drawer is a shared interaction shell, not a universal schema. Each tool owns its field constraints and converts valid source into the same state used by its visual controls. Lottie and Animation use CanvasDocument envelopes with their own metadata; expression tools use expression documents; foundations and components expose their own versioned objects.
+See [Source code editing](/docs/studio/source-editing), the [Source format reference](/docs/reference/source-formats) and the [Studio Browser API](/docs/reference/browser-api).
 
-See [Source code editing](/docs/studio/source-editing), [Source format reference](/docs/reference/source-formats), and [Studio Browser API](/docs/reference/browser-api).
+## Direct manipulation
 
-## Layers and direct manipulation
+`EditableCanvasLayer` draws one movable object on the artboard. The host gives it a base box and a `CanvasLayerTransform` (offset, scale, optional width and height scale, and rotation) and receives the new transform in `onChange`.
 
-`EditableCanvasLayer` renders the object on the artifact. `CanvasLayerPanel` renders the corresponding inspector controls. They read and write the same `CanvasLayerTransform`, so the canvas and inspector never maintain competing position data.
+| State | Behavior |
+| --- | --- |
+| Idle | No selection frame or handles |
+| Selected | A selection frame, the layer label and resize handles. `resizeMode: 'scale'` shows one scale handle, and `resizeMode: 'box'` shows edge and corner handles |
+| Moving | Pointer capture moves the layer in canvas coordinates. Within 6 screen pixels it snaps to the canvas edges and center, to the edges and centers of other layers, and to the lines in `snapTargets` |
+| Resizing | Edge and corner drags change the scale or the box. The minimum scale is 0.02, and there is no fixed maximum |
+| Rotating | With `onRotate`, a rotate handle appears. Shift snaps the angle to 15° steps |
+| Keyboard | Arrow keys nudge by 1 px, and Shift + arrow nudges by 10 px. Shift + F10 or the context menu key opens the host's menu |
+| Locked | With `interactive={false}`, the layer is inert on the canvas. Inspector controls still work |
 
-### Layer states
+The host owns the selection. The expression tools start with nothing selected and select a layer when it is added. Design Lab passes `onRotate`, `rotation` and `canvasThirdsSnapTargets` (rule-of-thirds lines on artboards). The expression tools rotate layers through the inspector and use the default snap lines.
 
-| State | Canvas | Inspector |
-| --- | --- | --- |
-| Idle | No selection box or handles | Alignment and reset are disabled |
-| Selected | Selection outline, label, and resize handle | Active row and current scale are visible |
-| Moving | Pointer capture updates X and Y in canvas coordinates; the layer snaps within 6 screen pixels to the artboard edges and center and to other layers | The same transform remains the source of truth |
-| Locked | The layer ignores pointer and keyboard edits on the canvas and is inert | Inspector controls stay available |
-| Resizing | Edge and corner drags update the scale or the box (minimum 0.02×, no fixed maximum) | Scale percentage updates immediately |
-| Keyboard | Arrow keys nudge one pixel; Shift + arrow nudges ten | Selection remains active |
-| Reordered | Z-index follows the layer order | Forward/backward controls disable at stack boundaries |
-| Aligned | Left, center, right, top, middle, or bottom resolves from artifact geometry | One alignment action updates the selected transform |
-| Reset | Returns to the generator's default transform | Row returns to 100 percent |
+## CanvasDocument model
 
-Hosts decide when to select: the expression tools select nothing until you click, and Design Lab selects a layer when it is added. `EditableCanvasLayer` also accepts optional `onRotate` (a rotate handle with 15° Shift snapping) and `snapTargets` (for example `canvasThirdsSnapTargets` for rule-of-thirds lines) props; no Studio tool passes them yet.
+`src/lib/canvasDocument.ts` defines the portable document model that people and agents share. It is separate from React component state and records:
 
-## Versioned scene graph
+- The schema version, brand binding, capabilities, revision and metadata.
+- Pages with dimensions, safe area, bleed, background, notes and ordered element IDs.
+- Elements of the kinds `text`, `image`, `logo`, `shape`, `line`, `frame`, `group`, `gradient`, `texture`, `shader`, `effect`, `video` and `component`.
+- Bounds, rotation, anchors, locks for position, dimensions, aspect ratio and rotation, visibility, blend mode, border, radius, opacity and shadow.
+- Font bindings, text roles and text style.
+- Non-destructive image crop, focal point, fit, saturation, dither, grain, blur, posterization and halation.
+- Asset and font records that elements reference by ID.
 
-`src/lib/canvasDocument.ts` defines the portable document model shared by people and agents. It is separate from React component state and records:
+`applyCanvasMutation` supports these mutations: move several elements, resize, lock, delete, reorder, update and replace an asset. Replacing an asset changes only the source reference and keeps geometry, crop, image treatment, effects and constraints.
 
-- Document schema version, brand binding, capabilities, and revision.
-- Pages with dimensions, safe area, bleed, background, notes, and ordered layers.
-- Text, image, logo, shape, frame, gradient, texture, shader, video, and reusable-component elements.
-- Bounds, rotation, responsive anchors, position/dimension/aspect/rotation locks, visibility, blend mode, border, radius, opacity, and shadow.
-- Brand font bindings and text roles.
-- Non-destructive image crop, focal point, fit, saturation, dither, grain, blur, posterization, and halation.
-- Asset and font references rather than browser-only paths hidden inside component state.
-
-The shared mutation layer currently supports grouped movement, resizing, locking, deletion, direct layer ordering, element updates, and asset replacement. Asset replacement changes only the source reference, preserving geometry, crop, image treatment, effects, and constraints.
-
-### History and preflight
-
-`commitCanvasChange` accepts one mutation or a batch. A batch produces one undo checkpoint, so distribute, align, or multi-select moves reverse as a single action. `undoCanvasChange` and `redoCanvasChange` restore cloned documents rather than reconstructing UI state.
-
-Named versions store author, time, note, thumbnail-ready document state, and revision. Restoring a version returns the same scene graph without sharing mutable references.
-
-Export preflight reports:
-
-- Missing asset records.
-- Missing font files.
-- Elements clipped beyond their page.
-- Text exceeding a declared maximum line count.
-
-Direct-manipulation components adapt tool state to this model. Design Lab already serializes the portable scene graph for source, saved designs, autosave, recovery, and agent round trips; other editors can migrate incrementally while preserving their public formats.
+The module also exports history and checking helpers. `commitCanvasChange` takes one mutation or a batch, and a batch is one undo step. `undoCanvasChange` and `redoCanvasChange` restore cloned documents. `saveCanvasVersion` records an author, time, name, note and revision, and `restoreCanvasVersion` returns a clone. `preflightCanvasDocument` reports missing assets, missing fonts, assets and fonts that are not embedded, elements that extend beyond their page and text over its line limit. Tests cover these helpers, and no Studio tool calls them yet. Each editor keeps its own undo stack (the expression tools use `useExpressionDocument`, with 120 steps), and saved checkpoints live in `src/lib/savedDesigns.ts`.
 
 ## Logo appearance
 
-`LogoAppearanceControls` and `src/lib/logoAppearance.ts` keep logo treatment consistent across every generator. Preview filters, SVG export filters, and Canvas exports resolve from the same values.
+`LogoAppearanceControls` and `src/lib/logoAppearance.ts` keep logo treatment the same across tools. The CSS preview filter, the SVG export filter and the canvas renderer all read the same settings.
 
-- **Invert** reverses the current resolved mark without requiring a second uploaded asset.
-- **Dither** applies a non-destructive ordered print field with editable amount, cell size, and direction.
-- **Outline** follows the alpha of the SVG or transparent image instead of drawing a box around its bounds.
-- **Shadow** exposes color, opacity, blur, and X/Y offset.
-- **Custom color** always uses `ColorControl`, so HEX and OKLCH stay interchangeable.
+- **Invert** reverses the colors of the resolved mark or image. No second file is needed.
+- **Dither** applies an ordered print pattern with an amount (0–100%), a cell size (2–18 px) and a direction (0–360°). The source file stays unchanged.
+- **Outline** follows the alpha of the SVG or transparent image, with its own color, opacity and width.
+- **Shadow** has a color, opacity, blur and horizontal and vertical offsets.
+- The outline and shadow colors use `ColorControl` with opacity.
 
-These settings are stored per brand and tool. Brand elements apply the same appearance to every logo instance in the selected application.
+The settings are stored with the layer or element that uses them. In Brand elements, one setting applies to every logo in the selected element.
 
-## Shared plugin and provider layer
+## Third-party libraries
 
-Third-party packages sit behind local components so individual Studio tools do not need to know each library's API.
+Studio tools use third-party packages through local components, so a tool does not depend on each library's API.
 
-| Provider | Local boundary | Used for |
+| Package | Local boundary | Used for |
 | --- | --- | --- |
-| Radix Select | `StudioSelect` | Accessible popovers, keyboard navigation, focus management |
-| Radix Slot | `Button` | Polymorphic actions and links with one visual system |
-| Three.js + React Three Fiber | `LiveMaterialCanvas` | Live GPU materials and shader rendering |
-| `@shadergradient/react` | Live-material adapter | Editable ShaderGradient sphere presets |
-| `@paper-design/shaders-react` | `LiveMaterialCanvas` Paper adapter | Paper shader families and presets; `/api/materials` lists the ones the library shows |
-| `shaders` | Native WebGPU adapter and image effect processor | MIT-licensed Shaders.com materials with per-component controls, and the image effects on Design Lab Effect layers |
-| PavelDoGreat WebGL Fluid Simulation | Local fluid adapter | MIT-licensed GPU advection model used by Fluid Energy |
-| `gifenc` | GIF export pipeline | Deterministic browser GIF encoding and palette control |
-| `mediabunny` | Browser video/audio muxing | MP4 export and Animation audio mixing |
-| `@lottiefiles/dotlottie-web` | Animation source adapter | Local `.lottie` and Lottie JSON playback and exact frame seeking |
-| PrismJS | Code-highlighting adapter | TypeScript, Python, Bash, JSON, and shell token color |
-| Lucide | Component-local icons | Consistent semantic control icons |
+| `@radix-ui/react-select` | `StudioSelect` | Accessible select popovers, keyboard navigation and focus management |
+| `@radix-ui/react-slot` | `Button` | Buttons that render as links or other elements with the same styles |
+| `three` and `@react-three/fiber` | `LiveMaterialCanvas`, `ShaderGradientSurface` and `HoloClothSurface` | Live GPU materials |
+| `@shadergradient/react` | `ShaderGradientSurface` | The editable ShaderGradient sphere |
+| `@paper-design/shaders-react` | The Paper adapter (`paperShaderRenderer.ts` and its registries) | Paper shader families and presets. `/api/materials` lists the ones the Shader Library shows |
+| `shaders` | `ShaderEffectsSurface` and `src/lib/shaderEffectProcessor.ts` | MIT-licensed Shaders.com WebGPU materials and the image effects on Design Lab Effect layers |
+| WebGL Fluid Simulation by Pavel Dobryakov | `src/lib/fluidSimulationShaders.ts` in `LiveMaterialCanvas` | The MIT-licensed fluid solver behind Fluid Energy |
+| `gifenc` | `src/lib/exportGif.ts` and `src/lib/canvasExport.ts` | GIF encoding and palettes |
+| `mediabunny` | `src/lib/canvasExport.ts` | MP4 encoding, including the Animation audio track |
+| `@lottiefiles/dotlottie-web` | `LottieStudio` | `.lottie` and Lottie JSON playback with exact frame seeking |
+| `prismjs` | `src/lib/codeHighlight.ts` and `src/lib/expressionSvg.ts` | JSON color in the source drawer and code color in Terminal card |
+| `@phosphor-icons/react` | `src/components/ui/SolidIcons.tsx` | Control icons |
 | `gt-next` | `<T>` and `useGT` | Translatable Studio labels and accessible names |
-| Fumadocs | Docs shell and MDX source | This documentation system, search, navigation, and generated pages |
+| Fumadocs | The docs shell and MDX source | This documentation, its search and its navigation |
 
-GSAP and Lenis are reserved for the marketing experience; editor manipulation uses pointer events and deterministic transforms so canvas behavior stays direct and exportable.
+## Build a new tool
 
-## Building another generator
-
-1. Store tool fields with `useStudioDraft(identity.id, tool.id, field, initialValue)`.
-2. Use `ColorControl` for all editable colors and opacity.
-3. Wrap the artifact in `CanvasViewport` and preserve its declared aspect ratio.
-4. Represent every movable object with a `CanvasLayerTransform`.
-5. Pair `EditableCanvasLayer` with `CanvasLayerPanel` when an artifact has multiple selectable objects.
-6. Use `StudioSelect`, shared buttons, upload fields, and range controls instead of native one-off styling.
+1. Wrap the tool in `ToolShell`, or compose `StudioToolHeader`, `StudioFileMenu` and `LazySourceCodeDrawer` yourself.
+2. Store tool fields with `useStudioDraft(identity.id, tool.id, field, initialValue)`.
+3. Use `ColorControl` for every editable color and opacity.
+4. Wrap the artifact in `CanvasViewport` and keep its declared aspect ratio.
+5. Represent every movable object with a `CanvasLayerTransform` and render it with `EditableCanvasLayer`.
+6. Use `StudioSelect`, `Button` and the fields in `src/components/tools/ToolFields.tsx` (`ControlSection`, `Field`, `RangeField`, `UploadField` and `SegmentedChoice`) instead of one-off controls.
 7. Build exports from the same resolved settings that drive the preview.
-8. Serialize the editable state and mount `SourceCodeDrawer` so advanced edits round-trip through the same validators and state setters.
+8. Serialize the editable state for the source drawer and validate edits with the `sourceCode.ts` readers, so source edits go through the same validators and state setters as the visual controls. A tool that stores a CanvasDocument can use `usePortableCanvasWorkspace` for serialization and autosave.
+9. Register Browser API actions through the `automation` prop of `ToolShell`, add their contracts to `STUDIO_TOOL_ACTION_CONTRACTS` in `src/lib/studioAgentCapabilities.ts`, and document every action name. `src/lib/__tests__/documentationCoverage.test.ts` fails when an action is missing from the docs.
 
-This boundary keeps a new tool visually native to Glyphfield while leaving its artifact renderer free to be SVG, Canvas, HTML, or WebGL.
+A tool built this way looks and behaves like the rest of the Studio, and its renderer can still be SVG, Canvas, HTML or WebGL.

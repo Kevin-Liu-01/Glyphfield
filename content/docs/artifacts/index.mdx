@@ -1,52 +1,56 @@
 ---
-title: Artifacts
-description: Choose, produce, verify, preserve, and reuse every Glyphfield output format.
+title: Artifacts overview
+description: Choose the right Glyphfield output format, produce it over HTTP or in the browser, verify the file, and keep the editable source beside it.
 icon: Download
 ---
 
-An artifact is a portable result produced from an identity and an exact configuration. Keep the editable source beside the rendered output whenever the work may need another size, language, material frame, or motion encoding later.
+An artifact is a file that Glyphfield renders from a brand identity and an exact configuration, such as a PNG, an MP4 or an SVG. Keep the editable source next to the rendered file whenever the work may later need another size, language, shader frame or motion format.
 
 <DocsMediaGrid>
   <DocsMedia alt='General Translation moodboard artifact in Glyphfield' caption='System board' meta='High-resolution PNG' src='/screenshots/studio-gt-moodboard-dark-2026.webp' />
   <DocsMedia alt='General Translation Design Lab artifact in Glyphfield' caption='Layered composition' meta='PNG · JPG · GIF · MP4' src='/screenshots/studio-gt-design-lab-dark-2026.webp' />
 </DocsMediaGrid>
 
-## Output map
+## Output formats
 
-| Output | Produced by | Best use |
+| Output | Produced by | Use it for |
 | --- | --- | --- |
-| SVG | HTTP backgrounds and templates | Canonical deterministic vector artifact, source control, downstream rasterization |
-| PNG | Design Lab, Moodboard, Lottie frame, OpenGraph, Terminal, Partnership, Blog, Slides | Lossless stills, transparency, exact browser composition |
-| JPG | Design Lab | Smaller opaque photographic/material stills |
-| GIF | Design Lab and Animation | Portable short motion, email/docs, transparent or palette-constrained loops |
-| MP4 | Design Lab and Animation | Higher-fidelity motion; Animation can include mixed audio |
-| PDF | Brand book print/export | Shareable identity standards snapshot |
-| JSON | Identities, briefs, source documents, Lottie | Editing, automation, handoff, regeneration |
-| `.lottie` | Lottie | Original compact vector animation archive |
+| SVG | HTTP templates and backgrounds, the expression tools, Moodboard | Deterministic vector files for source control and later rasterizing |
+| PNG | Design Lab, Moodboard, Brand elements, the expression tools, Lottie frames, Animation posters | Lossless stills with transparency |
+| JPG | Design Lab | Smaller opaque stills |
+| GIF | Design Lab, Animation, Lottie | Short motion for email, docs and other places that need GIF |
+| MP4 | Design Lab, Animation, Lottie | Longer or higher-fidelity motion. Animation can include mixed audio |
+| PDF | Brand book (print dialog), Slide templates | A snapshot of the brand standards, or a slide deck |
+| HTML | Brand elements email elements | Email layouts with inlined styles |
+| JSON | Brand identities, element briefs, project files, tool source, Lottie | Editing, automation, handoff and regeneration |
+| `.lottie` | Lottie | The original compact animation archive |
+| ZIP, CSS, Tailwind, DTCG, Markdown | Brand kit, Color tokens, Typography | Design tokens and brand guidance for code |
 
-## Production paths
+The expression tools are OpenGraph, Terminal card, Partnership lockup, Blog cover and Slide templates. [Capability matrix](/docs/reference/capability-matrix) lists the exports of every tool.
 
-### Deterministic HTTP
+## Ways to produce an artifact
 
-Use `POST /api/generate` for repeatable SVG, structured briefs, and apply-ready Design Lab sequence source. The request is validated against the current GET contract and does not silently alter a browser project.
+### HTTP
 
-### Authentic browser rendering
+Use `POST /api/generate` for repeatable SVG, structured element briefs and apply-ready Design Lab sequence source. The route validates each request against the contract from `GET /api/generate` and does not change any browser project.
 
-Use Studio or `window.glyphfield.studio` when the output depends on Canvas, WebGL, local files, local fonts, visual transforms, Lottie, frame capture, or browser codecs. Programmatic export uses the same live renderer as the visible UI.
+### Browser
 
-### Combined
+Use the Studio, or the Browser API (`window.glyphfield.studio`), when the output depends on Canvas, WebGL, WebGPU, local files, local fonts, visual placement, Lottie, frame capture or browser codecs. Browser API exports use the same renderer as the visible Studio.
 
-Generate a Design Lab document through HTTP, apply it in the browser, inspect it, then export PNG/JPG/GIF/MP4. This separates deterministic authoring from authentic rendering without creating two visual implementations.
+### Both
 
-## Definition of done
+Generate a Design Lab document over HTTP, apply it in the browser, inspect it, then export PNG, JPG, GIF or MP4. HTTP authors the document and the browser renders it, so there is only one renderer.
+
+## Checklist
 
 For every artifact:
 
 1. Confirm the intended identity and source revision.
-2. Inspect the rendered composition when visual output is requested.
-3. Confirm dimensions, format, transparency/opacity, and filename.
+2. Inspect the rendered composition when the request is visual.
+3. Confirm the dimensions, format, transparency or opacity, and file name.
 4. Require a non-empty response body or Blob.
-5. For motion, inspect multiple frames and the loop seam; for MP4 audio, confirm the track.
-6. Retain the portable source or named saved design when regeneration matters.
+5. For motion, inspect several frames and the point where the loop restarts. For MP4 with audio, confirm the audio track.
+6. Keep the portable source or a named saved design when the work may need to be regenerated.
 
-Continue with [Formats and portability](/docs/artifacts/formats-and-portability), [Download and use artifacts](/docs/artifacts/download-and-use), and [Backup and restore](/docs/artifacts/backup-and-restore).
+[Formats and portability](/docs/artifacts/formats-and-portability), [Download and use artifacts](/docs/artifacts/download-and-use) and [Backup and restore](/docs/artifacts/backup-and-restore) cover each step in detail.

@@ -1,10 +1,12 @@
 ---
-title: Documentation
-description: Define one brand system, compose production artifacts, animate it, and let agents operate the same tools.
+title: Glyphfield documentation
+description: Learn how Glyphfield turns one brand identity into designs, motion and code, and find the guide for the Studio, the agent interfaces or the reference.
 icon: BookOpen
 ---
 
-Glyphfield is a local-first, open-source brand studio. One brand identity feeds fifteen Studio tools for brand applications, boards, a brand book, motion, Lottie, layered compositions with live shaders, tokens, type, social images, slides, and components. Every tool has a JSON source document, browser-rendered exports, and a Browser API for agents, and a stateless HTTP API generates templates, backgrounds, and briefs.
+Glyphfield is a free, open-source brand design studio released under the MIT License. It runs in the browser and stores your work in that browser. A brand identity in Glyphfield is one record of a brand's strategy, voice, logos, colors, typography, pictures and layout rules. Every tool in the Studio reads that record, so a change to a color or a typeface appears in every design that uses it. The Studio is the visual workspace at [`/studio`](/studio).
+
+Studio tools cover brand applications, moodboards, a brand book, animation, Lottie files, layered compositions with live shaders, color and type tokens, social images, code cards, partner lockups, blog covers, slides and interface components. Each tool keeps its work as a JSON source document and exports files that the browser renders. Coding agents can operate the same tools through the Browser API (`window.glyphfield.studio`). They can also generate templates, backgrounds and briefs through an HTTP API that keeps no state between requests.
 
 <DocsMedia
   alt='Glyphfield Brand identity workspace for General Translation'
@@ -13,78 +15,77 @@ Glyphfield is a local-first, open-source brand studio. One brand identity feeds 
   src='/screenshots/studio-gt-identity-dark-2026.webp'
 />
 
-## Choose a path
+## Starting points
 
 <DocsPathGrid>
-  <DocsPathCard href='/docs/getting-started' icon='start' index='01' title='Build your first artifact'>Create or duplicate a project, edit the shared identity, choose a tool, and export.</DocsPathCard>
-  <DocsPathCard href='/docs/studio/design-lab' icon='design' index='02' title='Compose in Design Lab'>Layer type, marks, images, stickers, live shaders, and effect layers on artboards; export PNG, JPG, GIF, or MP4.</DocsPathCard>
-  <DocsPathCard href='/docs/studio/animation' icon='motion' index='03' title='Create motion'>Sequence scenes with keyframes, text entrances, transitions, live backgrounds, and audio; export GIF and MP4.</DocsPathCard>
-  <DocsPathCard href='/docs/studio/brand-settings' icon='identity' index='04' title='Set up the identity'>Fill the identity by hand or with a coding agent, check its health score, and download the brand kit.</DocsPathCard>
-  <DocsPathCard href='/docs/agents/choose-interface' icon='agent' index='05' title='Connect an agent'>Choose HTTP generation, the Studio Browser API, markdown docs, or a combined workflow.</DocsPathCard>
-  <DocsPathCard href='/docs/artifacts' icon='artifact' index='06' title='Ship artifacts'>Understand PNG, JPG, SVG, GIF, MP4, PDF, Lottie, and JSON portability.</DocsPathCard>
-  <DocsPathCard href='/docs/reference/capability-matrix' icon='table' index='07' title='Check parity'>Map every Studio capability to source, browser automation, HTTP, and output formats.</DocsPathCard>
-  <DocsPathCard href='/docs/reference' icon='reference' index='08' title='Read exact reference'>Inspect endpoints, browser methods, source models, shortcuts, limits, and social previews.</DocsPathCard>
+  <DocsPathCard href='/docs/getting-started' icon='start' index='01' title='Build your first artifact'>Create or duplicate a project, edit the identity, choose a tool and export a file.</DocsPathCard>
+  <DocsPathCard href='/docs/studio/design-lab' icon='design' index='02' title='Compose in Design Lab'>Layer type, marks, images, stickers, live shaders and effects on artboards, then export PNG, JPG, GIF or MP4.</DocsPathCard>
+  <DocsPathCard href='/docs/studio/animation' icon='motion' index='03' title='Create motion'>Sequence scenes with keyframes, text entrances, transitions, live backgrounds and audio, then export GIF or MP4.</DocsPathCard>
+  <DocsPathCard href='/docs/studio/brand-settings' icon='identity' index='04' title='Set up the identity'>Fill the identity by hand or with a coding agent, check its health score and download the brand kit.</DocsPathCard>
+  <DocsPathCard href='/docs/agents/choose-interface' icon='agent' index='05' title='Connect an agent'>Choose between HTTP generation, the Studio Browser API and the Markdown docs for an agent task.</DocsPathCard>
+  <DocsPathCard href='/docs/artifacts' icon='artifact' index='06' title='Ship artifacts'>Pick the right format among PNG, JPG, SVG, GIF, MP4, PDF, Lottie and JSON, and check the file before you use it.</DocsPathCard>
+  <DocsPathCard href='/docs/reference/capability-matrix' icon='table' index='07' title='Check parity'>See the source document, Browser API actions, HTTP routes and export formats of every Studio tool.</DocsPathCard>
+  <DocsPathCard href='/docs/reference' icon='reference' index='08' title='Read the reference'>Look up endpoints, Browser API methods, source formats, keyboard shortcuts, limits and licensing.</DocsPathCard>
 </DocsPathGrid>
 
-## What is connected
+## Connected systems
 
 <DocsSystemGrid>
-  <DocsSystemItem icon='identity' index='01' title='Identity foundations'>Strategy, art direction, logos, authorized assets, colors, typography, language, voice, applications, and defaults.</DocsSystemItem>
-  <DocsSystemItem icon='studio' index='02' title='Visual editors'>Brand elements, moodboards, the brand book, Design Lab and the Shader Library, Animation, Lottie, expression tools, tokens, type, and components.</DocsSystemItem>
-  <DocsSystemItem icon='document' index='03' title='Portable documents'>Exact source drawers, a versioned canvas scene graph, saved designs, autosave recovery, layer history, and export preflight.</DocsSystemItem>
-  <DocsSystemItem icon='api' index='04' title='Agent interfaces'>Versioned discovery, deterministic HTTP generation, processed markdown, full-text docs, and browser-native automation.</DocsSystemItem>
+  <DocsSystemItem icon='identity' index='01' title='Identity foundations'>The identity holds strategy, art direction, logos, licensed assets, colors, typography, voice, applications and system defaults.</DocsSystemItem>
+  <DocsSystemItem icon='studio' index='02' title='Visual editors'>Studio tools apply the identity to brand elements, moodboards, the brand book, Design Lab, Animation, Lottie, expression templates, tokens and components.</DocsSystemItem>
+  <DocsSystemItem icon='document' index='03' title='Portable documents'>Each tool exposes its exact JSON source. Design Lab and Animation also keep saved checkpoints, autosave recovery and layer history.</DocsSystemItem>
+  <DocsSystemItem icon='api' index='04' title='Agent interfaces'>Agents read versioned discovery routes, call deterministic HTTP generation, read processed Markdown and drive the Studio through the Browser API.</DocsSystemItem>
 </DocsSystemGrid>
 
-## See the system
+## Studio screenshots
 
 <DocsMediaGrid>
   <DocsMedia alt='General Translation Design Lab composition' caption='Design Lab' meta='Layers · shaders · output' src='/screenshots/studio-gt-design-lab-light-2026.webp' />
   <DocsMedia alt='General Translation Animation sequence' caption='Animation' meta='Frames · timing · materials' src='/screenshots/studio-gt-animation-light-2026.webp' />
-  <DocsMedia alt='General Translation Brand Book overview' caption='Brand Book' meta='Generated standards' src='/screenshots/studio-gt-brand-book-light-2026.webp' />
+  <DocsMedia alt='General Translation Brand Book overview' caption='Brand book' meta='Generated standards' src='/screenshots/studio-gt-brand-book-light-2026.webp' />
   <DocsMedia alt='General Translation Moodboard' caption='Moodboard' meta='Identity applications' src='/screenshots/studio-gt-moodboard-light-2026.webp' />
 </DocsMediaGrid>
 
-## Human and agent parity
+## Agent interfaces
 
-The visual UI and agent surfaces share the same owners:
+The visual Studio and the agent interfaces read the same catalogs and validators.
 
-- `/api/agent`, `/api/catalog`, `/api/labs`, `/api/materials`, `/api/identities`, and `/api/elements` publish current capabilities.
-- `POST /api/generate` validates deterministic template, background, element-brief, and Design Lab sequence requests. `/api/brand/validate` and `/api/brand/kit` validate identities and render brand kit files.
-- `window.glyphfield.studio` operates the active browser tool, including local files, exact source, Canvas, WebGL, GIF, and MP4.
-- Every documentation page is available as processed markdown by adding `.md` to its URL.
-- `/llms.txt` is the compact agent router; `/llms-full.txt` is the complete generated documentation corpus.
+- `/api/agent`, `/api/catalog`, `/api/labs`, `/api/materials`, `/api/identities` and `/api/elements` publish the current capabilities.
+- `POST /api/generate` validates and runs template, background, element-brief and Design Lab sequence requests. `/api/brand/validate` checks an identity, and `/api/brand/kit` renders brand kit files.
+- `window.glyphfield.studio` operates the active Studio tool. It covers local files, exact source, Canvas, WebGL, GIF and MP4.
+- Every documentation page is available as processed Markdown at its URL with `.md` appended. **Copy page** at the top of each page copies that Markdown. The menu beside it offers **View as Markdown**, **Open in GitHub**, **Open in ChatGPT**, **Open in Claude**, **Open in Cursor** and **Open in Scira AI**.
+- `/llms.txt` is a short guide for agents. `/llms-full.txt` contains the complete documentation as one text file.
 
-Agents should discover first, choose an interface deliberately, apply the smallest source change, visually verify browser-rendered work, and treat a non-empty returned or downloaded artifact as completion.
+An agent reads the discovery routes first and then chooses HTTP generation or the Browser API. It applies the smallest source change that does the job and checks browser-rendered work visually. It reports success only after it confirms that the returned or downloaded file is not empty.
 
-## Local-first by default
+## Local storage
 
-Browser projects, saved designs, uploaded files, fonts, and drafts remain in the current browser profile. Stateless generation requests are processed in memory and do not silently read or mutate a browser-local project. Remote asset URLs are intentionally unsupported.
+Projects, saved designs, uploaded files, fonts and drafts stay in the current browser profile. The HTTP API processes each request in memory and cannot read or change a project stored in a browser. The API rejects remote asset URLs.
 
-## Operate and extend
+## Operations and contribution
 
 <DocsFeatureGrid>
-  <DocsFeature icon='document' label='Preserve' title='Back up editable work'>Keep identity and tool source, original authorized assets, and rendered proofs outside the browser.</DocsFeature>
-  <DocsFeature icon='verify' label='Recover' title='Diagnose by boundary'>Separate source, storage, Canvas, WebGL, codec, and download failures without clearing the active project.</DocsFeature>
-  <DocsFeature icon='reference' label='Deploy' title='Host the complete system'>Serve the dynamic docs, discovery, generation, OpenGraph, and Studio routes with browser capabilities intact.</DocsFeature>
-  <DocsFeature icon='studio' label='Contribute' title='Keep every interface aligned'>Update catalog, state, source, Browser API, HTTP, docs, exports, and tests as one parity chain.</DocsFeature>
+  <DocsFeature icon='document' label='Preserve' title='Back up editable work'>Keep the identity, tool source, original assets and rendered proofs in files outside the browser.</DocsFeature>
+  <DocsFeature icon='verify' label='Recover' title='Diagnose failures'>Find whether a failure comes from source, storage, Canvas, WebGL, a codec or the download, without clearing the active project.</DocsFeature>
+  <DocsFeature icon='reference' label='Deploy' title='Host Glyphfield'>Serve the docs, discovery, generation, OpenGraph and Studio routes from your own deployment.</DocsFeature>
+  <DocsFeature icon='studio' label='Contribute' title='Keep every interface aligned'>Update the catalog, state, source, Browser API, HTTP API, docs, exports and tests in one change.</DocsFeature>
 </DocsFeatureGrid>
 
 - [Back up and restore a project](/docs/artifacts/backup-and-restore)
-- [Troubleshoot Studio and exports](/docs/reference/troubleshooting)
+- [Troubleshoot the Studio and exports](/docs/reference/troubleshooting)
 - [Check browser capabilities](/docs/reference/browser-support)
 - [Self-host Glyphfield](/docs/reference/self-hosting)
 - [Review version compatibility](/docs/reference/version-compatibility)
 - [Contribute to Glyphfield](/docs/contributing)
 - [Licensing](/docs/reference/licensing)
 
-## Important links
+## Links
 
 - [Open the Studio](/studio)
-- [Read the compact agent runbook](/llms.txt)
-- [Read the complete agent corpus](/llms-full.txt)
+- [Read the short agent guide](/llms.txt)
+- [Read the complete documentation as text](/llms-full.txt)
 - [Inspect the agent manifest](/api/agent)
-- [Inspect OpenAPI 3.1](/openapi.json)
-- [Read the contribution guide](/docs/contributing)
-- [View the source](https://github.com/Kevin-Liu-01/Glyphfield)
+- [Inspect the OpenAPI 3.1 document](/openapi.json)
+- [View the source on GitHub](https://github.com/Kevin-Liu-01/Glyphfield)
 
-Glyphfield software and its original artwork are released under the [MIT License](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/LICENSE). Bundled third-party marks, fonts, textures, shaders, and reference-brand assets keep their own licenses and ownership: General Translation's marks and artwork are © General Translation, included with permission, and its artifact pictures keep their originals' licenses ([credits](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/THIRD_PARTY_NOTICES.md#general-translation-artifact-pictures)).
+Glyphfield's source code and original artwork are released under the [MIT License](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/LICENSE). Bundled third-party marks, fonts, pictures and shader code keep their own licenses. [Licensing](/docs/reference/licensing) lists each one and how to credit it.

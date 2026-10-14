@@ -1,83 +1,83 @@
 ---
 title: Source code editing
-description: Read and apply the exact JSON source of the active Studio tool in the Code drawer or through the Browser API.
+description: Read, edit and apply the JSON source document of any Studio tool in the source drawer or through the Browser API without breaking its layers or assets.
 icon: Braces
 ---
 
-Every Studio tool has a JSON source document behind its visual controls. **File → Edit source code** opens that document in a drawer beside the canvas. `window.glyphfield.studio.readSource()` and `applySource()` read and apply the same document. A valid edit updates the state used by the inspector, the canvas, persistence, and export. An invalid edit changes nothing.
+Every Studio tool keeps a JSON source document behind its visual controls. **File → Edit source code** opens that document in a drawer beside the canvas. The Browser API (`window.glyphfield.studio`) reads and applies the same document with `readSource()` and `applySource()`. A valid edit updates the state that the inspector, the canvas, autosave and export use. An invalid edit changes nothing.
 
-<DocsMedia alt='Design Lab with the live composition and inspector visible together' caption='Visual controls and source edit the same state' meta='Code drawer · readSource · applySource' src='/screenshots/studio-gt-design-lab-dark-2026.webp' />
+<DocsMedia alt='Design Lab with the live composition and inspector visible together' caption='Visual controls and source edit the same state' meta='Source drawer · readSource · applySource' src='/screenshots/studio-gt-design-lab-dark-2026.webp' />
 
-## Use the Code drawer
+## Source drawer
 
-1. Open **File → Edit source code**.
+**Edit source code** is disabled while a tool is still preparing its source. The source editor loads the first time you open a drawer, so the drawer appears after a short delay on that first open. Later drawers open at once.
+
+1. Choose **File → Edit source code**.
 2. Edit the JSON.
 3. Choose **Apply code**, or press ⌘/Ctrl + Enter or ⌘/Ctrl + S.
 4. Read any error in the drawer. An error leaves the artifact unchanged.
-5. Check the canvas, then continue visually, save, or export.
+5. Check the canvas, then continue visually, save or export.
 
 | Control | Action |
 | --- | --- |
-| **Apply code** | Validate and apply. The button is disabled while the JSON does not parse |
-| **Reset** | Reload the current visual state into the drawer |
-| **Copy** | Copy the source text |
+| **Apply code** | Validate and apply the draft. The button is disabled while the JSON does not parse, and it reads **Applied** after a successful apply |
+| **Reset** | Replace the draft with the current source of the tool |
+| **Copy** | Copy the draft to the clipboard |
 | **Format** (Shift + Alt + F) | Reformat the JSON |
-| **Find and replace** (⌘/Ctrl + F) | Search, step through matches with Enter or **Previous match** / **Next match**, and replace |
-| **Clean paste** | Replace rich-text spacing from pasted text with standard JSON spaces |
-| Section menu | Jump to a top-level section |
-| **Close source editor** (Escape) | Close the drawer; Escape closes the find bar first |
+| **Find and replace** (⌘/Ctrl + F) | Open the find bar. Enter and Shift + Enter step through matches, as do **Previous match** and **Next match**. **Replace** changes the current match and **All** changes every match |
+| **Clean paste** | Appears when the draft contains rich-text spaces, and replaces them with standard JSON spaces |
+| **Jump to top-level section** | Move the cursor to a top-level key |
+| **Close source editor** (Escape) | Close the drawer. When the find bar is open, Escape closes the find bar first |
 
-The editor indents with Tab and Shift + Tab, keeps indentation on Enter, and inserts matching brackets and quotes. Drag **Resize source code editor** to change the drawer width. Opening or closing the drawer does not create a second copy of the artifact.
+The editor indents with Tab and outdents with Shift + Tab, keeps the indentation on Enter, and inserts the closing bracket or quote when you type an opening one. Pasted text has its rich-text spaces replaced automatically. The toolbar shows the cursor line and column, the line count and the size of the draft. Drag **Resize source code editor** to set the drawer width from 360 to 880 px. You can also focus the handle and use the arrow keys or Home and End. Shift + arrow moves in larger steps. This browser remembers the width.
 
-## Use the Browser API
+## Browser API
 
 ```js
 const studio = window.glyphfield.studio;
 const { source, toolId } = studio.describe();
 if (!source.read || !source.apply) throw new Error(`${toolId} does not expose source.`);
 
-const document = JSON.parse(studio.readSource());
+const current = JSON.parse(studio.readSource());
 // Change only the intended fields and keep every unknown field.
-await studio.applySource(document);
+await studio.applySource(current);
 const after = JSON.parse(studio.readSource());
 ```
 
-`applySource` resolves after the tool validator accepts the document and two animation frames pass. Image decoding, font loading, shader compilation, and encoding can take longer; wait for the preview before capturing. The source adapter is registered while the tool is active, whether or not the drawer is open.
+`applySource` accepts a JSON string or an object. It resolves after the tool accepts the document and two animation frames pass. Image decoding, font loading, shader compilation and encoding can take longer, so wait for the preview before you capture it. The source adapter is registered while the tool is active, even when the drawer is closed.
 
 ## Source documents by tool
 
 | Tool | Document |
 | --- | --- |
 | Brand identity | The complete `BrandIdentity` |
-| Brand elements | `glyphfield.brand-element` version 2: `elementId` and the settings that differ from identity defaults |
-| Moodboard | `glyphfield.moodboard` version 2: boards, tiles, and export settings |
-| Brand book | `glyphfield.brand-book` version 1: section order and visibility, and per-page visibility, layout, surface, image, and copy |
+| Brand elements | `glyphfield.brand-element` version 2: `elementId` and the settings that differ from the identity defaults |
+| Moodboard | `glyphfield.moodboard` version 2: boards, tiles and export settings |
+| Brand book | `glyphfield.brand-book` version 1: section order and visibility, and the visibility, layout, surface, image and copy of each page |
 | Animation | CanvasDocument schema 2 with `metadata.tool: "animation-studio"` and the sequence in `metadata.animation` |
-| Lottie | CanvasDocument schema 2 with the Lottie state in `metadata.studio`; raw Lottie JSON can also be pasted |
+| Lottie | CanvasDocument schema 2 with the Lottie state in `metadata.studio`. Raw Lottie JSON can also be pasted |
 | Design Lab | CanvasDocument schema 2 with Design Lab metadata source version 4 |
-| OpenGraph, Terminal card, Partnership lockup, Blog cover, Slide templates | CanvasDocument schema 2 with expression source version 2; one page per artboard or slide |
-| Color tokens | Version 2: palette, `colorPairings`, `colorSystem`, per-token opacity |
-| Typography | Version 2: type roles, `typeScale`, specimen settings |
-| Component library | Version 2: pattern, content, system, palette, typography, theme, code format |
+| OpenGraph, Terminal card, Partnership lockup, Blog cover, Slide templates | CanvasDocument schema 2 with expression source version 2, with one page per artboard or slide |
+| Color tokens | Version 2: palette, `colorPairings`, `colorSystem` and the opacity of each token |
+| Typography | Version 2: type roles, `typeScale` and specimen settings |
+| Component library | Version 2: pattern, content, system, palette, typography, theme and code format |
 
 The [source format reference](/docs/reference/source-formats) lists the fields and validation rules of each document.
 
-## Why the current source is authoritative
+## Safe edits
 
-Examples omit fields that later versions add. `readSource()` returns the migrated document with stable IDs, asset references, layer order, saved frame and timeline values, and tool metadata. Editing it keeps marks in place, keeps layer order, and keeps newer settings.
+`readSource()` returns the current, migrated document with stable IDs, asset references, layer order, saved frame and timeline values, and tool metadata. Examples leave out fields that later versions add, so an edit that starts from the current source keeps marks in place, keeps the layer order and keeps newer settings.
 
-Do not:
+- Start from the document that `readSource()` returns. Do not build a CanvasDocument from an old example.
+- Keep element IDs when you change content or style.
+- Keep unknown fields, metadata and assets.
+- Change state through `applySource()` or the visible controls. Writing to `localStorage` or IndexedDB directly skips validation.
+- Apply a document only to the tool it came from. Expression tools reject a document of another tool or kind.
+- Check the canvas or an export after you apply. A successful apply confirms that the document is valid. It does not show how the document renders.
 
-- Build a CanvasDocument from an old example.
-- Change element IDs when changing content or style.
-- Drop unknown fields, metadata, or assets.
-- Write to `localStorage` or IndexedDB directly.
-- Apply one tool's document to another tool. Expression documents reject a document of another kind.
-- Treat a successful apply as visual verification.
+## Source and generation requests
 
-## Source and generation requests are different
-
-`POST /api/generate` takes a short versioned request and returns an artifact or an apply-ready document. A Code drawer document is the full state of one open tool. Do not send a drawer document to `/api/generate`. The `design-sequence` response is the one bridge: it contains a Design Lab `document` to apply.
+`POST /api/generate` takes a short, versioned request and returns an artifact or a document ready to apply. A source drawer document holds the full state of one open tool and is not a valid generation request. The `design-sequence` response connects the two: it contains a Design Lab `document` that you apply with Design Lab open.
 
 ```js
 const generated = await fetch('/api/generate', {
@@ -94,4 +94,4 @@ const generated = await fetch('/api/generate', {
 await window.glyphfield.studio.applySource(generated.document);
 ```
 
-For file-based sharing of Design Lab and Animation work, use [project files](/docs/studio/project-files). See also the [Studio Browser API](/docs/reference/browser-api) and [Agent recipes](/docs/agents/recipes).
+To share Design Lab and Animation work as files, use [project files](/docs/studio/project-files). See also the [Studio Browser API](/docs/reference/browser-api) and [Agent recipes](/docs/agents/recipes).

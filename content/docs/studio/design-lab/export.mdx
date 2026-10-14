@@ -1,69 +1,68 @@
 ---
 title: Export, saving, and source
-description: Export a Design Lab artboard as PNG, JPG, GIF, or MP4, save checkpoints, share project files, and edit the CanvasDocument source.
+description: Export a Design Lab artboard as PNG, JPG, GIF, or MP4, save named checkpoints, share a project file, and edit the CanvasDocument source by hand.
 icon: Download
 ---
 
-Design Lab exports the selected artboard. Loose canvas layers are never exported; exporting while the loose canvas is active asks for an artboard first. Library, inspector, zoom controls, selection handles, and the layer dock never appear in an export.
+Design Lab, the layered composition tool, exports the selected artboard. Loose canvas layers are not exported. Exporting while the loose canvas is active shows the message "Select an artboard to export. Loose canvas layers are saved in your project." The library, inspector, zoom controls, selection handles, and layer dock do not appear in an export.
 
-## Export dialog
+## Export settings
 
-Open **Export** in the tool header. The dialog shows the output size and frame count, then these settings:
+The first click on **Export** in the tool header renders a PNG and opens the export review, which shows the file and the export settings. After that, **Export** reopens the review. The review shows the output size, and for motion it shows the frame count, duration, and frame rate.
 
 | Setting | Values |
 | --- | --- |
-| Format | PNG (transparent image), JPG (smaller image), GIF (looping motion), MP4 (video) |
-| Size preset | Compact 640, Standard 960, Large 1280, Full 1920 px wide; the height follows the artboard ratio |
-| **Export width in pixels** | 320–3840, in steps of 2 |
-| Quality | Fast, Balanced, Best |
-| **Export duration** (GIF, MP4) | 1.2, 1.6, 2.4, or 4 seconds |
-| **Export frame rate** (GIF, MP4) | 12, 15, 24, 30, or 60 FPS |
-| GIF loop | **Blended loop** or **Raw motion** |
+| Format | PNG (Transparent image), JPG (Smaller image), GIF (Looping motion), MP4 (Video) |
+| Size preset | Compact 640, Standard 960, Large 1280, or Full 1920 px wide. The height follows the artboard ratio |
+| **Custom width** (**Export width in pixels**) | 320–3840, in steps of 2 |
+| Quality | **Fast** (Quick preview), **Balanced** (Everyday export), **Best** (Most detail) |
+| **Duration** (GIF, MP4) | 1.2, 1.6, 2.4, or 4 seconds |
+| **Frame rate** (GIF, MP4) | 12, 15, 24, 30, or 60 FPS |
+| **GIF loop** | **Blended loop** or **Raw motion** |
 
-**Export size preset** in the tool header sets the width without opening the dialog. Width and height are rounded to even numbers. The defaults are 960 px, Balanced, 1.6 seconds, 30 FPS, and Blended loop. The export review shows the finished file before it is downloaded.
+**Export size preset** in the tool header sets the width without opening the review, and it shows **Custom** for a width that matches no preset. Width and height are rounded to even numbers. The defaults are 960 px, Balanced, 1.6 seconds, 30 FPS, and Blended loop.
 
-Quality maps to encoder settings:
+Quality maps to these encoder settings:
 
 | Quality | JPG | GIF | MP4 |
 | --- | --- | --- | --- |
-| Fast | Quality 0.82 | 64 colors, RGB444 palette, global | Medium bitrate |
-| Balanced | Quality 0.9 | 128 colors, RGB565 palette, global | High bitrate |
-| Best | Quality 0.96 | 256 colors, RGB565 palette, per frame | Very high bitrate |
+| Fast | Quality 0.82 | 64 colors, RGB444 palette, one palette for the clip | Medium bitrate |
+| Balanced | Quality 0.9 | 128 colors, RGB565 palette, one palette for the clip | High bitrate |
+| Best | Quality 0.96 | 256 colors, RGB565 palette, one palette per frame | Very high bitrate |
 
-MP4 uses H.264 when the browser can encode it and another MP4 codec otherwise. If no MP4 encoder is available, the export reports it; it never substitutes a GIF. File names follow `<identity>-design-lab-<width>x<height>.<ext>`, with `-shader-sequence` added for sequence exports.
+MP4 uses H.264 when the browser can encode it and another MP4 codec otherwise. If no MP4 encoder is available, the export reports an error and does not produce a GIF in its place. Files are named `<identity>-design-lab-<width>x<height>.<format>`. Shader sequence exports are named `<identity>-design-lab-shader-sequence-<width>x<height>.<format>`, and their length comes from the sequence.
 
 ### What each format captures
 
-- **PNG and JPG** freeze the frame visible when the export starts, then render the full composition at the output size. JPG composites transparency over the artboard background color.
+- **PNG and JPG** freeze the frame that is visible when the export starts, then render the full composition at the output size. JPG composites transparency over the artboard's background color.
 - **GIF and MP4** sample motion forward from the current frame and restore the paused pose afterward.
 - Exports do not add captured-frame assets to IndexedDB and do not resume playback.
-- **Blended loop** records extra frames, crossfades the tail into the head, and checks that the last frame closes onto the first. It edits the clip's ending; it does not find a native repeat period in the shader. **Raw motion** keeps the clip unmodified and can show a seam when it repeats.
-- Stateful materials such as Fluid Energy support exact still export. Timestamp-sampled motion export is refused for them.
+- **Blended loop** records extra frames, crossfades the tail into the head, and checks that the last frame closes onto the first. It edits the end of the clip and does not find a native repeat period in the shader. **Raw motion** keeps the clip unmodified and can show a seam when it repeats.
+- Stateful materials such as Fluid Energy support exact still export. Motion export that samples them by timestamp is refused.
 - [Effect layers](/docs/studio/design-lab/effects) with image effects run at the full output size for every frame and need WebGPU.
 
 ### Resolution and readiness
 
-During an export, shader layers render at up to 8 times the device pixel ratio. The render is limited to an 8192 px edge, and each shader to the export's pixel count. A shader that covers the artboard therefore renders at about the export resolution; a smaller shader layer renders above its on-artboard size. The live **Preview quality** setting does not affect exports.
+During an export, shader layers render at up to 8 times the device pixel ratio. The render is limited to an 8192 px edge, and each shader to the larger of 120,000 pixels and the export's pixel count. A shader that covers the artboard therefore renders at about the export resolution, and a smaller shader layer renders above its size on the artboard. The live preview quality setting does not affect exports.
 
-Export waits for material readiness, fonts, and images. Prismatic Sphere waits for its environment lighting. If a resource does not load, the export reports a readiness timeout instead of exporting a placeholder. Text being edited on the canvas is committed before the export starts.
+Export waits for materials, fonts, and images to be ready. Prismatic sphere waits for its environment lighting. If a resource does not load, the export reports a readiness timeout and does not export a placeholder. Text being edited on the canvas is committed before the export starts.
 
 ## Saved designs and autosave
 
 The working draft autosaves while you edit. Named checkpoints are separate:
 
-- **Save checkpoint** creates a named checkpoint, or updates the selected one (**Save changes**).
-- **Saved designs** lists checkpoints and marks the **Current** one. Clicking the current row closes the picker without replacing your edits.
-- **Save as independent copy** (Clone) and **Save as linked copy** (Fork) create new checkpoints from the current edits without changing the original. A fork records its parent.
-- Each row has **Rename**, **Clone**, and **Delete**. Delete asks for confirmation. Rename with Enter or **Save name**; Escape or **Cancel rename** discards it.
-- **New blank design** starts an empty composition.
+- **Save checkpoint** creates a named checkpoint, or updates the selected one with **Save changes**.
+- **Saved designs** lists checkpoints and marks the **Current** one. Clicking the current row closes the picker and keeps your edits.
+- **Save as independent copy** (Clone) and **Save as linked copy** (Fork) create new checkpoints from the current edits and leave the original unchanged. A fork records its parent.
+- Each row has **Rename**, **Clone**, and **Delete**. Delete asks "Delete this checkpoint?" with **Cancel** and **Delete**. Rename with Enter or **Save name**, and discard a rename with Escape or **Cancel rename**.
 
-**Unsaved changes** means the working draft differs from the selected checkpoint; the draft itself can still be autosaved. A checkpoint stores the complete CanvasDocument: artboards and loose layers, dimensions and background, every layer's ID, kind, name, geometry, visibility, lock, opacity, and blend mode, text and typography, assets, order and groups, content-bound shaders, shader settings, captured PNG references, native frame state, the shader sequence and timeline, and the export settings.
+**Unsaved changes** means the working draft differs from the selected checkpoint. The draft itself can still be autosaved. A checkpoint stores the complete CanvasDocument: artboards and loose layers, dimensions and background, every layer's ID, kind, name, geometry, visibility, lock, opacity, and blend mode, text and typography, assets, order and groups, materials on content layers, shader settings, captured PNG references, native frame state, the shader sequence and timeline, and the export settings.
 
-Checkpoints and autosave live in IndexedDB in this browser. If loading fails, saving pauses while recovery retries so an empty canvas cannot overwrite the previous design. A small recovery journal keeps work while IndexedDB is briefly unavailable. Clearing site data removes local work; download a project file for an independent backup.
+Checkpoints and autosave are kept in IndexedDB in this browser. If loading fails, saving pauses while recovery retries, so an empty canvas cannot overwrite the previous design. A small recovery journal keeps work while IndexedDB is briefly unavailable. Clearing site data removes local work. Download a project file for an independent backup.
 
 ## Project files
 
-**File → Download project file** saves a `.glyphfield.json` file with every artboard, the loose canvas, embedded images, fonts, and captured shader frames. **File → Open project file** replaces the current workspace with a project file. **+ → Import project…** opens a project file as a new project instead. See [Project files](/docs/studio/project-files).
+**File → Download project file** saves a `.glyphfield.json` file with every artboard, the loose canvas, embedded images, fonts, and captured shader frames. **File → Open project file** replaces the current workspace with a project file. **+ → Import project…** in the Studio project menu opens a project file as a new project. See [Project files](/docs/studio/project-files).
 
 ## Source format
 
@@ -96,17 +95,19 @@ Checkpoints and autosave live in IndexedDB in this browser. If loading fails, sa
 
 - `page.elementIds` is the layer order, back to front.
 - Element `kind` is `shader`, `effect`, `text`, `logo`, or `image`. Element `data` holds the layer settings and its `layerType`.
-- Layer IDs start with `shader-`, `effect-`, `text-`, `logo-`, or `asset-`; group IDs with `group-`; artboard IDs with `artboard-`.
-- Element bounds `x` and `y` are positions; `width` and `height` are scale factors of the layer's default box, not pixels. Effect layers always cover the artboard.
+- Layer IDs start with `shader-`, `effect-`, `text-`, `logo-`, or `asset-`. Group IDs start with `group-` and artboard IDs with `artboard-`.
+- Element bounds `x` and `y` are positions. For most layers, `width` and `height` are scale factors of the layer's default box. Effect layers always cover the artboard, and their bounds are the artboard's size in pixels. A rotated layer stores its angle in `bounds.rotation`.
 - Asset IDs are `brand-asset:<library id>` for identity assets and `resource:<layer id>` for embedded files. Captured frames use `shader-frame:<sha256>`.
 - `element.locked` records a lock. Effect layers store converter fields and, for an image effect, `effectId` and `effectProps`.
-- `metadata.designLab.workspace` stores the artboards and, in `canvas`, the loose-layer snapshot. `activeSurfaceId: "canvas"` means the loose canvas is being edited. An optional artboard `displayScale` keeps the on-canvas size of a framed selection and does not change export size.
+- `metadata.designLab.workspace` stores the artboards and, in `canvas`, the loose-layer snapshot. `activeSurfaceId: "canvas"` means the loose canvas is being edited. An optional artboard `displayScale` keeps the on-canvas size of a framed selection and does not change the export size.
 - `metadata.designLab.identity` holds the typography snapshot of an imported project.
 - Shader elements may carry `frameState` (the editable native time recipe) and `frameSnapshot` (`{ version: 1, assetId, width, height }`, a lossless PNG in `assets`).
 
 A generated `design-sequence` document has `version: 3`. Applying it normalizes the active source to this format. See [Source formats](/docs/reference/source-formats).
 
 ## Browser API
+
+The Browser API (`window.glyphfield.studio`) has these export and workspace actions:
 
 | Action | Input | Output |
 | --- | --- | --- |
@@ -117,9 +118,9 @@ A generated `design-sequence` document has `version: 3`. Applying it normalizes 
 | `design.workspace.describe` | None | `{ activeSurface, canvas: { layerIds }, artboards: [{ id, name, x, y, width, height, layerIds }] }` |
 | `design.workspace.activate` | `{ target: 'canvas' \| artboardId }` | `null` |
 | `design.workspace.move` | `{ target: 'canvas' \| artboardId, layerIds, placement?: 'preserve' \| 'beside' }` | `null` |
-| `design.workspace.frameSelection` | None; select loose layers first | `null` |
+| `design.workspace.frameSelection` | None. Select loose layers first | `null` |
 
-`mode: 'shader-sequence'` is valid for GIF and MP4. Without `download: true` the action returns the Blob without saving it; call `studio.download(artifact)` later. Run exports one at a time.
+`mode: 'shader-sequence'` is valid for GIF and MP4. Without `download: true` the action returns the Blob without saving it, and `studio.download(artifact)` saves it later. Run exports one at a time.
 
 ```js
 const studio = window.glyphfield.studio;
@@ -129,4 +130,4 @@ if (!(artifact.blob instanceof Blob) || artifact.blob.size === 0) throw new Erro
 studio.download(artifact);
 ```
 
-`design.workspace.move` keeps world-space boxes, text layout, and appearance. IDs change only when the destination already has a layer with the same ID. `beside` places layers next to their source artboard when moving them to the canvas. Re-read the source after a move.
+`design.workspace.move` keeps world-space boxes, text layout, and appearance. IDs change only when the destination already has a layer with the same ID. `beside` places layers next to their source artboard when moving them to the canvas. Read the source again after a move.

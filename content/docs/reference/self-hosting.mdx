@@ -1,16 +1,23 @@
 ---
 title: Self-hosting
-description: Run Glyphfield locally or in production with its dynamic docs, generation routes, browser-local persistence, and rendering boundaries intact.
+description: Install, build and deploy your own Glyphfield server with the right Node and pnpm versions, keep its dynamic routes working, and verify the deployment.
 icon: MonitorCog
 ---
 
-Glyphfield is a Next.js application with dynamic API, OpenGraph, Markdown, and full-corpus routes. It is not configured as a static export. A complete deployment must run the Next.js server and preserve normal browser access to Canvas, WebGL, storage, files, and downloads.
+Glyphfield is a Next.js application with dynamic API, social image, Markdown and full-documentation routes. It is not a static export. A complete deployment runs the Next.js server and lets the browser use Canvas, WebGL, storage, files and downloads normally.
 
 <DocsMedia alt='Glyphfield documentation and Studio system represented by the General Translation identity workspace' caption='One deployment serves docs, discovery, API, and Studio' meta='Next.js · local-first browser state' src='/screenshots/studio-gt-identity-dark-2026.webp' />
 
-## Install and run
+## Requirements
 
-The lockfile is the dependency authority. `package.json` pins `packageManager: pnpm@11.15.1`; enable Corepack so that version is used. pnpm 10 cannot install the lockfile with `--frozen-lockfile` because of its patched dependencies. On Vercel, set `ENABLE_EXPERIMENTAL_COREPACK=1`. No Node engine is declared; use a current Node release compatible with the checked-in Next.js version and pin it in your deployment environment.
+| Requirement | Value | Source |
+| --- | --- | --- |
+| Node.js | 22.13 or later | pnpm 11.15.1 requires Node.js 22.13, and Next.js 16 requires 20.9. `package.json` declares no `engines` field, so pin the version in your deployment environment |
+| pnpm | 11.15.1 | `packageManager` in `package.json`. Enable Corepack so this version is used |
+| Install | `pnpm install --frozen-lockfile` | The lockfile is authoritative. pnpm 10 cannot install it with `--frozen-lockfile` because of its patched dependencies |
+| Vercel | `ENABLE_EXPERIMENTAL_COREPACK=1` | Lets Vercel install with the pinned pnpm version |
+
+## Install and run
 
 ```bash
 corepack enable
@@ -18,7 +25,7 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Development runs on `http://localhost:3012`.
+`pnpm dev` starts Next.js with Turbopack on `http://localhost:3012`.
 
 For a production server:
 
@@ -30,47 +37,56 @@ pnpm build
 pnpm start
 ```
 
-Set the listening host/port with the hosting platform or Next.js start options. Do not rewrite source examples around a hardcoded deployment hostname; integrations should define their own `BASE_URL`.
+`pnpm typecheck` generates the documentation collection with `fumadocs-mdx` before it type-checks. `pnpm start` runs `next start`. Set the host and port with your hosting platform or the `next start` options. Integrations should read their own `BASE_URL` instead of hard-coding a deployment hostname.
 
-## Routes the host must preserve
+## Environment variables
+
+| Variable | Effect | Default |
+| --- | --- | --- |
+| `NEXT_PUBLIC_STUDIO_URL` | The public origin used for canonical URLs, Open Graph URLs, the sitemap, the sitemap link in `robots.txt` and the introduction of `/llms-full.txt`. A trailing slash is removed | `https://www.glyphfield.com`. An empty value also uses the default |
+| `ENABLE_EXPERIMENTAL_COREPACK` | Set to `1` on Vercel so the build installs with the pinned pnpm version | Not set |
+
+Set `NEXT_PUBLIC_STUDIO_URL` before `pnpm build`, because Next.js reads `NEXT_PUBLIC_` variables when it builds. The application code in `src` reads no other environment variable except `NODE_ENV`, which Next.js sets itself. `public/llms.txt` is a static file that names `https://www.glyphfield.com`, so edit it in a self-hosted copy.
+
+## Routes to keep
 
 | Route family | Purpose | Runtime behavior |
 | --- | --- | --- |
-| `/studio` | Interactive brand tools | Browser-rendered and browser-persisted |
+| `/studio` | Interactive brand tools | Rendered and stored in the browser |
 | `/docs/**` | Human documentation | Server-rendered Fumadocs pages |
-| `/docs.md`, `/docs/**.md` | Processed Markdown twins | Rewritten to the docs Markdown route |
-| `/llms.txt` | Compact agent router | Static public asset |
-| `/llms-full.txt` | Complete processed docs corpus | Generated dynamically from the current docs source |
-| `/api/agent`, `/api/catalog`, `/api/labs`, `/api/materials`, `/api/identities`, `/api/elements` | Agent discovery | JSON; safe to cache briefly according to response headers |
-| `/api/generate` | Deterministic generation | Public POST; validates and processes in memory; `no-store` |
-| `/openapi.json` | OpenAPI 3.1 contract | Generated dynamically |
-| `/og/**`, `/api/og-*` | Social preview rendering | Dynamic image responses |
-| `/api/surface-textures/**` | Allowlisted material maps | Only known bundled assets/maps are served |
+| `/docs.md`, `/docs/**.md` | Processed Markdown copies of the docs | Rewritten to `/api/docs` |
+| `/llms.txt` | Short router for agents | Static public file |
+| `/llms-full.txt` | Complete processed documentation | Generated on each request from the current docs source |
+| `/api/agent`, `/api/catalog`, `/api/labs`, `/api/materials`, `/api/identities`, `/api/elements` | Agent discovery | JSON. Cache only as the response headers allow |
+| `/api/generate`, `/api/brand/validate`, `/api/brand/kit` | Deterministic generation and brand validation | Public POST, validated and processed in memory, `no-store` |
+| `/openapi.json` | OpenAPI 3.1 contract | JSON with `max-age=300` |
+| `/og/**`, `/api/og`, `/api/og-home` | Social images | Images rendered by the server |
+| `/api/surface-textures/**` | Allowlisted surface texture maps | Serves only known assets and maps |
 
-Do not configure a CDN to turn dynamic API, Markdown, OpenGraph, or full-corpus routes into the same long-lived static response.
+Do not configure a CDN to turn the dynamic API, Markdown, social image or full-documentation routes into one long-lived static response.
 
-## Local-first deployment boundary
+## Local-first storage
 
-Projects and tool state live in the visitor's browser rather than a server database. This has three operational consequences:
+Projects and tool state live in each visitor's browser, and there is no server database. This has three consequences for operators:
 
-1. Deploying a new server does not migrate browser projects.
-2. Changing the hostname, scheme, or port creates a different browser-storage origin.
-3. Server backups do not contain user projects, saved designs, or original local files.
+1. Deploying a new server does not move anyone's browser projects.
+2. A change of hostname, scheme or port creates a separate browser storage origin.
+3. Server backups do not contain user projects, saved designs or original local files.
 
-Before changing a production origin, instruct users to follow [Backup and restore](/docs/artifacts/backup-and-restore).
+Before changing a production origin, ask users to follow [Backup and restore](/docs/artifacts/backup-and-restore).
 
-## Reverse proxy and response requirements
+## Proxy and response requirements
 
-- Forward GET, POST, and OPTIONS requests without stripping request bodies.
-- Preserve `Content-Type`, `Content-Disposition`, cache, and CORS headers from API responses.
-- Allow request bodies up to Glyphfield's 5 MB application limit without substituting an ambiguous proxy error.
-- Do not HTML-rewrite raw SVG responses from `/api/generate`.
-- Keep cross-origin isolation changes deliberate; test Canvas, fonts, local files, downloads, and WebGL after any security-header change.
-- Serve the application over HTTPS in production so browser APIs are available in a secure context where required.
+- Forward GET, POST and OPTIONS requests with their bodies.
+- Keep the `Content-Type`, `Content-Disposition`, cache and CORS headers of API responses.
+- Accept request bodies up to 5,250,000 bytes, the application's limit, so the application can return its own `413` error.
+- Do not rewrite raw SVG responses from `/api/generate` as HTML.
+- After any change to security headers, including cross-origin isolation, test Canvas, fonts, local files, downloads and WebGL.
+- Serve production over HTTPS. The clipboard and the EyeDropper API (**Pick screen color**) work only in a secure context.
 
-## Health verification
+## Health checks
 
-After deployment, verify the contracts rather than checking only the home page:
+After deploying, check the contracts as well as the home page:
 
 ```bash
 BASE_URL=https://your-glyphfield.example
@@ -83,7 +99,7 @@ curl -fsS "$BASE_URL/docs/reference/endpoints.md" | head
 curl -fsS "$BASE_URL/llms-full.txt" | head
 ```
 
-Then open the deployed Studio in a supported browser, create a temporary project, render a material, reload once, and export a small PNG. HTTP health does not prove browser persistence or graphics support.
+Then open the deployed Studio in a supported browser, create a temporary project, render a material, reload once and export a small PNG. Passing HTTP checks does not prove that browser storage or graphics work.
 
 ## Generation smoke test
 
@@ -101,23 +117,21 @@ curl -fsS -X POST "$BASE_URL/api/generate" \
 test -s glyphfield-smoke.svg
 ```
 
-Read `GET /api/generate` before adapting the request; the live contract is authoritative.
+Read `GET /api/generate` before changing the request. The live contract is authoritative.
 
 ## Operational ownership
 
-The repository validates request shapes and size/geometry bounds. The production platform owns network-level rate limiting, request logs, abuse response, uptime, and deploy rollback. Keep those responsibilities explicit: a local build passing does not confirm that a provider firewall rule is active.
-
-See [API security](/docs/reference/api-security) for the current production control model and [Browser support](/docs/reference/browser-support) for graphics, storage, and codec verification.
+The application validates request shapes, body size and geometry limits. The hosting platform owns network rate limiting, request logs, abuse response, uptime and rollback. A passing local build does not confirm that a firewall rule is active on the host. [API security](/docs/reference/api-security) describes the production rate limit, and [Browser support](/docs/reference/browser-support) covers graphics, storage and codec checks.
 
 ## Release checklist
 
 1. Install from the lockfile.
-2. Generate docs and typecheck.
-3. Run contract and rendering tests.
+2. Generate the docs collection and type-check.
+3. Run the contract and rendering tests.
 4. Build the production application.
-5. Inspect deployment firewall changes before publishing them.
-6. Verify discovery, Markdown, OpenAPI, generation, and social-preview routes.
-7. Verify browser persistence and one still/motion path appropriate to the release.
-8. Preserve the previous deploy until source and artifact smoke tests pass.
+5. Review firewall changes before publishing them.
+6. Check the discovery, Markdown, OpenAPI, generation and social image routes.
+7. Check browser storage and one still or motion export that the release affects.
+8. Keep the previous deployment available until the source and export smoke tests pass.
 
-See [Contributing](/docs/contributing), [Troubleshooting](/docs/reference/troubleshooting), and [Storage and privacy](/docs/artifacts/storage-and-privacy).
+[Contributing](/docs/contributing), [Troubleshooting](/docs/reference/troubleshooting) and [Storage and privacy](/docs/artifacts/storage-and-privacy) cover development and operations further.

@@ -1,40 +1,54 @@
 ---
 title: Blog cover
-description: Editorial covers set in the identity's headline voice, with feature images and brand devices.
+description: Make editorial blog covers from the identity's voice, with feature images, background images and textures, then export them as PNG or SVG.
 icon: BookOpen
 ---
 
-Blog cover (tool ID `blog`) makes editorial covers. It starts from one of the identity's voice phrases as the headline. Layouts: **Editorial** (`editorial`; the mark alone at the top, the headline anchored above the footer), **Feature image** (`feature`; headline beside a library image or the brand device), **Statement** (`statement`), **Centered** (`centered`), and **Index** (`ledger`; logo and rule, headline, ruled footer). No layout puts a label above the headline. General Translation defaults to Editorial; most other identities default to Feature image.
+Blog cover (tool ID `blog`) makes editorial covers for blog posts. It is one of the [expression tools](/docs/studio/templates). The headline starts as the first voice phrase of the identity, or its tagline when it has no voice phrases. No layout places a label above the headline.
 
 <DocsMediaGrid>
   <DocsMedia alt='General Translation editorial blog cover in the expression editor' caption='Editorial layout' meta='1200 × 630 · dark chrome' src='/screenshots/studio-gt-blog-dark-2026.webp' />
   <DocsMedia alt='Ramp blog cover with the campaign photograph beside the headline' caption='Feature image layout' meta='Ramp · light chrome' src='/screenshots/studio-ramp-blog-light-2026.png' />
 </DocsMediaGrid>
 
+## Layouts
+
+| Layout | ID | Arrangement |
+| --- | --- | --- |
+| **Editorial** | `editorial` | The mark alone at the top, the headline anchored above the footer |
+| **Feature image** | `feature` | The headline beside a library image or the brand device. Tall formats stack the image above the headline |
+| **Statement** | `statement` | One large headline, a short emphasis bar and the wordmark |
+| **Centered** | `centered` | The mark, a centered headline and the footer |
+| **Index** | `ledger` | The wordmark above a rule, the headline and a ruled footer |
+
+General Translation and Starter default to Editorial, Basement defaults to Statement, and the other built-in identities default to Feature image.
+
 ## Content controls
 
-- **Title**, **Typography role**, and **Font weight** edit the headline.
-- **Surface** chooses **Base white**, **Base dark**, **Grid**, or **Noise**. Grid and noise add a texture layer you can restyle or remove.
-- **Add background image** and **Brand background asset** place a full-bleed image behind the copy; **Background image opacity** controls it (default 28%).
-- **Page surface** in Format and layout sets any brand color role.
+- **Content** has **Title**, **Typography role** and **Font weight** (100–550) for the headline.
+- **Surface** chooses **Base white**, **Base dark**, **Grid** or **Noise**. Grid and Noise set the page to the identity's paper color and add a texture layer that you can restyle or delete.
+- **Add background image** uploads a local image, and **Brand background asset** picks one from the identity library. Either one places a full-page image behind the copy at 28% opacity. **Background image opacity** changes the opacity.
+- **Page surface** in **Format and layout** accepts any brand color role.
 
-Every layer is editable on the canvas; see [Expression tools](/docs/studio/templates). Formats are the same as OpenGraph.
+Every layer is also editable on the canvas. See [Expression tools](/docs/studio/templates). Blog cover uses the seven social formats listed there.
 
 ## Export
 
-**Export PNG** renders the cover at 2× (2400 × 1260 for the default format). **More exports → Export SVG** downloads a self-contained SVG.
+**Export PNG** renders the cover at 2×, which is 2400 × 1260 px for the default format. **More exports → Export SVG** downloads a self-contained SVG.
 
 ## Browser actions
 
 | Action | Use |
 |---|---|
 | `blog.export.png` / `blog.export.svg` | Export |
-| `blog.document.describe` | Format, layouts, pages, and layers |
+| `blog.document.describe` | Format, layouts, pages and layers |
 | `blog.layer.add` / `blog.layer.update` / `blog.layer.remove` / `blog.layer.duplicate` | Layer edits |
-| `blog.layer.reorder` / `blog.layer.select` / `blog.layer.align` | Stack, selection, and alignment |
-| `blog.format.set` / `blog.layout.apply` / `blog.template.reset` | Format, layout, and template |
+| `blog.layer.reorder` / `blog.layer.select` / `blog.layer.align` | Stack order, selection and alignment |
+| `blog.format.set` / `blog.layout.apply` / `blog.template.reset` | Format, layout and template |
 | `blog.history.undo` / `blog.history.redo` | History |
+
+See [Expression tools](/docs/studio/templates#browser-api) for the inputs and outputs of these actions.
 
 ## HTTP
 
-`POST /api/generate` with `{ kind: 'template', template: 'blog', layout?, title, backgroundImageDataUrl? }` renders the cover as SVG. See [Generation API](/docs/agents/generate#templates).
+`POST /api/generate` with `{ kind: 'template', template: 'blog', layout?, format?, title?, texture?, backgroundImageDataUrl? }` renders the cover as an SVG. See [Generation API](/docs/agents/generate#templates).

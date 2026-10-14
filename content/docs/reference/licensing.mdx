@@ -1,27 +1,36 @@
 ---
 title: Licensing
-description: What the MIT license covers, which bundled marks, pictures, fonts, and code keep their own terms, and how to credit them.
+description: Check what Glyphfield's MIT license covers, which bundled marks, pictures, fonts and code keep their own licenses, and how to credit them when you publish.
 icon: ShieldCheck
 ---
 
-Glyphfield is released under the [MIT License](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/LICENSE). The license covers Glyphfield's source code and its original artwork, including the Starter identity and the artwork under `public/templates`. It does not cover the assets bundled with the reference identities, the reference-brand font files, or third-party code and packages, which keep their own terms.
+Glyphfield is released under the [MIT License](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/LICENSE). The license covers Glyphfield's source code and its original artwork, including the Starter identity's artwork under `public/templates`. It does not cover the assets bundled with the reference identities, the bundled font files, or third-party code and packages. Those keep their own terms.
 
-## What keeps its own terms
+## Glyphfield mark
+
+The Glyphfield mark is a closed G whose crossbar is a lightning bolt that leaves through the G's mouth. It is original Glyphfield artwork. `public/brand/glyphfield-mark.svg` holds the dark version and `public/brand/glyphfield-mark-white.svg` the white version. The favicon (`src/app/icon.svg`) and the social preview images use the same drawing.
+
+## Material with its own terms
 
 | Material | Location | Terms |
 | --- | --- | --- |
-| Reference brand marks, product media, photography, and press-kit files | `public/brands/<brand>` | The owner's terms. Each asset record stores its owner, source URL, intended use, and redistribution status. See [Brand research assets](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/public/brands/ASSET-NOTICE.md) |
-| General Translation marks and brand-system artwork (glyph globes, globe and mark, glyph and horizon fields, speed marks, the How GT works still, the signal Gem Smoke, the multilingual advance field) | `public/brands/gt/logos`, `public/brands/gt/library` | © General Translation, Inc., included with permission for Glyphfield's General Translation identity. Not covered by the MIT license and not reusable outside that identity without General Translation's permission |
-| General Translation onboarding email panels | `public/examples/email-lifecycle/cards` | Same terms as the GT artwork |
-| General Translation artifact pictures | `public/brands/gt/library` | Each keeps its original's license; see the table below |
-| Reference-brand font files | `public/fonts/brands` | Each typeface keeps its owner's or foundry's terms. See [Reference brand webfonts](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/public/fonts/brands/README.md) |
-| Adapted open-source code and bundled packages | Throughout `src` and dependencies | Their own licenses. See [Third-party notices](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/THIRD_PARTY_NOTICES.md) |
+| Reference brand marks, product media, photography and press-kit files | `public/brands/<brand>` | The owner's terms. Each asset record stores its owner, source URL, intended use and redistribution status. See [Brand research assets](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/public/brands/ASSET-NOTICE.md) |
+| General Translation marks and brand-system artwork: the GT logos and wordmarks, the glyph globes, the globe and mark, the glyph field, the horizon field, the speed marks, the How GT works still and the signal Gem Smoke | `public/brands/gt/logos`, `public/brands/gt/library` | © General Translation, Inc., included with permission for Glyphfield's General Translation identity. The MIT license does not cover them, and they may not be reused outside that identity without General Translation's permission |
+| General Translation onboarding email panels | `public/examples/email-lifecycle/cards` | The same terms as the GT artwork |
+| General Translation artifact pictures | `public/brands/gt/library` | Each keeps its original's license. See the table below |
+| Inter Variable | `public/fonts/inter-variable.ttf`, `public/fonts/inter-variable-latin.ttf` | SIL Open Font License 1.1 |
+| Geist Mono and Basement Grotesque | `public/fonts`, `public/fonts/basement-grotesque` | SIL Open Font License 1.1 |
+| Switzer | `public/fonts/switzer-400.ttf`, `public/fonts/switzer-500.ttf` | ITF Free Font License from Fontshare. The files may not be redistributed as a font package |
+| Reference-brand font files, including the Starter identity's Instrument Serif | `public/fonts/brands` | Each typeface keeps its owner's or foundry's terms. See [Reference brand webfonts](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/public/fonts/brands/README.md) |
+| Adapted open-source code and bundled packages | `src` and the npm dependencies | Their own licenses. See [Third-party notices](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/THIRD_PARTY_NOTICES.md) |
 
-The reference identities (Basement, General Translation, Ramp, Mintlify, Tailwind CSS, Vite+, Cloudflare, Stripe) are included for design study and interoperability. Their inclusion does not imply endorsement, and the MIT license grants no rights to third-party trademarks. Research-only assets must not be exported or redistributed as standalone stock assets; replace them with owned or licensed files before commercial use.
+The reference identities (Basement, General Translation, Ramp, Mintlify, Tailwind CSS, Vite+, Cloudflare and Stripe) are included for design study and interoperability. Their inclusion does not imply endorsement, and the MIT license grants no rights to third-party trademarks. Do not export or redistribute research-only assets as standalone stock assets. Replace them with owned or licensed files before commercial use.
+
+`public/fonts/inter-variable.ttf` is Rasmus Andersson's Inter Variable 4.1 (font version 4.001) from [rsms/inter](https://github.com/rsms/inter), with its optical-size and weight axes and every OpenType feature. `inter-variable-latin.ttf` is a Latin subset of the same file, used only when a generated SVG embeds its fonts inline. The license text is in `public/fonts/inter-OFL.txt`.
 
 ## General Translation artifact pictures
 
-The ten artifact pictures are General Translation's screens of public-domain and Creative Commons originals: each picture is reduced to a tone grid and printed through an 8 × 8 Bayer matrix. A screen of a public-domain original stays public domain. A screen of a CC BY-SA 4.0 original is an adaptation released under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+The ten artifact pictures are General Translation's screens of public-domain and Creative Commons originals. Each picture is reduced to a tone grid and printed through an 8 × 8 Bayer matrix. A screen of a public-domain original stays in the public domain. A screen of a CC BY-SA 4.0 original is an adaptation released under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
 
 | File | Original | Credit | License |
 | --- | --- | --- | --- |
@@ -36,22 +45,25 @@ The ten artifact pictures are General Translation's screens of public-domain and
 | `bowen-compass.png` | Mariner's Compass and Armillary Sphere | Emanuel Bowen, 1748 | Public domain |
 | `louisbourg-lighthouse.png` | Louisbourg Lighthouse, waves breaking in a fall storm | Photograph: Ken Heaton | CC BY-SA 4.0 |
 
-Show the credit with a picture wherever you publish it, and release adaptations of the three CC BY-SA 4.0 screens under the same license. Each asset record in the identity carries its credit, license, and source link. [Third-party notices](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/THIRD_PARTY_NOTICES.md#general-translation-artifact-pictures) links every original.
+Show the credit with a picture wherever you publish it, and release adaptations of the three CC BY-SA 4.0 screens under the same license. Each asset record in the identity carries its credit, license and source link. [Third-party notices](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/THIRD_PARTY_NOTICES.md#general-translation-artifact-pictures) links every original.
 
-## Third-party code and assets
+## Third-party code and packages
 
-[Third-party notices](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/THIRD_PARTY_NOTICES.md) lists:
+| Component | Use in Glyphfield | License |
+| --- | --- | --- |
+| Shaders.com WebGPU components (`shaders` 4.0.1, Shader Effects, Inc.) | The Shaders.com materials and Design Lab image effects | MIT. The separately licensed paid Shaders.com editor presets and sections are not redistributed |
+| Paper Shaders (`@paper-design/shaders-react`) | The Paper materials in the Shader Library | Apache License 2.0 |
+| ShaderGradient (`@shadergradient/react`) | The Prismatic sphere material | MIT (npm package) |
+| WebGL Fluid Simulation by Pavel Dobryakov | Adapted for the Fluid Energy material | MIT |
+| HoloCloth by Dmitry Kurash | Adapted for the holographic textile surface | MIT |
+| GMHoloSticker by Tero Hannula, and HoloSticker by Justin Levine | Adapted for the holographic sticker layer and the die-cut sticker renderer | MIT |
+| FoilStickerShader | Adapted for the prismatic and glitter sticker layers | Unlicense (public domain) |
+| Open PBR surface maps from Poly Haven and ambientCG | Surface textures, fetched on demand from the providers and not stored in the repository | CC0 1.0 |
 
-- WebGL Fluid Simulation (MIT), adapted for Fluid Energy.
-- Paper Shaders (Apache 2.0), the `@paper-design/shaders-react` package.
-- The Shaders.com WebGPU components, `shaders` 4.0.1 (MIT). The separately licensed paid Shaders.com editor presets and sections are not redistributed.
-- HoloCloth, GMHoloSticker, and HoloSticker (MIT) and FoilStickerShader (Unlicense), whose techniques the holographic surfaces and sticker finishes adapt.
-- The visual references for the original design studies (Evil Rabbit Shaders, GRADIENTOOL, Grainient). No code or assets from these sites are bundled.
-- The workflow references for the shader editor (glslCanvas, glslEditor, Paper Shaders, Pixel Play, WebGL Shader Editor).
-- Open PBR surface maps from Poly Haven and ambientCG (CC0 1.0), fetched on demand and not committed.
+[Third-party notices](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/THIRD_PARTY_NOTICES.md) holds the full license texts. It also lists visual references for the original shader studies (Evil Rabbit Shaders, GRADIENTOOL and Grainient) and workflow references for the shader editor (glslCanvas, glslEditor, Paper Shaders, Pixel Play and WebGL Shader Editor). No code or assets from those references are bundled.
 
-npm dependencies, such as ShaderGradient, Three.js, gifenc, mediabunny, dotLottie, PrismJS, and Fumadocs, are installed under their own licenses.
+Other npm dependencies, such as Three.js, gifenc, Mediabunny, dotLottie, PrismJS and Fumadocs, are installed under their own licenses. Mediabunny, which encodes MP4, uses the Mozilla Public License 2.0, and the others named here use MIT.
 
 ## Exported artifacts
 
-An export contains whatever the composition uses. A file made with a reference identity can contain that brand's marks, pictures, and fonts, and those keep their owners' terms. A file made with your own identity and Glyphfield's original artwork carries no Glyphfield restriction. Lottie files from LottieFiles keep their individual licenses; check each one before use.
+An export contains whatever its composition uses. A file made with a reference identity can contain that brand's marks, pictures and fonts, and those keep their owners' terms. A file made with your own identity and Glyphfield's original artwork carries no Glyphfield restriction. A font embedded in an exported SVG keeps its own license. Lottie files from LottieFiles keep their individual licenses, so check each one before use.

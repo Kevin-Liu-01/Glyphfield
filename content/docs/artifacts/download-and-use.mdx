@@ -1,14 +1,28 @@
 ---
 title: Download and use artifacts
-description: Export from Studio or the API, verify the result, and integrate SVG, still, motion, PDF, JSON, and Lottie outputs.
+description: Export files from the Studio or the HTTP API, check that each file is complete, and use SVG, image, motion, JSON and Lottie output in your own projects.
 icon: PackageOpen
 ---
 
-## Export from Studio
+## Export from the Studio
 
-Configure the artifact, inspect the preview, then use the tool's export action. Design Lab offers PNG, JPG, GIF, MP4, and a project file; Animation offers GIF, MP4, a PNG poster, and a project file; Lottie offers a PNG frame, GIF, MP4, and its source; the expression tools offer PNG and SVG, and Slide templates a PDF deck; Brand elements offers PNG and HTML email; the Brand book prints to PDF. The [capability matrix](/docs/reference/capability-matrix) lists every tool.
+Set up the artifact, inspect the preview, then use the tool's export control.
 
-For a programmatic Design Lab export:
+| Tool | Exports |
+| --- | --- |
+| Design Lab | PNG, JPG, GIF, MP4, project file |
+| Animation | GIF, MP4, PNG poster, project file |
+| Lottie | PNG frame, GIF, MP4, the edited JSON or the original `.lottie` |
+| OpenGraph, Terminal card, Partnership lockup, Blog cover | PNG, SVG |
+| Slide templates | PNG, SVG, PDF deck |
+| Moodboard | PNG, SVG, identity JSON |
+| Brand elements | PNG, HTML email, JSON brief |
+| Brand book | PDF through the browser print dialog |
+| Brand identity | Identity JSON and the brand kit |
+
+[Capability matrix](/docs/reference/capability-matrix) lists the same exports with their Browser API actions.
+
+To export from Design Lab, the layered composition tool, with the Browser API (`window.glyphfield.studio`):
 
 ```js
 const studio = window.glyphfield.studio;
@@ -27,9 +41,9 @@ if (!(artifact.blob instanceof Blob) || artifact.blob.size === 0) {
 studio.download(artifact);
 ```
 
-Do not run browser exports concurrently. Wait for one renderer/encoder job and verify it before starting the next.
+Run one browser export at a time. Exports share the renderer and encoder, and Design Lab rejects a new export or capture while one is running. Check each file before starting the next export.
 
-Design Lab PNG/JPG freezes the current visible shader frame; GIF/MP4 explicitly samples motion from the current frame anchor and restores that paused pose afterward. These exports do not add captured-frame assets to IndexedDB or restart playback. Use `design.frame.pause` for a storage-free pause and `design.frame.capture` when the editable source should include a durable PNG appearance checkpoint. Missing resources or unsupported timestamp-sampled Fluid motion must be reported, not substituted.
+Design Lab exports the active artboard. PNG and JPG freeze the shader frame that is visible when the export starts. GIF and MP4 sample motion from the current frame and restore that paused pose afterward. These exports do not add captured-frame assets to IndexedDB or restart playback. Use `design.frame.pause` to pause without storing anything, and `design.frame.capture` when the editable source should include a lasting PNG of the shader's appearance. When a resource is missing, or a motion export of Fluid Energy is requested, the export fails with an error and nothing is substituted.
 
 ## Download raw SVG from the API
 
@@ -52,9 +66,11 @@ curl -fsS -X POST "$BASE_URL/api/generate" \
 test -s gt-statement-slide.svg
 ```
 
-Raw output returns `image/svg+xml` and a deterministic `Content-Disposition` filename.
+Set `BASE_URL` to your deployment. `http://localhost:3012` is the local development server. A raw response is `image/svg+xml` with a `Content-Disposition` header that names the file.
 
 ## Extract SVG from a JSON envelope
+
+Without `output: "raw"`, template and background requests return a JSON envelope: `{ artifact: { content, filename, height, mimeType, width }, schemaVersion: 1 }`.
 
 ```bash
 curl -fsS -X POST "$BASE_URL/api/generate" \
@@ -67,9 +83,9 @@ jq '.artifact | { filename, mimeType, width, height }' response.json
 test -s artifact.svg
 ```
 
-## Integrate SVG
+## Use SVG
 
-The command above writes the file into the current working directory. Copy it into your application's public asset directory before referencing it from HTML or CSS; the example asset is generated output and is not bundled with Glyphfield.
+The commands above write the file into the current directory. Copy it into your application's public asset directory before referencing it from HTML or CSS. The example file is generated output and does not ship with Glyphfield.
 
 ```bash
 mkdir -p public/brand
@@ -86,29 +102,29 @@ cp gt-statement-slide.svg public/brand/gt-statement-slide.svg
 }
 ```
 
-Inline only trusted SVG when internal styling or scripting is required.
+Inline an SVG in a page only when you trust it and need its internal styling or scripting.
 
-## Integrate stills and motion
+## Use stills and motion
 
 - Use PNG for transparency and crisp flat graphics.
 - Use JPG for smaller opaque images.
-- Use GIF when the destination requires it; check dimensions, palette artifacts, file size, and seam.
-- Use MP4 for longer or higher-fidelity motion; include captions/transcripts where relevant and verify audio.
-- Keep autoplay respectful of `prefers-reduced-motion` and platform policy.
+- Use GIF when the destination requires it. Check the dimensions, palette banding, file size and the point where it loops.
+- Use MP4 for longer or higher-fidelity motion. Add captions or a transcript where needed, and check the audio.
+- Respect `prefers-reduced-motion` and the platform's autoplay rules.
 
 ## Use JSON and briefs
 
-Element briefs are production specifications, not images. Store them next to the implementation when traceability matters. CanvasDocument or tool source should be treated as editable state and opened/applied through a compatible Studio version rather than rendered by guessing at fields.
+An element brief is a production specification in JSON, and it contains no image. Store it next to the implementation when you need to trace the work back to its source. Treat a CanvasDocument or other tool source as editable state. Open or apply it in a compatible Studio version instead of rendering it from guessed fields.
 
 ## Handoff bundle
 
-A robust handoff contains:
+A complete handoff contains:
 
-1. Rendered artifact(s).
-2. Exact editable source or named Design Lab save.
-3. Identity ID/revision.
-4. Non-embedded authorized assets/fonts.
-5. Output settings and loop/audio expectations.
-6. License/attribution notes where required.
+1. The rendered artifacts.
+2. The exact editable source or the named Design Lab save.
+3. The identity ID and revision.
+4. Authorized asset and font files that the source does not embed.
+5. The output settings and the expected loop and audio behavior.
+6. License and attribution notes where required.
 
-This is enough for a person or agent to regenerate the work without shifting layers or losing material timing.
+With this bundle, a person or an agent can regenerate the work without layers shifting or shader timing changing.

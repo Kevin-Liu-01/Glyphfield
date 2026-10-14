@@ -1,25 +1,25 @@
 ---
 title: Source format reference
-description: Understand the portable CanvasDocument, tool-local documents, validation boundaries, migrations, and safe round trips.
+description: Read and edit the JSON source behind each Studio tool, including the portable CanvasDocument, its validation rules, migrations and safe round trips.
 icon: Braces
 ---
 
-Studio source is the structured state behind the active artifact. It is available to people through **Code** and to agents through `window.glyphfield.studio.readSource()` and `applySource()`.
+Studio source is the structured JSON state behind the active artifact. People edit it in the source drawer, which the **Code** button opens. Scripts and agents read and apply it through the Browser API with `window.glyphfield.studio.readSource()` and `applySource()`.
 
-The source adapter remains active while its Studio tool is active; the Code drawer does not need to be open. Brand book source holds only presentation edits (order, visibility, layout, surface, image, and copy); its content still derives from Brand identity.
+The source stays available while its Studio tool is active, whether or not the source drawer is open. Brand book source holds only presentation edits (order, visibility, layout, surface, image and copy). Its content still comes from the Brand identity tool.
 
-## Rules shared by every tool
+## Rules for every tool
 
 - Source must parse as a JSON object. Arrays and primitive top-level values are rejected.
-- Each tool validates its own enums, ranges, references, and required collections before changing visible state.
-- Failed application leaves the current artifact unchanged and reports the error.
-- A successful application updates the same state used by the inspector, preview, persistence, and export.
-- Browser source is not automatically a `POST /api/generate` request. Only a `design-sequence` response explicitly contains an apply-ready `document`; that compact version-3 compatibility source is normalized to the current CanvasDocument when applied.
-- Preserve unknown fields. Forward compatibility depends on editing the current document rather than reconstructing an older example.
+- Each tool validates its own enums, ranges, references and required collections before it changes visible state.
+- When application fails, the current artifact stays unchanged and the error is reported.
+- A successful application updates the same state that the inspector, preview, persistence and export use.
+- Browser source is not a `POST /api/generate` request. Only a `design-sequence` response contains an apply-ready `document`, and that compact version-3 compatibility source is normalized to the current CanvasDocument when it is applied.
+- Keep unknown fields. Edit the current document instead of rebuilding an older example, so fields added by newer versions survive.
 
 ## Portable CanvasDocument
 
-Design Lab is backed by the shared CanvasDocument scene graph. The current canvas schema is `schemaVersion: 2`; Design Lab-specific metadata records `sourceVersion: 4`.
+Design Lab, the layered composition tool, stores its work in the shared CanvasDocument scene graph. The current canvas schema is `schemaVersion: 2`, and the Design Lab metadata records `sourceVersion: 4`.
 
 ```json
 {
@@ -53,61 +53,63 @@ Design Lab is backed by the shared CanvasDocument scene graph. The current canva
 }
 ```
 
-The complete document also carries `id`, `title`, timestamps, `revision`, `guides`, and element records; keep them as `readSource()` returns them. Each element owns bounds, constraints, visibility, `locked`, style, opacity, blend mode, and tool-specific `data` (the full layer settings and its `layerType`). Bounds `x` and `y` are positions; `width` and `height` are scale factors of the layer's default box, not pixels. `rotation` is the layer's angle in degrees, clockwise about its center, from −180 to 180; the layer `data` mirrors a nonzero angle as `transform.rotation`, and `bounds.rotation` wins when the two differ. Documents saved before layers could rotate have no `transform.rotation` and load at 0. Effect elements always have rotation 0. Image and logo elements reference asset records rather than browser-only paths: `brand-asset:<library id>` for identity assets and `resource:<layer id>` for embedded files. Layer IDs must start with `shader-`, `effect-`, `text-`, `logo-`, or `asset-`; groups with `group-`; artboards with `artboard-`. `metadata.designLab.identity` holds the typography snapshot of an imported project.
+The complete document also carries `id`, `title`, timestamps, `revision`, `guides` and the element records. Keep them exactly as `readSource()` returns them.
+
+Each element has bounds, constraints, `hidden`, `locked`, a style with opacity and blend mode, and tool-specific `data` that holds the full layer settings and the `layerType`. A text element keeps its text in `content`. Bounds `x` and `y` are positions. Bounds `width` and `height` are scale factors of the layer's default box. They are not pixel values. Bounds `rotation` is the layer's angle in degrees, clockwise about its center, from −180 to 180. The layer `data` mirrors a nonzero angle as `transform.rotation`, and `bounds.rotation` wins when the two differ. Documents saved before layers could rotate have no `transform.rotation` and load at 0. Effect elements always have rotation 0.
+
+Image and logo elements reference asset records instead of browser-only paths. Identity assets use `brand-asset:<library id>`, and embedded files use `resource:<layer id>`. Layer IDs start with `shader-`, `effect-`, `text-`, `logo-` or `asset-`. Group IDs start with `group-`, and artboard IDs start with `artboard-`. `metadata.designLab.identity` holds the typography snapshot of an imported project.
 
 ### Generated compatibility source
 
-`POST /api/generate` with `kind: "design-sequence"` returns an HTTP envelope with `schemaVersion: 1` and a compact `document` whose `version` is `3`. That document uses `composition`, `ratio`, `timeline`, `shaderSequence`, and `exportSettings` fields. It is an input contract, not the current CanvasDocument envelope. Apply it, then call `readSource()` to receive the normalized CanvasDocument shown above.
+`POST /api/generate` with `kind: "design-sequence"` returns an HTTP envelope with `schemaVersion: 1` and a compact `document` whose `version` is `3`. That document uses the fields `composition`, `ratio`, `timeline`, `shaderSequence` and `exportSettings`. It is an input format and is not the current CanvasDocument. Apply it, then call `readSource()` to receive the normalized CanvasDocument shown above.
 
 ### Design Lab layer data
 
-Design Lab supports these element/layer families:
-
-| Kind | Important state |
+| Layer | Stored state |
 | --- | --- |
-| Shader | Material ID, colors, engine settings, native frame state, captured PNG reference, size, motion, transform, opacity, blend |
-| Text | Content (`value`) and optional `runs`, type role (the family comes from the role), weight, size, color, outline, shadow, text effect, shader fill, transform |
+| Shader | Material ID, colors, engine settings, native frame state, captured PNG reference, size, motion, transform, opacity, blend mode |
+| Text | Text (`content`) with optional `runs`, type role (the role sets the family), weight, size, color, outline, shadow, text effect, shader fill, transform |
 | Logo | Brand or custom asset, color, appearance, shader fill, transform |
-| Image | Embedded or library asset, non-destructive crop, focal point, zoom, fit, opacity, transform, appearance, and `stickerFinish` for stickers |
-| Effect | Converter `kind` (Bayer, ASCII, halftone, posterize) and its settings, foreground and background colors, opacity; for an image effect, `effectId` and `effectProps` |
+| Image | Embedded or library asset, crop, focal point, zoom, fit, opacity, transform, appearance, and `stickerFinish` for stickers |
+| Effect | Converter `kind` (Bayer, ASCII, halftone or posterize) and its settings, foreground and background colors and opacity. An image effect stores `effectId` and `effectProps` instead |
 
-`page.elementIds` is the authoritative back-to-front layer order. Groups are stored in Design Lab metadata and must reference valid element IDs. When a shader layer is missing from the stored order, it is inserted behind the content; an authored order is kept.
+`page.elementIds` is the authoritative layer order from back to front. Groups are stored in the Design Lab metadata and must reference valid element IDs. When a shader layer is missing from the stored order, it is inserted behind the content. An authored order is kept.
 
 ### Captured shader appearance
 
-Shader applications can carry `frameState` and `frameSnapshot`. They serve different purposes:
+A shader application can carry `frameState` and `frameSnapshot`, which have different jobs:
 
-- `frameState` is the editable native recipe anchor: provider, floating-point engine time/frame, timeline time, material ID, and any captured provider-specific input. Current records are version 2; legacy Paper version-1 anchors remain readable.
-- `frameSnapshot` is `{ version: 1, assetId, width, height }`, referencing a lossless PNG in `CanvasDocument.assets`. IDs use `shader-frame:<sha256>` so repeated uses share the same bytes. Retain unknown snapshot fields during edits.
+- `frameState` is the editable anchor of the native recipe: provider, floating-point engine time or frame, timeline time, material ID and any captured input that a provider needs. Current records are version 2, and older Paper version-1 anchors still load.
+- `frameSnapshot` is `{ version: 1, assetId, width, height }` and references a lossless PNG in `CanvasDocument.assets`. Its ID has the form `shader-frame:<sha256>`, so repeated uses share the same bytes. Keep unknown snapshot fields when editing.
 
-Canvas shader records live in element `data`; content-bound shader applications live in `metadata.designLab.layerShaders`. Workspace artboards also preserve their own snapshots. `timeline.timeMs` stores time independently of the legacy `timeline.frame` export-grid index.
+Shader layers keep these records in element `data`. Shader fills on content layers keep them in `metadata.designLab.layerShaders`. Workspace artboards keep their own snapshots. `timeline.timeMs` stores time separately from the older `timeline.frame` export frame index.
 
-Ordinary Pause can update native `frameState` and timeline data without creating a PNG `frameSnapshot`. Playback, time-range extension, and PNG/JPG/GIF/MP4 export do not add captured-frame assets; explicitly capturing an appearance is a separate persistence operation.
+An ordinary pause can update `frameState` and the timeline without creating a PNG `frameSnapshot`. Playback, extending the time range, and PNG, JPG, GIF and MP4 export do not add captured-frame assets. Capturing an appearance is a separate, explicit operation.
 
-Runtime frames use durable local asset references, not ephemeral `blob:` URLs. Portable JSON embeds the PNG bytes; source application validates and imports them before changing the composition. A missing frame must produce an actionable error, not silently reset to the default shader. A PNG guarantees the captured appearance at its recorded resolution, not an editable Fluid simulation checkpoint or identical procedural reconstruction across GPUs.
+Captured frames use durable local asset references instead of temporary `blob:` URLs. Portable JSON embeds the PNG bytes, and source application validates and imports them before it changes the composition. A missing frame produces an error that says what is missing, and the layer does not fall back to the default shader. A PNG keeps the captured appearance at its recorded resolution. It does not store an editable Fluid Energy simulation state, and the same procedural settings can render slightly differently on another GPU.
 
 ## Tool document map
 
-| Tool | Document boundary | Key constraints |
+| Tool | Source document | Validation and compatibility |
 | --- | --- | --- |
-| Brand identity | Complete `BrandIdentity` | Validated against the BrandIdentity JSON Schema (`GET /api/brand/validate`); keeps the project `id`, `kind`, `revision`, `builtIn`, and `presetFingerprint`, and unknown fields; asset and font paths must be `data:` URLs or origin paths. Agents merge targeted patches with `identity.apply` |
-| Brand elements | Selected application settings (`glyphfield.brand-element` version 2, with `elementId`) | Selects `elementId` and stores only values that differ from identity defaults; version 1 settings apply to the selected element |
-| Moodboard | Boards and tiles (`glyphfield.moodboard` version 2) | Composition is `showcase`, `campaign`, `system`, `specimen`, or `catalog`; tiles validate variant, span, tone, image, and copy; version 1 still applies |
-| Brand book | Sections and pages (`glyphfield.brand-book` version 1) | Section order and visibility, page visibility, layout, surface, image, and copy (1200 characters per slot); `schema` and `version` are checked; foundations still belong in the identity |
-| Animation | CanvasDocument schema 2 with `metadata.tool: "animation-studio"` and `metadata.animation` (`mode`, `textFrames`, `includeBrandLogo`, `sequenceOrder`, `settings`, `frameSettings`, `sequenceBackground`, `backgroundOverrides`, `playbackRate`, `audio`, `artboards`, `activeArtboardId`, `identity`) | `playbackRate` greater than 0 and at most 4; keyframes and entrances are validated by path; artboards and audio bytes are embedded |
-| Lottie | CanvasDocument schema 2 with `metadata.studio = { sourceVersion: 1, toolId: "lottie", state }`; `state` holds appearance, background, canvas preset, edits, playback, and the source (raw JSON in `source.data`, or a `.lottie` asset on the `lottie-animation` element) | Raw Lottie JSON with numeric `fr` and `layers[]` can also be applied; it replaces the animation and clears edits |
-| Design Lab | CanvasDocument v2 with Design Lab source metadata v4 | Exact layers, transforms, assets, effects, sequences, saved frames, and export settings |
-| OpenGraph, Terminal card, Partnership, Blog, Slides | CanvasDocument schema 2 with `metadata.studio = { sourceVersion: 2, toolId, state }`: pages are artboards (slides are pages), elements are layers with a `data.slot` role and brand color roles | Rejects another tool's document or a newer `sourceVersion`; text layers need `textStyle` and code layers a tab; library assets are re-pointed to the identity's files; mirrored flat `title`, `body`, `code`, and `language` stay editable; version-1 flat states migrate |
-| Color/Typography | Identity-bound foundation state, version 2 | Color: the palette, `colorPairings` and `colorSystem` (semantic light/dark roles, scale settings) plus per-token opacity. Typography: roles, `typeScale` and specimen settings. Version 1 sources still apply; font files remain local |
-| Components | Version 2: `pattern`, `family`, `label`, `supportingCopy`, `disabled`, `size`, `density`, `radius`, `borderWidth`, `elevation`, `surface`, `theme`, `codeFormat`, `useBrandDefaults`, `colors`, `typography`, `textScale`, `letterSpacing`, `asset` | `family` must match the pattern; version 1 migrates on apply |
+| Brand identity | Complete `BrandIdentity` | Checked against the BrandIdentity JSON Schema from `GET /api/brand/validate`. Keeps the project `id`, `kind`, `revision`, `builtIn` and `presetFingerprint` and unknown fields. Asset and font paths must be `data:` URLs or paths on the Glyphfield origin. Agents merge targeted patches with `identity.apply` |
+| Brand elements | Settings of the selected element (`glyphfield.brand-element` version 2, with `elementId`) | Selects `elementId` and stores only values that differ from the identity defaults. Version 1 settings apply to the selected element |
+| Moodboard | Boards and tiles (`glyphfield.moodboard` version 2) | The composition is `showcase`, `campaign`, `system`, `specimen` or `catalog`. Tiles validate variant, span, tone, image and copy. Version 1 still applies |
+| Brand book | Sections and pages (`glyphfield.brand-book` version 1) | Section order and visibility, page visibility, layout, surface, image and copy (up to 1200 characters per slot). `schema` and `version` are checked. Foundations belong in the identity |
+| Animation | CanvasDocument schema 2 with `metadata.tool: "animation-studio"` and `metadata.animation` (`mode`, `textFrames`, `includeBrandLogo`, `sequenceOrder`, `settings`, `frameSettings`, `sequenceBackground`, `backgroundOverrides`, `playbackRate`, `audio`, `artboards`, `activeArtboardId`, `identity`) | `playbackRate` is greater than 0 and at most 4. Keyframes and text entrances are validated by path. Artboards and audio bytes are embedded |
+| Lottie | CanvasDocument schema 2 with `metadata.studio = { sourceVersion: 1, toolId: "lottie", state }`. `state` holds the appearance, background, canvas preset, edits, playback and the source (raw JSON in `source.data`, or a `.lottie` asset on the `lottie-animation` element) | Raw Lottie JSON with a numeric `fr` and a `layers` array can also be applied. It replaces the animation and clears the edits |
+| Design Lab | CanvasDocument schema 2 with Design Lab source version 4 | Exact layers, transforms, assets, effects, sequences, saved frames and export settings |
+| OpenGraph, Terminal card, Partnership lockup, Blog cover, Slide templates | CanvasDocument schema 2 with `metadata.studio = { sourceVersion: 2, toolId, state }`. Pages are artboards (each slide is a page), and elements are layers with a `data.slot` role and brand color roles | Rejects another tool's document or a newer `sourceVersion`. Text layers need `textStyle`, and code layers need a tab. Library assets are pointed back to the identity's files. The mirrored flat fields `title`, `body`, `code` and `language` stay editable. Version-1 flat states migrate |
+| Color tokens, Typography | Foundation state bound to the identity, version 2 | Color tokens: the palette, `colorPairings`, `colorSystem` (semantic light and dark roles, scale settings) and per-token opacity. Typography: roles, `typeScale` and specimen settings. Version 1 sources still apply, and font files stay local |
+| Component library | Version 2: `pattern`, `family`, `label`, `supportingCopy`, `disabled`, `size`, `density`, `radius`, `borderWidth`, `elevation`, `surface`, `theme`, `codeFormat`, `useBrandDefaults`, `colors`, `typography`, `textScale`, `letterSpacing`, `asset` | `family` must match the pattern. Version 1 migrates when applied |
 
-## Safe agent mutation
+## Safe agent edits
 
 ```js
 const studio = window.glyphfield.studio;
 const before = JSON.parse(studio.readSource());
 
-// Preserve the envelope and change only the intended element.
+// Keep the envelope and change only the intended element.
 const text = Object.values(before.elements)
   .find((element) => element.kind === 'text');
 if (!text) throw new Error('No text element exists.');
@@ -123,7 +125,7 @@ if (after.elements[text.id].content !== text.content) {
 }
 ```
 
-Use `describe().source` before reading or applying. Do not write directly to localStorage, IndexedDB, component state, or internal React properties.
+Check `describe().source` before reading or applying. Do not write to localStorage, IndexedDB, component state or internal React properties directly.
 
 ## Lottie validation
 
@@ -139,17 +141,15 @@ Use `describe().source` before reading or applying. Do not write directly to loc
 }
 ```
 
-The browser player decides support for individual Lottie features. Recoloring, trim, and frame selection are Studio state; `lottie.export.source` and **Export JSON** emit the updated vector document. An imported `.lottie` bundle can be replayed and downloaded but its layers, text, and colors cannot be edited.
+The browser player decides which Lottie features render. Recoloring, trimming and frame selection are Studio state. `lottie.export.source` and **Export JSON** write the updated vector document. An imported `.lottie` archive can be replayed and downloaded, but its layers, text and colors cannot be edited.
 
 ## Portability checklist
 
-1. Read and retain the current schema/source versions.
-2. Preserve asset records, page ordering, unknown metadata, and stable element IDs.
-3. Apply through the tool validator and re-read.
-4. Save the source or named design when later regeneration matters.
+1. Read and keep the current schema and source versions.
+2. Keep asset records, page order, unknown metadata and stable element IDs.
+3. Apply through the tool validator and read the source again.
+4. Save the source or a named design when the work may need to be regenerated.
 5. Export the requested rendered format separately.
-6. Carry authorized fonts/assets with the document when they are not embedded.
+6. Keep authorized font and asset files with the document when they are not embedded.
 
-See [Source code editing](/docs/studio/source-editing), [Studio Browser API](/docs/reference/browser-api), and [Formats and portability](/docs/artifacts/formats-and-portability).
-
-For migration behavior and the relationship between these independent version numbers, see [Version compatibility](/docs/reference/version-compatibility).
+[Source code editing](/docs/studio/source-editing), [Studio Browser API](/docs/reference/browser-api) and [Formats and portability](/docs/artifacts/formats-and-portability) cover related tasks. [Version compatibility](/docs/reference/version-compatibility) explains how these independent version numbers relate and how migration works.

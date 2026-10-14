@@ -1,29 +1,29 @@
 ---
 title: Brand setup with an agent
-description: Let Claude Code, Codex or Cursor research a brand from its own sources and set up the complete identity, audit it and export the brand kit.
+description: Let Claude Code, Codex or Cursor research a brand from its own sources, fill the complete identity, pass the health audit and export the brand kit.
 icon: Bot
 ---
 
-The Brand identity tool is the foundation every Glyphfield tool reads. A coding agent can set it up end to end: it researches the brand from the user's website, repository or design files, fills every section through the Browser API, adds the real logo and font files, runs the brand health audit, fixes what it finds and exports the brand kit.
+The Brand identity tool holds the shared identity (voice, strategy, colors, type, logos and imagery) that every Glyphfield tool reads. A coding agent such as Claude Code, Codex or Cursor can set it up from start to finish. The agent researches the brand from the user's website, repository or design files and fills every section through the Studio Browser API (`window.glyphfield.studio`). It then adds the real logo and font files, runs the brand health audit, fixes the findings and exports the brand kit.
 
-<DocsMedia alt='Brand identity tool showing the brand cover, health score and quick actions' caption='Set up with your agent starts from the Brand identity overview' meta='Prompt · Browser API · audit · kit' src='/screenshots/studio-gt-identity-light-2026.webp' />
+<DocsMedia alt='Brand identity tool showing the brand cover, health score and quick actions' caption='The agent setup starts from the Brand identity overview' meta='Prompt · Browser API · audit · kit' src='/screenshots/studio-gt-identity-light-2026.webp' />
 
 ## Start from the Studio
 
-Open **Brand identity → Set up with agent**. It shows a ready-to-run prompt for the active project with the project URL, the rules and every call. Choose **New brand** for a fresh project or **Improve this brand** for one that already has content, then **Copy prompt** and paste it into Claude Code, Codex or Cursor. The same text is available programmatically from `identity.setup.prompt`.
+Open the Brand identity tool and choose **Set up with agent** in its section list. The panel shows a ready-to-run prompt for the active project with the project URL, the rules and every call. Choose **New brand** for a fresh project or **Improve this brand** for one that already has content. Then choose **Copy prompt** and paste the prompt into the agent. `identity.setup.prompt { mode }` returns the same text, with `mode` set to `'new'` or `'improve'`.
 
-For a new brand, create the project first: **Add brand project → Brand identity** (a scratch identity), or **Use a template → Starter** for a complete neutral example to replace. An agent can do the same itself: `identity.project.create { from: 'starter', name }` copies the Starter template, `from: 'scratch'` starts empty, and a project id duplicates that project with its workspaces. The action opens the new project and returns `{ id, name, kind, from, url }`; read `window.glyphfield.studio` again before the next call, because the new project's workspace now owns the API.
+For a new brand, create the project first. **Add brand project** → **Brand identity** creates an empty identity, and **Use a template** → **Starter** creates a complete neutral example to replace. An agent can do the same with `identity.project.create { from, name }`. `from: 'starter'` (the default) copies the Starter template, `from: 'scratch'` starts empty, a built-in identity ID copies that identity, and a project ID duplicates that project with its workspaces. The action opens the new project and returns `{ id, name, kind, from, url }`. Read `window.glyphfield.studio` again before the next call, because the new project's workspace now owns the API.
 
-## The workflow
+## Workflow
 
-1. **Research.** Homepage, about page, README and docs; CSS custom properties, Tailwind config or token files; font files and their licenses; logo files; any brand guide. Use only sources the user authorized and record each one in `sourceNotes`. Never invent customers, metrics, claims or slogans.
-2. **Brief.** Draft a merge patch: essentials, strategy, voice with `voice.examples`, semantic colors with `proportion` and `colorPairings`, a `colorSystem` mapping the light and dark semantic roles (`background`, `surface`, `foreground`, `primary`, …) to color refs such as `ink` or `ink.700`, typography roles (a monospace Code face) with size-tuned `letterSpacing` and `typeScale` with `roleSteps`, the graphic device and image direction, products with one-line `productDetails`, proof statements, `customers` kept apart from proof, template `samples` and applications. The tagline, promise and phrases must be different lines.
-3. **Connect.** Open `/studio?tool=identity&project=<id>` in a browser the agent controls, wait for `window.glyphfield.studio`, call `describe()`, and confirm `activeTool()` is `identity`.
-4. **Validate.** `identity.validate { identity: patch }` returns `{ ok, issues }` without changing anything. In `patch` mode (the default) it checks the patch on its own and skips cross-references such as duplicate IDs, unknown color IDs, and unknown `fontId` values. `identity.apply` validates the merged result and throws on those, so treat a clean validate as necessary, not sufficient.
-5. **Apply.** `identity.apply { identity: patch }` merges the patch and returns `{ identity, warnings, saved, health }`. A failure throws one `TypeError` that lists every issue.
-6. **Files.** `identity.asset.add { file, slot }` for each logo and `identity.font.add { file, roles, license, sourceUrl }` for each font.
-7. **Audit and fix.** `identity.audit`, then `identity.fix { fixId }` or each finding's `agentPrompt`, until there are no errors. `prune-fonts` removes template fonts no typography role uses, `separate-customers` moves customer names out of `proof`, and `distinct-phrases` drops phrases that repeat the tagline or promise.
-8. **Save and export.** `identity.save`, then `identity.export.kit { format: 'zip' }` and verify the Blob.
+1. Research the brand. Read the homepage, about page, README and docs. Read CSS custom properties, the Tailwind config or token files, the font files and their licenses, the logo files and any brand guide. Use only sources the user authorized, and record each one in `sourceNotes`. Do not invent customers, metrics, claims or slogans.
+2. Draft a merge patch. Include the essentials, strategy, voice with `voice.examples`, and semantic colors with `proportion` and `colorPairings`. Add a `colorSystem` that maps the light and dark semantic roles to color refs, typography roles with a monospace Code face and size-tuned `letterSpacing`, and a `typeScale` with `roleSteps`. Add the graphic device, image direction, products with one-line `productDetails`, proof statements, `customers` kept apart from proof, template `samples` and applications. The tagline, promise and phrases must be different lines.
+3. Connect. Open `/studio?tool=identity&project=<id>` in a browser the agent controls, wait for `window.glyphfield.studio`, call `describe()`, and confirm that `activeTool()` returns `identity`.
+4. Validate. `identity.validate { identity: patch }` returns `{ ok, issues }` and changes nothing. In `patch` mode (the default), it merges the patch into the active identity the same way `identity.apply` does. It therefore also reports duplicate IDs, unknown color IDs and unknown `fontId` values. A clean result means that `identity.apply` accepts the same patch when no `replace` or `remove` option is passed.
+5. Apply. `identity.apply { identity: patch }` merges the patch and returns `{ identity, warnings, saved, health }`. A failure throws one `TypeError` that lists every issue.
+6. Add files. Call `identity.asset.add { file, slot }` for each logo and `identity.font.add { file, roles, license, sourceUrl }` for each font. Fonts can be TTF, OTF, WOFF or WOFF2 files of up to 2.5 MB.
+7. Audit and fix. Run `identity.audit`, then call `identity.fix { fixId }` or follow each finding's `agentPrompt` until no errors remain. `prune-fonts` removes template fonts that no typography role uses, `separate-customers` moves customer names out of `proof`, and `distinct-phrases` drops phrases that repeat the tagline or promise.
+8. Save and export. Call `identity.save`, then `identity.export.kit { format: 'zip' }`, and check the returned Blob.
 
 ```js
 const studio = window.glyphfield.studio;
@@ -43,6 +43,7 @@ const check = await studio.invoke('identity.validate', { identity: patch });
 if (!check.ok) throw new Error(check.issues.map(({ message }) => message).join('\n'));
 await studio.invoke('identity.apply', { identity: patch });
 
+// svgBytes holds the bytes of a logo file the user authorized.
 const logo = new File([svgBytes], 'mark.svg', { type: 'image/svg+xml' });
 await studio.invoke('identity.asset.add', { file: logo, slot: 'mark-dark' });
 
@@ -58,52 +59,54 @@ if (kit.blob.type !== 'application/zip' || !kit.blob.size) throw new Error('The 
 
 ## Color and type systems
 
-- `colorSystem.light` and `colorSystem.dark` map the twelve semantic roles (`background`, `surface`, `surface-muted`, `foreground`, `foreground-muted`, `border`, `primary`, `primary-foreground`, `focus`, `positive`, `caution`, `negative`) to color refs such as `ink` or `ink.700` (steps 50–950). Omitted roles are derived from the palette. Text roles should reach 4.5:1 and line and status roles 3:1 in both modes. The health score does not check semantic roles; `brand.md` lists failing roles under "Fix before use". `colorSystem.scales` tunes a color's OKLCH tint ramp only when the brand publishes one.
-- `typeScale { basePx, ratio, roleSteps }` sets sizes as `basePx × ratio^step`. `basePx` is 10–24 and `ratio` 1.067–1.8; use at least 1.25 for display work (the audit flags ratios below 1.2). `roleSteps` names the step each role uses: `caption`, `small`, `body`, `lead`, `h4`, `h3`, `h2`, `h1`, or `display`. The defaults are Display `display`, Body `body`, Accent `lead`, and Code `small`.
-- Track by size: Display `letterSpacing` slightly negative (about -0.01 to -0.025 of its px size), Body and Code 0, never positive on lowercase. Kerning stays on and optical sizing stays automatic; set `opticalSize` or `slant` only when the brand fixes them.
+- `colorSystem.light` and `colorSystem.dark` map the twelve semantic roles (`background`, `surface`, `surface-muted`, `foreground`, `foreground-muted`, `border`, `primary`, `primary-foreground`, `focus`, `positive`, `caution`, `negative`) to color refs such as `ink`, or to a scale step such as `ink.700` (steps 50–950). An omitted role is derived from the palette. Text roles should reach 4.5:1 contrast, and line and status roles 3:1, in both modes. The health score does not check semantic roles. The exported `brand.md` lists failing roles under “Fix before use”. Set `colorSystem.scales` to tune a color's OKLCH tint ramp only when the brand publishes one.
+- `typeScale { basePx, ratio, roleSteps }` sets each size as `basePx × ratio^step`. `basePx` is 10–24 and `ratio` is 1.067–1.8. Use at least 1.25 for display work, and expect the audit to flag ratios below 1.2. `roleSteps` names the step each role uses: `caption`, `small`, `body`, `lead`, `h4`, `h3`, `h2`, `h1` or `display`. The defaults are `display` for Display, `body` for Body, `lead` for Accent and `small` for Code.
+- Set tracking by size. Display `letterSpacing` is slightly negative, about -0.01 to -0.025 of its pixel size. Body and Code use 0. Do not add positive tracking to lowercase text. Kerning stays on and optical sizing stays automatic. Set `opticalSize` or `slant` only when the brand fixes them.
 - The exported `brand.md` repeats these rules for coding agents, together with the layout rule that no eyebrow label sits above a headline.
 
 ## What templates read
 
-Brand elements, moodboards, the brand book and the identity preview fill every layout from the identity: `products` with `productDetails` one-liners, `proof` statements, `customers`, the tagline, promise and phrases, and `samples` (a person and an event, the install command, a code sample, product actions, a dashboard metric, published plans and the latest update). A brand without one of these falls back to neutral copy built from what it has, never to Glyphfield's own product. Export a template to check: `brand-element.export.png { elementId: 'opengraph' }` returns a 1200 × 630 PNG and `brand-element.export.html { elementId: 'welcome-email' }` returns a send-ready email.
+Brand elements, moodboards, the brand book and the identity preview fill every layout from the identity. They read `products` with their `productDetails` one-liners, `proof` statements, `customers`, the tagline, promise and phrases, and `samples`. Samples cover a person and an event, the install command, a code sample, product actions, a dashboard metric, published plans and the latest update. A brand that lacks one of these fields gets neutral copy built from the fields it has. Glyphfield does not fill the gap with its own product copy.
 
-## The source contract
+Export a template to check the result. `brand-element.export.png { elementId: 'opengraph' }` returns a 1200 × 630 PNG, and `brand-element.export.html { elementId: 'welcome-email' }` returns a send-ready HTML email.
 
-`GET /api/brand/validate` returns the BrandIdentity JSON Schema (`schema`), the merge-patch schema (`patchSchema`), the merge rules and the logo slots. The same schema is published as `BrandIdentity` in `/openapi.json`.
+## Source contract
+
+`GET /api/brand/validate` returns the BrandIdentity JSON Schema (`schema`), the merge-patch schema (`patchSchema`), the merge rules and the logo slots. `/openapi.json` publishes the same schema as `BrandIdentity`.
 
 ### Merge rules
 
 - Objects (`strategy`, `voice`, `graphicSystem`, `dossier`, `artDirection`, `style`, `typeScale`, `colorSystem`, `samples`) merge by key. `colorSystem.scales` merges by `id`.
-- Record arrays merge by `id`: a matching id updates that record, a new id appends one, and records you leave out are kept. `typography` merges by `role`; `colorPairings` merge by foreground and background.
-- String lists, `voice.examples`, `productDetails`, and `samples.plans` are replaced as a whole.
-- `replace` lists record collections to replace as a whole: `applications`, `assets`, `colors`, `fonts`, `motion`, `proofAssets`, `references`, `colorPairings`, or `typography`. `replace: ['colors', 'colorPairings']` keeps a template's records from lingering in a new brand.
-- `remove` deletes records by id from `applications`, `assets`, `colors`, `fonts`, `motion`, `proofAssets`, or `references`: `remove: { assets: ['id'], colors: ['id'] }`.
+- Record arrays merge by `id`. A matching ID updates that record, a new ID appends one, and records you leave out are kept. `typography` merges by `role`, and `colorPairings` merges by foreground and background.
+- String lists, `voice.examples`, `productDetails` and `samples.plans` are replaced as a whole.
+- `replace` names record collections to replace as a whole: `applications`, `assets`, `colors`, `fonts`, `motion`, `proofAssets`, `references`, `colorPairings` or `typography`. `replace: ['colors', 'colorPairings']` keeps a template's records from staying in a new brand.
+- `remove` deletes records by ID from `applications`, `assets`, `colors`, `fonts`, `motion`, `proofAssets` or `references`, for example `remove: { assets: ['id'], colors: ['id'] }`.
 - `id`, `builtIn`, `kind`, `revision` and `presetFingerprint` belong to the project and keep their values.
-- Asset, font and motion paths must be `data:` URLs or paths on the Glyphfield origin. Remote URLs are rejected, never fetched.
+- Asset, font and motion paths must be `data:` URLs or root-relative paths on the Glyphfield origin. Remote URLs are rejected, and Glyphfield does not fetch them.
 - Unknown fields are kept and reported as warnings.
 
-Errors are precise. For example: `colors[1].hex must be a six-digit HEX color such as "#1A2B3C"; received "#FFF".` and `typography[1].fontId "acme-sans" does not match any fonts[].id (…). Add the file with identity.font.add or pick an existing font.`
+Each error message names the exact path and the expected value, for example `colors[1].hex must be a six-digit HEX color such as "#1A2B3C"; received "#FFF".` and `typography[1].fontId "acme-sans" does not match any fonts[].id (…). Add the file with identity.font.add or pick an existing font.`
 
-Glyphfield tools read the color ids `ink` (text), `paper` (background), `muted` (quiet surface) and `emphasis` (accent). `success`, `warning`, `progress` and `error` are optional extensions.
+Glyphfield tools read the color IDs `ink` (text), `paper` (background), `muted` (quiet surface) and `emphasis` (accent). `success`, `warning`, `progress` and `error` are optional extensions.
 
 ## Logo slots
 
 | Slot | Use |
 | --- | --- |
-| `mark-dark` | Dark mark for light surfaces. Required. |
-| `mark-light` | Light mark for dark surfaces. Required. |
-| `wordmark` | Wordmark or lockup for light surfaces. |
-| `wordmark-light` | Wordmark or lockup for dark surfaces. |
-| `mark-mono` | One-color mark for embossing, favicons and single-ink print. |
+| `mark-dark` | Dark mark for light surfaces. Required |
+| `mark-light` | Light mark for dark surfaces. Required |
+| `wordmark` | Wordmark or lockup for light surfaces |
+| `wordmark-light` | Wordmark or lockup for dark surfaces |
+| `mark-mono` | One-color mark for embossing, favicons and single-ink print |
 
 ## Brand health
 
-`identity.audit` scores completeness from 0 to 100 across eleven weighted sections and returns `{ schemaVersion, score, grade, counts, sections, contrast, findings }`. Findings include missing logo variants, text pairs below WCAG AA (4.5:1) or AA-large (3:1), palette proportions, unlicensed or missing font files, missing voice examples, type scale and leading, alt text, naming, and identity storage size. Each finding has an `agentPrompt`; deterministic ones also have a `fix.id` for `identity.fix`, such as adjusting a color's lightness until its pair passes while keeping its hue. The section weights, grades, and fix IDs are listed in [Brand identity](/docs/studio/brand-settings#brand-health).
+`identity.audit` scores completeness from 0 to 100 across eleven weighted sections and returns `{ schemaVersion, score, grade, counts, sections, contrast, findings }`. Findings cover missing logo variants, text pairs below WCAG AA (4.5:1) or AA-large (3:1), palette proportions, unlicensed or missing font files, missing voice examples, type scale and leading, alt text, naming and identity storage size. Each finding has an `agentPrompt`. Findings with a deterministic fix also have a `fix.id` for `identity.fix`. One such fix adjusts a color's lightness until its pair passes and keeps its hue. [Brand identity](/docs/studio/brand-settings#brand-health) lists the section weights, grades and fix IDs.
 
 ## Without a browser
 
-`POST /api/brand/validate` validates and normalizes a full identity or a patch and returns the health report for a full identity. Its `mode` defaults to `full`, while the browser action `identity.validate` defaults to `patch`. `POST /api/brand/kit` renders `dtcg`, `css`, `tailwind` or `markdown` from a full identity. Both are stateless and reject unknown top-level fields. See the [endpoint reference](/docs/reference/endpoints).
+`POST /api/brand/validate` validates and normalizes a complete identity or a patch, and returns the health report for a complete identity. Its `mode` defaults to `full`. The route has no stored identity to merge into. In `patch` mode it therefore checks the patch alone and skips cross-references such as unknown color IDs and `fontId` values. `POST /api/brand/kit` renders `dtcg`, `css`, `tailwind` or `markdown` from a complete identity. Both routes store nothing and reject unknown top-level fields. See the [Endpoint reference](/docs/reference/endpoints).
 
 ## Built-in identities
 
-Built-in identities can be improved in place. Glyphfield keeps every edit when it ships a newer version of a built-in, and **Restore the shipped version** on the overview returns to the shipped one. To make your own brand from a built-in, use **Use a template** to create a copy first.
+A built-in identity can be edited in place. When Glyphfield ships a newer version of a built-in, it keeps every edit, and **Restore the shipped version** on the overview returns to the shipped one. To make your own brand from a built-in, create a copy first with **Use a template**.

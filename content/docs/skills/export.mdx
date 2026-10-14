@@ -1,23 +1,26 @@
 ---
-title: Export
-description: Use $glyphfield-export to produce and verify still, motion, document, data, and Lottie artifacts.
+title: Export skill
+description: Use the $glyphfield-export skill to produce stills, motion, documents, JSON and Lottie files from the right renderer and check each file before saving it.
 icon: Download
 ---
 
-`$glyphfield-export` owns the terminal artifact. Use it whenever the request involves downloading, rendering, dimensions, transparency, motion loops, audio, or diagnosing a file that differs from its preview.
+`$glyphfield-export` covers the final file. Use it whenever the request involves downloading, rendering, dimensions, transparency, motion loops, audio, or a file that looks different from its preview.
 
-<DocsMedia alt='Animation workspace with sequence timing and export controls' caption='Verify the renderer, not only the export action' meta='Frames · loops · text stability · audio' src='/screenshots/studio-gt-animation-dark-2026.webp' />
+<DocsMedia alt='Animation workspace with sequence timing and export controls' caption='Check the rendered file as well as the export action' meta='Frames · loops · text stability · audio' src='/screenshots/studio-gt-animation-dark-2026.webp' />
 
-## Choose the owning renderer
+## Renderers
 
-| Output | Renderer |
+| Output | Renderer and action |
 | --- | --- |
-| Template or background SVG | Deterministic HTTP generation |
-| Design Lab PNG, JPG, GIF, MP4 | Live Studio Canvas, WebGL2, and WebGPU renderer for the selected artboard; loose canvas layers are not exported |
-| Animation GIF or audio-aware MP4 | Animation workspace |
-| Brand Book PDF | Browser print workflow |
-| Identity, canvas, or Lottie JSON | Owning Studio tool |
-| `.lottie` bundle | Lottie workspace |
+| Template or background SVG | `POST /api/generate` |
+| PNG or SVG from OpenGraph, Terminal card, Blog cover, Partnership lockup or Slide templates | `<tool>.export.png` and `<tool>.export.svg` in that tool |
+| Slide deck PDF | `slides.export.pdf` in Slide templates |
+| Design Lab PNG, JPG, GIF or MP4 | `design.export` for the selected artboard. Loose canvas layers are not exported |
+| Design Lab project JSON | `design.export.project` |
+| Animation GIF, MP4 with audio, or PNG poster frame | `animation.export` |
+| Brand book PDF | `brand-book.print`, which opens the browser print dialog |
+| Brand identity JSON or brand kit | `identity.export.json` or `identity.export.kit` |
+| Lottie PNG frame, GIF, MP4, JSON or `.lottie` | `lottie.export` |
 
 ## Browser API pattern
 
@@ -33,22 +36,22 @@ if (!(artifact.blob instanceof Blob) || artifact.blob.size === 0) {
 }
 ```
 
-Call `studio.download(artifact)` only after verification and only when the user asked to save the file.
+Call `studio.download(artifact)` only after the check, and only when the user asked to save the file.
 
 ## Motion rules
 
-- Run GIF and MP4 exports serially because they share live canvases and browser encoders.
-- Design Lab motion runs at 12, 15, 24, 30, or 60 FPS for 1.2, 1.6, 2.4, or 4 seconds; Animation at 10–30 FPS; Lottie GIF at 25 FPS and MP4 at 30 FPS.
-- Image effect layers and Shaders.com materials need WebGPU. An export that includes them stops with an error naming the layer when WebGPU is missing.
-- Design Lab stills render shaders at about the export resolution regardless of the live preview quality; captured frames and project files copy the live preview.
-- Use `mode: "shader-sequence"` only for GIF or MP4.
-- A GIF has no audio; choose MP4 when the requested motion needs an audio track.
-- A loop flag is not proof of a seamless loop. Compare the last and first displayed frames and inspect the transition at normal playback speed.
-- Inspect multiple frames for shader motion, text-color stability, clipping, and unexpected layout shifts.
-- If MP4 encoding is unavailable, report it and preserve source rather than silently substituting GIF.
+- Run GIF and MP4 exports one at a time. They share live canvases and browser encoders.
+- Design Lab motion runs at 12, 15, 24, 30 or 60 FPS for 1.2, 1.6, 2.4 or 4 seconds. Animation runs at 10, 15, 20, 24 or 30 FPS. Lottie exports GIF at 25 FPS and MP4 at 30 FPS.
+- Effect layers with a Shaders.com image effect need WebGPU. Without it, an export that includes such a layer stops with an error that names the layer. Shaders.com materials also use WebGPU and show a still preview without it.
+- Design Lab exports render shaders at about the export resolution. The live preview quality setting does not lower it.
+- Use `mode: "shader-sequence"` only with GIF or MP4.
+- A GIF has no audio track. Choose MP4 when the motion needs audio.
+- A loop setting does not prove a seamless loop. Compare the last and first displayed frames and watch the transition at normal speed.
+- Inspect several frames for shader motion, text color stability, clipping and layout shifts.
+- If MP4 encoding is unavailable, report it and keep the source. Do not substitute GIF.
 
-## Completion proof
+## Completion check
 
-Confirm non-empty bytes, filename, MIME type, extension, dimensions, and transparency behavior. For GIF and MP4, inspect multiple decoded frames and loop continuity. For MP4 with audio, verify the audio stream itself instead of assuming the UI state was muxed.
+Confirm non-empty bytes, the file name, MIME type, extension, dimensions and transparency. For GIF and MP4, inspect several decoded frames and the loop seam. For MP4 with audio, check the audio stream itself instead of assuming the UI setting was encoded.
 
-See [Download and use artifacts](/docs/artifacts/download-and-use) for format-specific handling and [Agent recipes](/docs/agents/recipes) for end-to-end workflows.
+See [Download and use artifacts](/docs/artifacts/download-and-use) for format-specific handling and [Agent recipes](/docs/agents/recipes) for complete workflows.

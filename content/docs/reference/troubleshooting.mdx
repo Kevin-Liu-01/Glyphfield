@@ -1,59 +1,61 @@
 ---
 title: Troubleshooting and recovery
-description: Diagnose Studio loading, storage, source, WebGL, asset, GIF, MP4, and export failures without losing the active design.
+description: Diagnose Studio loading, saving, source, shader, asset, GIF, MP4 and export failures, and recover a draft without losing the active design.
 icon: TriangleAlert
 ---
 
-Preserve the editable source before changing the environment. Most failures are easier to reproduce than to reconstruct after browser storage or local inputs have been cleared.
+Copy the editable source before changing anything in the environment. Most failures are easier to reproduce than to rebuild after browser storage or local files are gone.
 
 <DocsMediaGrid>
   <DocsMedia alt='Glyphfield Design Lab with live shader, canvas, layers, and output inspector visible' caption='Inspect the whole rendering chain' meta='Source → preview → export' src='/screenshots/studio-gt-design-lab-dark-2026.webp' />
   <DocsMedia alt='Glyphfield Animation timeline and motion preview' caption='Motion has additional checkpoints' meta='Frames → encoder → downloaded file' src='/screenshots/studio-gt-animation-dark-2026.webp' />
 </DocsMediaGrid>
 
-## First response
+## First steps
 
-1. Stop playback or any active export.
-2. Copy the current source from **Code** or `readSource()`.
-3. Record the active identity, public tool ID, output settings, and exact error.
+1. Stop playback and any export in progress.
+2. Copy the current source from the source drawer (the **Code** button), or with `readSource()` in the Browser API (`window.glyphfield.studio`).
+3. Write down the active identity, the public tool ID, the output settings and the exact error.
 4. Keep the original local files available.
-5. Retry only after changing the actual failure condition.
+5. Retry only after changing the condition that caused the failure.
 
-Do not clear site data, delete a project, or rebuild the document from an example as a first troubleshooting step.
+Do not clear site data, delete a project or rebuild the document from an example as a first step.
 
-## Symptom guide
+## Symptoms
 
-| Symptom | Likely boundary | Safe next action |
+| Symptom | Likely cause | Next step |
 | --- | --- | --- |
-| Shader canvas is blank, grey, or static | WebGL2 unavailable (grey "Shader preview unavailable" placeholder), a lost context, or the preview is offscreen | Bring the preview onscreen, stop duplicate live canvases, reload once, and test another material; do not claim motion from a static fallback |
-| A Shaders.com material shows a labelled still, or an Effect layer passes its layers through | No WebGPU | Use a browser with WebGPU; exports that include these layers stop with an error naming the layer. Hide the layer to export without it |
-| Live shaders look soft | Preview quality is Draft, or Auto lowered it after slow frames and frames have not recovered yet | Choose **High** with **Live shader preview quality**; exports always render at output size |
-| Canvas looks clipped or too small | View zoom/pan differs from output geometry | Use Fit/Reset and verify declared output dimensions; changing zoom must not change export size |
-| Logo, text, or layers shift after restore | Stale/reconstructed source, changed IDs, missing assets/fonts, or wrong tool | Reapply the exact current document, preserve IDs/order, restore dependencies, and re-read after apply |
-| Save state remains “preparing” or reports error | IndexedDB blocked, storage quota/transaction failure, or page closing during write | Copy Code source immediately, remain on the same origin, and retry in a persistent browser profile |
-| Image import says browser storage is full | Embedded brand images have filled this origin's local storage quota | In the image or sticker picker, confirm deletion of unused saved assets, then retry; existing artboard layers keep their embedded copy |
-| Local image/font disappears after reload | Session object URL or original bytes were not embedded | Reattach the authorized original file and export a new portable source/proof |
-| PNG/JPG is empty | Canvas context or encoder returned no bytes | Reduce dimensions for diagnosis, reload the renderer, and require a non-empty Blob before completion |
-| GIF has a flashing text/color frame | Source color changes between frames or palette quantization cannot hold the intended colors | Compare still captures at the same times, confirm source colors are stable, use a solid background where appropriate, then retry at a lower diagnostic size |
-| GIF repeats with a visible jump | Repeat flag is set but visual endpoints differ | In Design Lab choose Blended loop and inspect the wrap; in Animation end on the first scene's pose; use Raw motion only for periodic or intentionally cut motion |
-| MP4 fails before rendering | Browser exposes no compatible MP4 video codec | Preserve source and use another supported environment; do not silently substitute GIF |
-| MP4 plays but required audio is absent | Audio decode/mix/codec failed or the tool has no audio source | Verify the Animation audio track and inspect the final file; GIF never contains audio |
-| Export stalls or browser memory spikes | Too many concurrent jobs or excessive pixels × frames | Stop other previews, run one export, test smaller width/FPS/duration, then return to the required settings |
-| `applySource()` throws | JSON/schema/field validation, wrong active tool, or stale adapter | Re-read `describe()` and `readSource()`, change only the intended field, and wait for the tool-ready event after navigation |
-| Docs/sidebar behaves incorrectly at a narrow width | Stale CSS/client state or an unsupported embedded webview | Hard reload, test the same route in a current full browser, and include viewport dimensions in the report |
+| Switching tools or projects keeps the previous pane on screen for a moment | The next editor is still loading. The Studio keeps the previous pane visible until the new one is ready | Wait for the new pane. The first switch to a tool loads its code, and later switches are faster |
+| The source drawer takes a moment the first time it opens | The source editor loads when a drawer opens for the first time | Wait for the drawer. Later drawers open without the delay |
+| A shader canvas is blank, grey or static | No WebGL2 (a grey placeholder labelled "Shader preview unavailable"), a lost WebGL context, or the preview is offscreen | Scroll the preview into view, close duplicate live canvases, reload once and try another material. A static fallback is not evidence of motion |
+| A Shaders.com material shows a still with "WebGPU is unavailable here", or an Effect layer passes its layers through unchanged | The browser has no WebGPU | Use a browser with WebGPU. An export that includes these layers stops with an error that names the layer. Hide the layer to export without it |
+| Live shaders look soft | **Live shader preview quality** is **Draft**, or **Auto** lowered it after slow frames | Choose **High**, or wait: **Auto** returns to High after a run of smooth frames. Exports always render at the output size |
+| The canvas looks clipped or too small | The view's zoom or pan differs from the output geometry | Use **Fit canvas** or **Reset view** and check the declared output size. Zoom does not change the export size |
+| Logos, text or layers shift after a restore | Rebuilt or stale source, changed IDs, missing assets or fonts, or the wrong tool | Apply the exact current document, keep IDs and order, restore the missing files and read the source again after applying |
+| The save status shows **Preparing assets** for a long time, or **Autosave failed** | IndexedDB is blocked or full, a write failed, or the page closed during a write | Copy the source from the source drawer right away, stay on the same origin and retry in a normal browser profile |
+| An image import says "Browser storage is full" | Embedded brand images have filled this origin's storage quota | In the image or sticker picker, delete unused saved assets and confirm, then retry. Layers already on an artboard keep their embedded copy |
+| A local image or font disappears after a reload | The file was held in a temporary object URL and was not embedded | Attach the authorized original file again and export a new portable source and proof |
+| A PNG or JPG is empty | The canvas context or the encoder returned no bytes | Try a smaller size to diagnose it, reload the renderer and require a non-empty Blob |
+| A GIF has a flashing text or color frame | The source color changes between frames, or the palette cannot hold the intended colors | Compare stills at the same times, confirm the source colors are stable, use a solid background where it fits and retry at a smaller test size |
+| A GIF jumps where it loops | The GIF repeats, but its last frame differs from its first | In Design Lab, choose **Blended loop** and inspect the loop point. In Animation, end on the first scene's pose. Use **Raw motion** only for motion that already repeats or for an intended cut |
+| MP4 export fails with "This browser cannot encode an MP4 video." | The browser exposes no MP4 video encoder | Keep the source and use another supported browser. Glyphfield does not substitute GIF |
+| MP4 export fails with "This browser cannot encode an MP4 audio track." | The Animation timeline has audio and the browser cannot encode it | Remove the audio to test the video alone, or use a browser that encodes MP4 audio |
+| An export stalls or memory use spikes | Several jobs at once, or too many pixels times frames | Stop other previews, run one export, test a smaller width, frame rate or duration, then return to the required settings |
+| `applySource()` throws | A JSON, schema or field validation error, the wrong active tool, or a stale API handle | Read `describe()` and `readSource()` again, change only the intended field, and wait for `glyphfield:studio-api-ready` after switching tools |
+| The docs sidebar misbehaves at a narrow width | Stale CSS or client state, or an embedded webview | Reload, try the same page in a current full browser and include the viewport size in the report |
 
-## Recover a Design Lab draft
+## Recover a draft
 
-Design Lab autosaves the complete portable document to IndexedDB and uses a small localStorage recovery journal while a newer write settles.
+Design Lab, Animation, Lottie and the expression tools autosave the complete portable document to IndexedDB. A small localStorage recovery journal holds the newest source while a write is still in progress.
 
 1. Return to the exact origin and browser profile where the design was edited.
-2. Reload once without clearing data.
-3. Select the original identity and Design Lab.
-4. Wait for autosave restoration to finish.
-5. Open **Code** and copy the restored document.
-6. Create a named save and export a proof after visual inspection.
+2. Reload once without clearing any data.
+3. Select the original identity and tool.
+4. Wait for the save status to show **Autosaved**, or **Saved** when a named design is open.
+5. Open the source drawer and copy the restored document.
+6. Inspect the design, then select **Save checkpoint** and export a proof.
 
-If the design does not return, check whether the hostname, scheme, port, browser profile, or private-browsing state changed. Browser storage does not follow those changes automatically.
+If the design does not return, check whether the hostname, scheme, port, browser profile or private-browsing state changed. Browser storage does not follow those changes.
 
 ## Diagnose source application
 
@@ -70,67 +72,67 @@ const before = studio.readSource();
 
 try {
   const document = JSON.parse(before);
-  // Make one targeted change while preserving the envelope and stable IDs.
+  // Make one targeted change and keep the envelope and stable IDs.
   await studio.applySource(document);
   const after = studio.readSource();
   if (!after) throw new Error('The applied source could not be read back.');
 } catch (error) {
   console.error(error);
-  // Retain `before`; do not write directly to browser storage.
+  // Keep `before`, and do not write to browser storage directly.
 }
 ```
 
-After changing projects or tools, wait for `glyphfield:studio-api-ready` and re-read `window.glyphfield.studio`. A cached adapter rejects source/control operations when its original editor is no longer active; reacquire the API instead of retrying the stale handle.
+After switching projects or tools, wait for `glyphfield:studio-api-ready` and read `window.glyphfield.studio` again. A cached handle rejects source and control calls once its editor is no longer active, so get a new handle instead of retrying the old one.
 
-## Diagnose still export
+## Diagnose a still export
 
-For PNG/JPG:
+For PNG and JPG:
 
 1. Export at a modest width such as 960 pixels.
-2. Confirm the returned Blob is non-empty.
-3. Confirm MIME type and extension agree.
-4. Decode the file and verify its pixel dimensions.
-5. Check transparency for PNG and the selected opaque background for JPG.
-6. Compare the result to the preview at Fit or 100% inspection zoom.
+2. Confirm that the returned Blob is not empty.
+3. Confirm that the MIME type and the file extension match.
+4. Decode the file and check its pixel dimensions.
+5. Check transparency in a PNG and the opaque background in a JPG.
+6. Compare the result with the preview at **Fit canvas** or at 100% zoom.
 
-If the small proof succeeds and the target size fails, the issue is likely resource pressure rather than invalid source.
+If the small export succeeds and the full size fails, the cause is most likely memory or GPU pressure. The source itself is valid.
 
-## Diagnose GIF
+## Diagnose a GIF
 
-- Inspect more than the first frame; a valid GIF can still contain no visible motion.
-- Compare text/logo colors at multiple frames to distinguish source flicker from palette quantization.
-- Keep important foreground colors explicit. Glyphfield protects known brand/text colors, but a highly complex moving palette can still require a smaller proof or simpler composition.
-- Use Blended loop only when closure is required and inspect the final-to-first transition.
-- Remember that GIF has no audio channel.
+- Inspect more than the first frame. A valid GIF can contain no visible motion.
+- Compare the text and logo colors in several frames to tell source flicker from palette limits.
+- Keep important foreground colors explicit. Glyphfield reserves palette entries for known brand and text colors, but a complex moving palette can still need a smaller test or a simpler composition.
+- Use **Blended loop** only when the loop must close, and inspect the change from the last frame to the first.
+- GIF has no audio channel.
 
-## Diagnose MP4
+## Diagnose an MP4
 
-MP4 encoding asks the browser for an encodable video codec and fails before starting if none is available. Animation adds an audio track only when a decoded audio buffer and supported audio codec are available.
+The MP4 encoder looks for a video codec the browser can encode, trying H.264 first, and fails before rendering when none is available. When the Animation timeline has audio, the export also needs an MP4 audio codec.
 
-Try one change at a time:
+Change one thing at a time:
 
-1. One export job only.
-2. Lower diagnostic width.
-3. Lower diagnostic FPS or duration.
-4. No audio, to isolate video encoding.
-5. A current full desktop browser with hardware acceleration.
+1. Run one export job only.
+2. Lower the width.
+3. Lower the frame rate or the duration.
+4. Remove the audio to test the video alone.
+5. Use a current desktop browser with hardware acceleration.
 
-Restore the requested dimensions/audio after identifying the failure. A lower-resolution proof is not the final deliverable unless the user accepts it.
+Restore the requested size and audio once the cause is found. A lower-resolution test file is not the deliverable unless the requester accepts it.
 
-## Useful diagnostics
+## Information for a report
 
-Capture this information without including confidential assets:
+Collect this information without including confidential assets:
 
-- Glyphfield URL and deployed commit/version if known.
-- Browser and operating system.
-- Viewport size and device-pixel ratio.
-- Active identity and public tool ID.
-- Source schema versions, not necessarily the full source.
-- Material ID, output format, dimensions, duration, FPS, quality, and loop mode.
-- Whether Canvas 2D, WebGL/WebGL2, IndexedDB, localStorage, and downloads work.
-- Exact error message and whether a non-empty Blob was returned.
-- A screenshot or short recording showing the failure.
+- The Glyphfield URL and the deployed commit or version, if known.
+- The browser and operating system.
+- The viewport size and device pixel ratio.
+- The active identity and public tool ID.
+- The source schema versions (the full source is not needed).
+- The material ID, output format, dimensions, duration, FPS, quality and loop mode.
+- Whether Canvas 2D, WebGL2, WebGPU, IndexedDB, localStorage and downloads work.
+- The exact error message and whether a non-empty Blob was returned.
+- A screenshot or short recording of the failure.
 
-For API errors, include HTTP status, structured `error.code`, `error.field`, and request kind; redact embedded assets.
+For API errors, include the HTTP status, `error.code`, `error.field` and the request kind, and remove embedded assets.
 
-See [Browser support](/docs/reference/browser-support), [Backup and restore](/docs/artifacts/backup-and-restore), [Errors and limits](/docs/agents/errors), and [Version compatibility](/docs/reference/version-compatibility).
+[Browser support](/docs/reference/browser-support), [Backup and restore](/docs/artifacts/backup-and-restore), [Errors and limits](/docs/agents/errors) and [Version compatibility](/docs/reference/version-compatibility) cover related problems.

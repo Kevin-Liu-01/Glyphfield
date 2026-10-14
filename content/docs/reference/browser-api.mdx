@@ -1,14 +1,14 @@
 ---
 title: Studio Browser API
-description: Operate every visible Studio control, round-trip source documents, and export authentic browser-rendered artifacts.
+description: Operate Studio controls by accessible label, read and apply tool source, and export browser-rendered artifacts from scripts with window.glyphfield.studio.
 icon: MonitorCog
 ---
 
-The active Studio tool registers `window.glyphfield.studio`. This API is the programmatic equivalent of the visible workspace and intentionally uses the same controls, source validators, project state, renderers, and export actions.
+The Studio Browser API (`window.glyphfield.studio`, version 1) is the programmatic equivalent of the visible Studio workspace. It uses the same controls, source validators, project state, renderers and export actions as the interface. The active Studio tool registers it.
 
 ## Lifecycle
 
-`window.glyphfield.studio` resolves the visible project and tool, including editors retained across tab switches. Glyphfield dispatches `glyphfield:studio-api-ready` with `studio.describe()` as event detail when the active adapter changes. While a newly selected editor loads, reading the API can report that no active workspace is ready.
+`window.glyphfield.studio` resolves to the visible project and tool, including editors that stay mounted across tab switches. Glyphfield dispatches `glyphfield:studio-api-ready` on `window` with `studio.describe()` as the event detail whenever the active editor changes. While a newly selected editor loads, reading `window.glyphfield.studio` throws `No active Studio workspace is ready for automation.`
 
 ```js
 await new Promise((resolve, reject) => {
@@ -28,85 +28,75 @@ await new Promise((resolve, reject) => {
 });
 ```
 
-When automation activates another project or tool, subscribe before the click, wait for the event, then read `window.glyphfield.studio` again. Cached handles belong to their original editor and reject source/control operations after that editor becomes inactive or its adapter is disposed. They never silently redirect a pending edit into another project.
+When a script activates another project or tool, subscribe to the event before the click, wait for it, and then read `window.glyphfield.studio` again. A cached handle belongs to the editor that created it. After that editor becomes inactive or unmounts, the handle rejects source, control and action calls with `This Studio workspace is no longer active. Read the active Studio API again.` A pending edit is not redirected into another project.
 
 ## Core methods
 
 | Method | Result | Use |
 | --- | --- | --- |
-| `activeTool()` | Studio tool ID | Confirm the adapter matches the intended tool |
-| `describe()` | Version, tool ID, source support, capability record, action list, and per-action input/output contracts | Discover before invoking |
-| `controls()` | Visible control labels, kinds, and values | Inspect the actual UI contract |
-| `activate(label)` | `void` | Click a visible button, tab, or role button by exact accessible label |
-| `set(label, value)` | `void` | Change an input, textarea, select, checkbox, contenteditable, or file input |
+| `activeTool()` | Studio tool ID | Confirm that the API belongs to the intended tool |
+| `describe()` | `{ version, toolId, source, capabilities, actions, actionContracts }` | Discover source support, exports and the input and output of every action before invoking it |
+| `controls()` | Array of `{ kind, label, value? }` | List the enabled controls of the active workspace |
+| `activate(label)` | `void` | Click a visible button, tab or role button by exact accessible label |
+| `set(label, value)` | `void` | Change an input, textarea, select, checkbox, contenteditable element or file input |
 | `readSource()` | JSON string | Read the active tool's exact source document |
-| `applySource(source)` | `Promise<void>` | Validate and apply a JSON object or string, then wait for the React commit |
-| `invoke(action, input?)` | `Promise<unknown>` | Run standard or tool-specific actions |
+| `applySource(source)` | `Promise<void>` | Validate and apply a JSON object or string, then wait for the interface to commit |
+| `invoke(action, input?)` | `Promise<unknown>` | Run a standard or tool-specific action |
 | `download(artifact)` | `void` | Save a returned `{ blob, fileName }` artifact |
 
 ## Standard actions
 
-Every adapter supports these through `invoke` when the corresponding capability exists:
+Every tool supports these actions through `invoke`. The two source actions are present only when the tool exposes source, so check `describe().source` first.
 
-```text
-source.read
-source.apply
-controls.list
-control.activate
-control.set
-artifact.download
-```
-
-`source.read` and `source.apply` fail clearly when the active tool does not expose source. Use `describe().source` to check first.
+| Action | Input | Result |
+| --- | --- | --- |
+| `source.read` | None | The source JSON string |
+| `source.apply` | JSON string or object | The normalized source string, or `null` when the tool cannot read source |
+| `controls.list` | None | The same array as `controls()` |
+| `control.activate` | Accessible label string | `null` |
+| `control.set` | `{ label, value }` | `null` |
+| `artifact.download` | `{ blob, fileName }` | `{ fileName }` |
 
 ## Accessible control contract
 
-`controls()` discovers enabled `button`, `input`, `textarea`, `select`, `[role="button"]`, and `[role="textbox"]` elements inside the active adapter's workspace. It never searches another retained project or tool, even when that workspace contains an identical accessible label. Labels resolve in this order:
+`controls()` lists enabled `button`, `input`, `textarea`, `select`, `[role="button"]` and `[role="textbox"]` elements inside the active workspace. It also includes an open menu or popover that a control in the workspace owns through `aria-controls`. It does not search another retained project or tool, even when that workspace has a control with an identical label. Controls without a label are left out. A control's label is the first of these that is present:
 
 1. `aria-label`
 2. `title`
 3. `name`
-4. `aria-labelledby`
-5. Wrapping `<label>` text
-6. Element text
+4. The text of the elements named by `aria-labelledby`
+5. The text of a wrapping `<label>`
+6. The element's own text
 
-Hidden or inert retained workspaces are excluded. Matching is whitespace-normalized and case-insensitive but otherwise exact. If two controls inside the same active workspace share a label, the first matching control wins; tool authors should keep actionable accessible names unique.
+Disabled controls, controls inside a hidden or inert workspace, controls in a closed popover and controls in a collapsed sidebar are excluded. Label matching ignores case and repeated whitespace but is otherwise exact. If two controls in the active workspace share a label, the first match wins.
 
-Slider names stay stable as their values change. Some labels appear twice in one workspace: Animation has **Scale** and **Text size** in both Sequence defaults and the scene inspector, and `set()` changes the first match. Use a tool action, such as `animation.scene.update`, when a label is ambiguous. For example, Lottie's playback slider is `Speed`, so `studio.set('Speed', 1.5)` keeps working after an earlier adjustment. The displayed value and unit are separate from the accessible name.
+Slider names stay the same while their values change. Lottie's playback slider is named `Speed`, so `studio.set('Speed', 1.5)` works after an earlier adjustment. The displayed value and unit are not part of the name. Some labels appear twice in one workspace. Animation has **Scale** and **Text size** in both the sequence defaults and the scene inspector, and `set()` changes the first match. Use a tool action such as `animation.scene.update` when a label is ambiguous.
 
 ## Values and files
 
-`set` accepts strings, numbers, booleans, `File`, or `File[]`.
+`set` accepts a string, number, Boolean, `File` or `File[]`.
 
-- Checkboxes require a Boolean.
-- File inputs require a `File` or array of `File` objects.
-- Inputs and textareas dispatch bubbling `input` and `change` events.
-- Contenteditable controls receive a bubbling `InputEvent`.
+- A checkbox requires a Boolean. The API clicks the checkbox only when its state differs.
+- A file input requires a `File` or an array of `File` objects.
+- Inputs, textareas and selects receive the value through the native setter, followed by bubbling `input` and `change` events.
+- A contenteditable control has its text replaced and receives a bubbling `InputEvent`.
 
-Browser automation must not synthesize a file path into a file input. Read the authorized bytes and create a real `File` object.
+Automation must not put a file path into a file input. Read the authorized bytes and create a real `File` object.
 
 ## Source round trips
 
 ```js
 const studio = window.glyphfield.studio;
 const document = JSON.parse(studio.readSource());
-// Make the smallest targeted change and preserve every unknown field.
+// Make the smallest targeted change and keep every unknown field.
 await studio.applySource(document);
 ```
 
-Application waits for two animation frames after the tool validator resolves. This is a UI commit boundary, not a guarantee that a remote font, image decode, WebGL compilation, or long export has completed. Wait for the relevant preview state before final capture.
+`applySource` resolves two animation frames after the tool validator finishes. At that point the interface has committed the change. A remote font, an image decode, a WebGL compilation or a long export can still be in progress, so wait for the relevant preview state before a final capture.
 
 ## Design Lab actions
 
-Design Lab adds:
-
-`design.text.format` applies inline styling with `{ layerId, start, end, style }` to a text layer on the active surface. Offsets are UTF-16, the end is exclusive, and ranges must be non-empty and within the text. `style` accepts `color`, `fontRole`, `fontSize`, `weight`, `fontStyle`, `underline`, `strikethrough`, and `tracking`. Font sizes are authored pixels before layer scale. Other characters inherit their existing styles. Read back `element.data.runs` after changes. See [Text](/docs/studio/design-lab/layers#text) for the source model and box-wide settings.
-
-`design.layers.arrange` aligns layers to the selection bounds or spaces them evenly with `{ arrangement, layerIds? }`. `arrangement` is `left`, `horizontal-center`, `right`, `top`, `vertical-center`, `bottom`, `distribute-horizontal` or `distribute-vertical`; omit `layerIds` to use the current selection. Locked layers are skipped, fully selected groups move as one unit, alignment needs two units and distribution three. `design.layers.lock` takes `{ layerIds, locked }` and writes `element.locked`. `design.layers.rotate` takes `{ layerIds, rotation }`, turns each unlocked layer to `rotation` degrees clockwise about its own center, and writes `bounds.rotation` (−180 to 180; 270 becomes −90, 0 removes it). `design.layers.copyStyle` takes `{ layerId }`; `design.layers.pasteStyle` applies that style to `{ layerIds }`, skipping locked layers. Each accepts only canvas layers on the active surface and resolves after the change commits.
-
-`design.effects.add` adds an Effect layer above every layer of the active artboard and returns `{ layerId }`. Pass `{ kind }` for a built-in converter (`bayer`, `ascii`, `halftone`, `posterize`) or `{ effectId, effectProps? }` for a Shaders.com image effect from `/api/materials` `imageEffects`, plus an optional `opacity` from 0 to 1. `design.effects.configure` takes `{ layerId }` and one or more of `kind`, `effectId`, `effectProps` and `opacity`; `kind` and `effectId` are exclusive, and `effectProps` replaces the layer's explicit edits (`{}` restores the defaults). `effectProps` must match the effect's `nativeControls`; `sourceImage` is rejected because the layers beneath are the source. `design.effects.describe` lists the active artboard's Effect layers back to front, each image effect's WebGPU `status` (`loading`, `ready`, `unsupported` or `error`) once it has previewed, and the effects on offer. Image effects need WebGPU: without it the canvas shows the layers beneath and exports stop with an error naming the layer. `design.effects.add` fails on the loose canvas. Setting `kind` resets the converter settings to that converter's defaults, and setting `kind` or `effectId` renames the layer. For `design.layers.arrange`, an empty `layerIds` array also means the current selection.
-
-`design.workspace.describe` returns `{ activeSurface, canvas: { layerIds }, artboards: [{ id, name, x, y, width, height, layerIds }] }`. `design.workspace.activate` takes `{ target: 'canvas' | artboardId }`. `design.workspace.move` takes `{ target, layerIds, placement?: 'preserve' | 'beside' }` and keeps world-space boxes. `design.workspace.frameSelection` frames the selected loose layers in a new artboard. See [Export, saving, and source](/docs/studio/design-lab/export#browser-api).
+Design Lab, the layered composition tool (tool ID `material`), adds these actions:
 
 ```text
 design.workspace.describe
@@ -141,21 +131,45 @@ design.export.shader-sequence.gif
 design.export.shader-sequence.mp4
 ```
 
-To preserve the exact visible shader look, capture it before backing up source:
+### Workspace and layers
+
+`design.workspace.describe` returns `{ activeSurface, canvas: { layerIds }, artboards: [{ id, name, x, y, width, height, layerIds }] }`. `design.workspace.activate` takes `{ target: 'canvas' | artboardId }`. `design.workspace.move` takes `{ target, layerIds, placement?: 'preserve' | 'beside' }` and keeps each layer's position and size in canvas space. `design.workspace.frameSelection` creates an artboard around the selected loose canvas layers. [Export, saving, and source](/docs/studio/design-lab/export#browser-api) covers artboards in more detail.
+
+`design.layers.arrange` takes `{ arrangement, layerIds? }` and aligns layers to the bounds of the selection or spaces them evenly. `arrangement` is `left`, `horizontal-center`, `right`, `top`, `vertical-center`, `bottom`, `distribute-horizontal` or `distribute-vertical`. Omit `layerIds`, or pass an empty array, to use the current selection. Locked layers are skipped, and a fully selected group moves as one unit. Alignment needs two units and distribution needs three.
+
+`design.layers.lock` takes `{ layerIds, locked }` and writes `element.locked`. `design.layers.rotate` takes `{ layerIds, rotation }`. It turns each unlocked layer clockwise about its own center to `rotation` degrees and writes `bounds.rotation`. The angle is normalized to the range −180 to 180, so 270 becomes −90, and 0 removes the rotation. `design.layers.copyStyle` takes `{ layerId }` and copies the layer's appearance. `design.layers.pasteStyle` applies that style to `{ layerIds }` and skips locked layers. These layer actions accept only text, mark, image and shader layers on the active surface, and they resolve after the change commits.
+
+### Effect layers
+
+`design.effects.add` adds an Effect layer above every layer of the active artboard and returns `{ layerId }`. Pass `{ kind }` for a built-in converter (`bayer`, `ascii`, `halftone` or `posterize`), or `{ effectId, effectProps? }` for a Shaders.com image effect listed under `imageEffects` in `/api/materials`. An optional `opacity` runs from 0 to 1. The action fails on the loose canvas because an Effect layer applies to a whole artboard.
+
+`design.effects.configure` takes `{ layerId }` plus one or more of `kind`, `effectId`, `effectProps` and `opacity`. `kind` and `effectId` cannot be combined. `effectProps` replaces the layer's explicit edits, and `{}` restores the defaults. `effectProps` must match the effect's `nativeControls`. The API rejects `sourceImage` because the layers beneath the Effect layer are its source. Setting `kind` resets the converter settings to that converter's defaults, and setting `kind` or `effectId` renames the layer.
+
+`design.effects.describe` lists the active artboard's Effect layers in layer order with the effects on offer. Each image effect layer reports its WebGPU `status` (`loading`, `ready`, `unsupported` or `error`) once it has rendered a preview. Image effects need WebGPU. Without it the canvas shows the layers beneath, and an export stops with an error that names the layer.
+
+### Text
+
+`design.text.format` applies inline styling to a text layer on the active surface with `{ layerId, start, end, style }`. Offsets count UTF-16 code units, the end is exclusive, and the range must be non-empty and inside the text. `style` accepts `color`, `fontRole`, `fontSize`, `weight`, `fontStyle`, `underline`, `strikethrough` and `tracking`. Font sizes are authored pixels before layer scale. Characters outside the range keep their styles. Read `element.data.runs` back after a change. [Text](/docs/studio/design-lab/layers#text) describes the source model and box-wide settings.
+
+### Shader frames and motion
+
+To keep the exact visible shader look, capture it before backing up source:
 
 ```js
 const motion = await studio.invoke('design.motion.describe');
-// Inspect each layer's capabilities before seeking; Fluid Energy cannot replay history.
+// Check each layer's capabilities before seeking. Fluid Energy cannot replay history.
 const source = await studio.invoke('design.frame.capture');
 const capturedDocument = JSON.parse(source);
-// Retain this complete source, including CanvasDocument.assets, outside the browser.
+// Keep this complete source, including CanvasDocument.assets, outside the browser.
 ```
 
-`design.frame.pause` synchronously freezes the current native frame and returns `null`. It does not encode a PNG or write captured-frame assets. Use it for an ordinary pause; use `design.frame.capture` only when you want a durable appearance checkpoint.
+`design.frame.pause` freezes the current native frame synchronously and returns `null`. It does not encode a PNG or write captured-frame assets.
 
-`design.frame.capture` waits for lossless PNG snapshots to persist and returns a portable CanvasDocument JSON string. The capture is an appearance checkpoint plus editable recipe, not a pre-rendered motion sequence. Storage, missing-renderer, or encoding failures reject the action rather than returning an incomplete save. A saved PNG that cannot be loaded is reported as unavailable; it is not replaced with a newly animated approximation.
+`design.frame.capture` waits for lossless PNG snapshots to be stored and returns a portable CanvasDocument JSON string. The capture is an appearance checkpoint plus the editable recipe. It is not a pre-rendered motion sequence. A storage, renderer or encoding failure rejects the action instead of returning an incomplete save. A saved PNG that cannot be loaded is reported as unavailable and is not replaced with a newly animated approximation.
 
-`design.frame.play` resumes native motion. `design.frame.seek` accepts `{ timeMs: 1250.5 }`, where time is a non-negative finite number; it addresses seekable shader time, not export-frame indices. Stateful Fluid Energy does not support history replay: ordinary pause retains its mounted simulation, but playing from a saved PNG starts a new simulation. `design.motion.describe` reports layer-specific provider, capture, seek, and loop capabilities. A continuous animation clock is not evidence of a finite seamless loop. The time explorer's range grows only when explicitly extended; elapsed playback time neither adds saved frames nor automatically extends that range.
+`design.frame.play` resumes native motion. `design.frame.seek` accepts `{ timeMs }`, a non-negative finite number such as `1250.5`. The value is seekable shader time. Export frame indices do not apply. Fluid Energy is a stateful simulation and rejects seeking. Pausing keeps its running simulation, but playing from a saved PNG starts a new simulation. `design.motion.describe` reports each shader layer's provider and its capture, seek and loop capabilities. A continuous animation clock does not prove that a material loops seamlessly. The time explorer's range grows only when it is extended explicitly, and playback does not add saved frames.
+
+### Export
 
 Use the unified action for new clients:
 
@@ -167,11 +181,11 @@ const artifact = await studio.invoke('design.export', {
 });
 ```
 
-`format` accepts `png`, `jpg`, `gif`, or `mp4`. `mode` accepts `standard` or `shader-sequence`; the latter is valid for GIF and MP4. With `download: false` or omitted, the method returns the Blob without saving it. Call `studio.download(artifact)` later if needed.
+`format` accepts `png`, `jpg`, `gif` or `mp4`. `mode` accepts `standard` or `shader-sequence`, and `shader-sequence` applies to GIF and MP4. When `download` is `false` or omitted, the action returns the Blob without saving it, and `studio.download(artifact)` saves it later. Design Lab exports the active artboard. Loose canvas layers are not exported, so the action fails while the loose canvas is active.
 
-PNG/JPG freeze the exact frame visible when export starts, then compose it at the selected output dimensions. GIF/MP4 are explicit motion operations that sample from the current frame anchor and restore that paused pose afterward. Neither export path adds captured-frame assets to IndexedDB or automatically resumes playback. Stateful Fluid supports exact still export, but timestamp-sampled motion export is rejected rather than inventing simulation history. Fonts, images, renderer readiness, and the requested browser encoder must still be available.
+PNG and JPG freeze the frame that is visible when the export starts and compose it at the selected output size. GIF and MP4 sample motion from the current frame and restore that paused pose afterward. Neither path adds captured-frame assets to IndexedDB or resumes playback. Fluid Energy supports still export, but motion export of Fluid Energy is rejected because its earlier simulation history does not exist. Fonts, images, the renderer and the requested browser encoder must all be available.
 
-For an editable multi-artboard project file, use the separate no-input action:
+For an editable multi-artboard project file, use the separate action without input:
 
 ```js
 const project = await studio.invoke('design.export.project');
@@ -180,18 +194,18 @@ if (!(project.blob instanceof Blob) || project.blob.size === 0
   || !project.fileName.endsWith('.glyphfield.json')) {
   throw new Error('Invalid project artifact');
 }
-await studio.download(project);
-// To reopen these same authorized bytes through the file picker:
-await studio.set('Choose project file', new File([project.blob], project.fileName, {
+studio.download(project);
+// To reopen the same authorized bytes through the file picker:
+studio.set('Choose project file', new File([project.blob], project.fileName, {
   type: 'application/json',
 }));
 ```
 
-`design.export.project` returns an `ExportPreviewAsset` with `format: 'JSON'` and `previewKind: 'file'`. It does not download automatically or render a composite PNG first. It captures the active artboard's current native shader appearance, retains inactive artboards' saved snapshots without rendering them, and embeds local images, saved frames, and brand typography/font bytes into the existing CanvasDocument. Missing assets and failed captures reject the action. Opening uses the same source validator and keeps imported typography local to Design Lab; it does not replace unrelated brand settings. Setting a file control dispatches selection but does not await its asynchronous import: wait for the **Opened** status or an error, then re-read source. See [Project files](/docs/studio/project-files).
+`design.export.project` returns an `ExportPreviewAsset` with `format: 'JSON'` and `previewKind: 'file'`. It does not download automatically or render a composite PNG first. It captures the active artboard's current shader appearance and keeps the saved snapshots of inactive artboards without rendering them. It embeds local images, saved frames and the brand typography and font files in the CanvasDocument. Missing assets and failed captures reject the action. Opening a project file uses the same source validator and keeps the imported typography local to Design Lab. Setting the file control starts the import but does not wait for it, so wait for the status message that begins with `Opened` or for an error, then read the source again. [Project files](/docs/studio/project-files) describes the format.
 
 ## Other tool actions
 
-The manifest and `describe().actionContracts` are authoritative. These editors also expose direct operations instead of requiring an agent to click an export button and infer completion:
+`describe().actionContracts` and the `/api/agent` manifest are authoritative. These tools expose direct operations, so a script does not have to click an export button and infer when it finished:
 
 | Tool | Direct actions |
 | --- | --- |
@@ -208,37 +222,55 @@ The manifest and `describe().actionContracts` are authoritative. These editors a
 | Terminal card | The shared expression actions plus `terminal.tab.add`, `terminal.tab.select`, `terminal.tab.update`, `terminal.tab.remove` |
 | Partnership lockup | The shared expression actions plus `partnership.partner.add`, `partnership.partner.remove`, `partnership.lockup.update` |
 | Slide templates | The shared expression actions plus `slides.export.pdf`, `slides.slide.add`, `slides.slide.duplicate`, `slides.slide.move`, `slides.slide.remove`, `slides.slide.select` |
-| All expression tools | `{tool}.document.describe`, `{tool}.export.png`, `{tool}.export.svg`, `{tool}.layer.add`, `{tool}.layer.update`, `{tool}.layer.remove`, `{tool}.layer.duplicate`, `{tool}.layer.reorder`, `{tool}.layer.select`, `{tool}.layer.align`, `{tool}.format.set`, `{tool}.layout.apply`, `{tool}.template.reset`, `{tool}.history.undo`, `{tool}.history.redo` ([Expression tools](/docs/studio/templates#browser-api)) |
+| All expression tools | `<tool>.document.describe`, `<tool>.export.png`, `<tool>.export.svg`, `<tool>.layer.add`, `<tool>.layer.update`, `<tool>.layer.remove`, `<tool>.layer.duplicate`, `<tool>.layer.reorder`, `<tool>.layer.select`, `<tool>.layer.align`, `<tool>.format.set`, `<tool>.layout.apply`, `<tool>.template.reset`, `<tool>.history.undo`, `<tool>.history.redo` ([Expression tools](/docs/studio/templates#browser-api)) |
 | Design Lab | The `design.*` actions in [Design Lab actions](#design-lab-actions) |
 
-`animation.export` accepts `{ format: 'gif' | 'mp4' | 'png', download?: boolean }`; png is the full-size poster frame at the playhead. `animation.describe` also returns `durationMs`, `fps`, `width`, `height`, `playheadMs`, and `starters`. `animation.seek` wraps a time past the end of the timeline. The API does not clamp pose values; keep them within the inspector ranges. MP4 uses the same timeline audio mix as the visible export flow; GIF remains silent. `animation.describe` returns every scene's ID, start, hold, outgoing transition, keyframes, and text entrance; the scene, keyframe, preset, seek, and starter actions return that same description after their edit commits. `lottie.export` accepts `{ format: 'png' | 'source' | 'gif' | 'mp4', download?: boolean }`; source means edited JSON or the active `.lottie` archive. `lottie.describe` lists layer keys, text layers, colours, and markers for `lottie.edit` and `lottie.segment.set`. `lottie.edit` and `lottie.colors.brand` reject `.lottie` archives. Lottie's `readSource()` returns the CanvasDocument envelope; `lottie.export.source` returns the edited Lottie JSON. Format-specific actions return without downloading so the caller can verify first. `colors.tokens.read` returns CSS without touching the clipboard; use `colors.tokens.copy` only when clipboard mutation is intended. Both accept `{ format?: 'oklch-css' | 'css' | 'tailwind' | 'dtcg' }`; `typography.tokens.*` accept `{ format?: 'css' | 'tailwind' | 'dtcg' }`, and `components.code.*` accept `{ pattern?, format?: 'react' | 'html' }`. `colors.vision.read` defaults to `deuteranopia`. Color and Typography edit the identity: their changes, including `colors.pairing.toggle` and `colors.proportion.balance`, are pending until **Save changes**, or until `identity.save` runs in the Brand identity tool. See [Color tokens](/docs/studio/colors), [Typography](/docs/studio/typography) and [Component library](/docs/studio/components).
+Format-specific export actions such as `animation.export.gif` take no input and return without downloading, so the caller can verify the file first.
 
-Brand identity actions validate before they change anything. `identity.apply` accepts `{ identity, mode?: 'merge' | 'replace', replace?, remove?, save? }`: records merge by `id` (typography by `role`) unless their collection is listed in `replace`, string lists are replaced, unknown fields and the project's `id`, `kind`, `revision`, `builtIn`, and `presetFingerprint` are kept, and a failure throws one `TypeError` listing every issue path. `identity.asset.add` and `identity.font.add` take a `File`; a logo `slot` (`mark-dark`, `mark-light`, `wordmark`, `wordmark-light`, `mark-mono`) replaces that slot in place. `identity.audit` returns the brand health report, `identity.fix` applies one finding's `fix.id`, `identity.save` keeps pending changes, and `identity.export.kit` accepts `{ format?: 'zip' | 'dtcg' | 'css' | 'tailwind' | 'markdown' | 'logos', download? }`. `identity.project.create` accepts `{ from?: 'starter' | 'scratch' | '<project id>', name? }`, opens the new project in a new tab and returns `{ id, name, kind, from, url }`; read `window.glyphfield.studio` again afterwards because the new project's workspace owns the API. See [Brand setup with an agent](/docs/agents/brand-setup).
+### Animation and Lottie
 
-`brand-element.export.png` accepts `{ elementId?, scale?: 1 | 2, download? }`, selects `elementId` first, and renders the element, including in-place edits, at its artboard size (1200 × 630 for OpenGraph, 640 px wide for email), or twice that. `brand-element.export.html` accepts `{ elementId?, assetOrigin?, download? }` for email elements and returns a send-ready document: a 600 px table layout with inlined styles, an Outlook wrapper, a hidden preheader, a bulletproof button and absolute image URLs resolved against `assetOrigin` (the Studio origin by default). Generated header art is embedded as a PNG data URL; host it and replace the `src` before sending through clients that block data URLs, such as Gmail. `brand-element.export.html` renders `elementId` without selecting it.
+`animation.export` accepts `{ format: 'gif' | 'mp4' | 'png', download?: boolean }`. The PNG is the full-size poster frame at the playhead. MP4 includes the same timeline audio mix as the visible export, and GIF has no audio. `animation.describe` returns `durationMs`, `fps`, `width`, `height`, `playheadMs` and `starters`, and every scene's ID, start, hold, outgoing transition, keyframes and text entrance. The scene, keyframe, preset, seek and starter actions return that same description after their edit commits. `animation.seek` pauses playback and moves the playhead, and a time past the end of the timeline stops at the end. Pose values sent to `animation.scene.update` and `animation.keyframe.set` are clamped to the keyframe limits: `alignX` and `alignY` −1.5 to 1.5, `scale` 0.05 to 8, `rotation` −720 to 720 and `opacity` 0 to 1.
 
-Every other visible feature remains reachable through workspace-scoped `controls()`, `activate()`, and `set()`. Tool capability records distinguish a direct Browser action, an interactive Browser control, and deterministic HTTP generation so an agent does not mistake a clickable flow for a returned value.
+`lottie.export` accepts `{ format: 'png' | 'source' | 'gif' | 'mp4', download?: boolean }`. `source` is the edited JSON or the active `.lottie` archive. `lottie.describe` lists the layer keys, text layers, colors and markers that `lottie.edit` and `lottie.segment.set` use. `lottie.edit` and `lottie.colors.brand` reject `.lottie` archives. Lottie's `readSource()` returns the CanvasDocument envelope, and `lottie.export.source` returns the edited Lottie JSON.
 
-Editable source remains registered for all fifteen tools whether or not the Code drawer is open. Brand book source holds only the book's presentation edits; its content derives from the active identity.
+### Color, typography and components
+
+`colors.tokens.read` returns CSS without touching the clipboard. Use `colors.tokens.copy` only when writing to the clipboard is intended. Both accept `{ format?: 'oklch-css' | 'css' | 'tailwind' | 'dtcg' }`. `typography.tokens.*` accept `{ format?: 'css' | 'tailwind' | 'dtcg' }`, and `components.code.*` accept `{ pattern?, format?: 'react' | 'html' }`. `colors.vision.read` defaults to `deuteranopia`. Color tokens and Typography edit the identity. Their changes, including `colors.pairing.toggle` and `colors.proportion.balance`, stay pending until **Save changes** is selected or `identity.save` runs in the Brand identity tool. [Color tokens](/docs/studio/colors), [Typography](/docs/studio/typography) and [Component library](/docs/studio/components) describe these tools.
+
+### Brand identity
+
+Brand identity actions validate before they change anything. `identity.apply` accepts `{ identity, mode?: 'merge' | 'replace', replace?, remove?, save? }`. Records merge by `id`, and typography merges by `role`, unless the collection is listed in `replace`. String lists are replaced. Unknown fields and the project's `id`, `kind`, `revision`, `builtIn` and `presetFingerprint` are kept. A failure throws one `TypeError` that lists every issue path.
+
+`identity.asset.add` and `identity.font.add` take a `File`. A logo `slot` (`mark-dark`, `mark-light`, `wordmark`, `wordmark-light` or `mark-mono`) replaces that slot in place. Font files can be TTF, OTF, WOFF or WOFF2 up to 2.5 MB. `identity.audit` returns the brand health report, `identity.fix` applies one finding's `fix.id`, and `identity.save` keeps pending changes. `identity.export.kit` accepts `{ format?: 'zip' | 'dtcg' | 'css' | 'tailwind' | 'markdown' | 'logos', download? }`. `identity.project.create` accepts `{ from?: 'starter' | 'scratch' | '<project id>', name? }`, opens the new project in a new tab and returns `{ id, name, kind, from, url }`. Read `window.glyphfield.studio` again afterward, because the new project's workspace owns the API. [Brand setup with an agent](/docs/agents/brand-setup) walks through the full flow.
+
+### Brand elements
+
+`brand-element.export.png` accepts `{ elementId?, scale?: 1 | 2, download? }`. It selects `elementId` first and renders the element with its in-place edits at its artboard size, or at twice that size. An OpenGraph element is 1200 × 630, and an email element is 640 px wide. `brand-element.export.html` accepts `{ elementId?, assetOrigin?, download? }` for email elements and renders `elementId` without selecting it. It returns a document ready to send: a 600 px table layout with inlined styles, an Outlook wrapper, a hidden preheader, a bulletproof button and absolute image URLs resolved against `assetOrigin` (the Studio origin by default). Generated header art is embedded as a PNG data URL. Host that image and replace its `src` before sending through clients that block data URLs, such as Gmail.
+
+### Controls and source in every tool
+
+Every other visible feature is reachable through workspace-scoped `controls()`, `activate()` and `set()`. Each tool's capability record separates a direct Browser API action, an interactive control and deterministic HTTP generation, so a script can tell a clickable flow from an action that returns a value.
+
+Every tool keeps its editable source registered whether or not the source drawer is open. Brand book source holds only the book's presentation edits, and its content comes from the active identity.
 
 ## Completion and verification
 
-For a mutation:
+For a change:
 
-1. Apply or operate the control.
-2. Re-read source or controls and confirm the expected state.
-3. Inspect the rendered canvas when visual behavior matters.
+1. Apply the source or operate the control.
+2. Read the source or controls again and confirm the expected state.
+3. Inspect the rendered canvas when the visual result matters.
 
 For an export:
 
-1. Wait for the action Promise.
-2. Confirm `artifact.blob` is a non-empty Blob.
-3. Confirm the file name and MIME type match the request.
-4. When `download: true`, confirm the browser download completed.
-5. For motion, inspect more than the first frame and verify loop behavior when requested.
+1. Wait for the action's Promise to resolve.
+2. Confirm that `artifact.blob` is a non-empty Blob.
+3. Confirm that the file name and MIME type match the request.
+4. When `download` is `true`, confirm that the browser finished the download.
+5. For motion, inspect more than the first frame and check the loop when one was requested.
 
 ## Error model
 
-The Browser API throws JavaScript `TypeError` for malformed action input or unsupported source, and `RangeError` when a control or action cannot be found. Tool renderers may throw `Error` for WebGL, image decode, Canvas, GIF, MP4, or browser-codec failures.
+The Browser API throws a `TypeError` for malformed action input or a source operation the tool does not support. It throws a `RangeError` when no control matches a label or the tool does not expose an action. It throws a plain `Error` for a stale handle, for an action that must wait (for example during an export), and when no workspace is ready. Tool renderers can throw `Error` for WebGL, image decoding, Canvas, GIF, MP4 or browser codec failures.
 
-Do not catch and ignore these failures. Include the active tool ID, action, and `describe()` output in diagnostic logs, then either correct the operation or report the actual browser capability limitation.
+Do not catch and ignore these errors. Log the active tool ID, the action and the `describe()` output, then either correct the operation or report the browser limitation.

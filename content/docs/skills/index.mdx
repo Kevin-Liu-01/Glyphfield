@@ -1,33 +1,33 @@
 ---
 title: Skills overview
-description: Install and combine focused Glyphfield skills for editable composition, deterministic generation, live Studio operation, and verified export.
+description: Install the five Glyphfield Agent Skills and pick the one that fits a task, from Design Lab composition and HTTP generation to export checks and brand setup.
 icon: Sparkles
 ---
 
-Glyphfield ships five installable Agent Skills in the repository's `skills/` directory. Each package turns part of the product contract into a focused procedure an agent can load only when the matching task appears.
+Glyphfield ships five Agent Skills in the repository's `skills/` directory. An Agent Skill is a folder of instructions that a coding agent loads only when a matching task comes up. Each Glyphfield skill covers one part of the agent contract.
 
 <DocsMediaGrid>
-  <DocsMedia alt='Glyphfield Design Lab with a live shader, authored layers, and output controls' caption='Create and Studio skills' meta='Compose · inspect · preserve source' src='/screenshots/studio-gt-design-lab-dark-2026.webp' />
-  <DocsMedia alt='Glyphfield Animation workspace with timing and output controls' caption='Export skill' meta='Stills · motion · audio verification' src='/screenshots/studio-gt-animation-dark-2026.webp' />
+  <DocsMedia alt='Glyphfield Design Lab with a live shader, authored layers, and output controls' caption='Create and Studio skills' meta='Compose · inspect · keep source' src='/screenshots/studio-gt-design-lab-dark-2026.webp' />
+  <DocsMedia alt='Glyphfield Animation workspace with timing and output controls' caption='Export skill' meta='Stills · motion · audio checks' src='/screenshots/studio-gt-animation-dark-2026.webp' />
 </DocsMediaGrid>
 
 ## Included skills
 
-| Skill | Invoke it for | Main boundary |
+| Skill | Use it for | Scope |
 | --- | --- | --- |
-| [`$glyphfield-create`](/docs/skills/create) | Layered Design Lab compositions, saved designs, shaders, text, effects, marks, images, and stickers | Produces or revises editable visual composition state |
-| [`$glyphfield-api`](/docs/skills/api) | Catalog discovery, deterministic SVG/JSON generation, batch work, and Design Lab sequence creation | Uses the versioned HTTP contract without assuming an open project |
-| [`$glyphfield-studio`](/docs/skills/studio) | Live browser projects, accessible controls, exact source edits, local files, Canvas, WebGL, and Lottie | Operates `window.glyphfield.studio` and the authentic browser renderer |
-| [`$glyphfield-export`](/docs/skills/export) | SVG, PNG, JPG, GIF, MP4, PDF, JSON, `.lottie`, loop checks, audio checks, and export diagnosis | Verifies the actual artifact rather than trusting an action result |
-| [`$glyphfield-brand`](/docs/skills/brand) | Setting up or improving a brand identity from its own sources, the health audit, and the brand kit | Applies validated identity source and files through the Brand identity Browser API |
+| [`$glyphfield-create`](/docs/skills/create) | Layered Design Lab compositions, saved designs, shaders, text, effects, marks, images and stickers | Creates or revises editable composition state |
+| [`$glyphfield-api`](/docs/skills/api) | Catalog discovery, SVG and JSON generation, batches and Design Lab sequence documents | Uses the versioned HTTP contract without an open project |
+| [`$glyphfield-studio`](/docs/skills/studio) | Live browser projects, accessible controls, exact source edits, local files, Canvas, WebGL and Lottie | Operates `window.glyphfield.studio` and the browser renderer |
+| [`$glyphfield-export`](/docs/skills/export) | SVG, PNG, JPG, GIF, MP4, PDF, JSON and `.lottie` files, loop and audio checks, and export problems | Checks the actual file instead of the action result |
+| [`$glyphfield-brand`](/docs/skills/brand) | Setting up or improving a brand identity from its own sources, the health audit and the brand kit | Applies validated identity source and files through the Brand identity Browser API |
 
 ## Install
 
-Each folder is self-contained: `SKILL.md` is the routing entrypoint, `agents/openai.yaml` supplies client metadata, and `references/` holds conditional detail.
+Each folder is self-contained. `SKILL.md` is the entry point, `agents/openai.yaml` holds client metadata, and `references/` holds detail that the skill loads when a task needs it.
 
-For Codex, copy or link only the packages you want into `$CODEX_HOME/skills`. When `CODEX_HOME` is unset, use `~/.codex/skills`. Agent Skills-compatible clients can install the same folders through their normal local-skill mechanism.
+For Codex, copy or link the packages you want into `$CODEX_HOME/skills`, or into `~/.codex/skills` when `CODEX_HOME` is unset. Other clients that support Agent Skills install the same folders through their own local-skill mechanism.
 
-Repository contributors do not need to install a second copy. The root `AGENTS.md` routes work to the checked-in packages directly. Installing makes automatic discovery and explicit `$skill-name` invocation available from outside this checkout.
+Contributors working in the repository do not need a second copy, because the root `AGENTS.md` routes work to the checked-in packages. An installed copy makes automatic discovery and explicit `$skill-name` calls work outside this checkout.
 
 ```text
 skills/
@@ -41,7 +41,7 @@ skills/
 └── glyphfield-brand/
 ```
 
-## Choose narrowly
+## Skill selection
 
 Use the skill whose description matches the immediate outcome:
 
@@ -51,24 +51,25 @@ Use the skill whose description matches the immediate outcome:
 - “Download a seamless GIF and confirm the text does not flash” → `$glyphfield-export`.
 - “Set up our brand from acme.com and this repository” → `$glyphfield-brand`.
 
-Do not load every skill by default. Add another only when the workflow crosses its boundary.
+Do not load every skill by default. Add another skill only when the workflow reaches its scope.
 
-## Compose skills
+## Skill combinations
 
-The packages are designed to hand work to one another without blurring responsibilities.
+The skills hand work to one another and keep separate responsibilities.
 
 | Outcome | Sequence |
 | --- | --- |
-| Deterministic SVG batch | `$glyphfield-api` → validate returned SVG |
-| Existing Design Lab revision | `$glyphfield-create` → `$glyphfield-studio` for browser-native inspection |
-| Shader video from a generated brief | `$glyphfield-api` → `$glyphfield-studio` → `$glyphfield-export` |
-| Existing Animation export | `$glyphfield-studio` → `$glyphfield-export` |
+| SVG batch | `$glyphfield-api` → check each returned SVG |
+| Revision of an existing Design Lab design | `$glyphfield-create` → `$glyphfield-studio` for inspection in the browser |
+| Shader video from a generated document | `$glyphfield-api` → `$glyphfield-studio` → `$glyphfield-export` |
+| Export of an existing animation | `$glyphfield-studio` → `$glyphfield-export` |
+| New brand and its first social images | `$glyphfield-brand` → `$glyphfield-export` |
 
 <DocsFeatureGrid>
-  <DocsFeature icon='discover' label='Discover' title='Read live contracts'>Catalog IDs, enums, accessible labels, and tool counts come from Glyphfield instead of memory.</DocsFeature>
-  <DocsFeature icon='design' label='Preserve' title='Round-trip source'>Agents retain unknown fields, stable IDs, assets, pages, ordering, and current schema versions.</DocsFeature>
-  <DocsFeature icon='render' label='Render' title='Use the owning engine'>Browser-native Canvas, WebGL, local files, fonts, and codecs stay on the authentic Studio path.</DocsFeature>
-  <DocsFeature icon='check' label='Verify' title='Prove the result'>Source is re-read, visuals are inspected, and exported bytes, MIME, dimensions, frames, loops, and audio are checked.</DocsFeature>
+  <DocsFeature icon='discover' label='Discover' title='Read live contracts'>Catalog IDs, enum values, accessible labels and tool counts come from the running Glyphfield instance.</DocsFeature>
+  <DocsFeature icon='design' label='Preserve' title='Round-trip source'>Agents keep unknown fields, stable IDs, assets, pages, layer order and the current schema versions.</DocsFeature>
+  <DocsFeature icon='render' label='Render' title='Use the owning renderer'>Canvas, WebGL, local files, fonts and codecs stay on the Studio's browser renderer.</DocsFeature>
+  <DocsFeature icon='check' label='Verify' title='Check the result'>Agents read the source again, inspect the visuals, and check bytes, MIME type, dimensions, frames, loops and audio.</DocsFeature>
 </DocsFeatureGrid>
 
-Continue with [Choose the right interface](/docs/agents/choose-interface), [Agent recipes](/docs/agents/recipes), or the [Studio Browser API](/docs/reference/browser-api).
+Continue with [Choose an agent interface](/docs/agents/choose-interface), [Agent recipes](/docs/agents/recipes) or the [Studio Browser API](/docs/reference/browser-api).

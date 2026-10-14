@@ -1,110 +1,126 @@
 ---
 title: Keyboard shortcuts
-description: Every keyboard shortcut in the Studio, its tools, the source drawer, and the documentation.
+description: Find every keyboard shortcut in the Glyphfield Studio, its canvas tools, the source drawer and the documentation, with the focus each one needs.
 icon: Keyboard
 ---
 
-⌘ is the Command key on macOS; use Ctrl on Windows and Linux. Option is Alt on Windows and Linux. Shortcuts never act while a text field, select, or editable text has focus, unless they are text-editing shortcuts.
+⌘ is the Command key on macOS and Ctrl on Windows and Linux. Option is Alt on Windows and Linux. Editor shortcuts do not act while a text field, select or editable text has focus, except the text-editing shortcuts listed for that state. ⌘K is the one shortcut that also works from inside a field.
 
 ## Studio
 
 | Shortcut | Action |
 | --- | --- |
-| ⌘K or / | Open **Search Studio tools** (/ only when no field has focus) |
-| ↑, ↓, Enter, Escape | Move through tool results, open the selected tool, close search |
-| F2 | Rename the focused project tab (your own projects only) |
-| Option + ←, Option + → | Move the focused project tab left or right |
-| Shift + F10 or the ContextMenu key | Open the menu of the focused project tab, layer, artboard, or canvas |
-| Escape | Close open menus and popovers |
+| ⌘K or / | Open **Search Studio tools**. / works only when no field has focus |
+| ↑, ↓, Enter, Escape in search | Move through the results, open the selected tool, close search |
+| F2 on a project tab | Rename the tab's project (your own projects only) |
+| Enter, Escape while renaming | Save the new name, cancel |
+| Option + ←, Option + → on a project tab | Move the tab left or right |
+| Shift + F10 or the ContextMenu key | Open the menu of the focused project tab, layer, artboard, scene or canvas |
+| Escape | Close the open menu or popover |
+| ←, → on a sidebar resize handle | Resize the sidebar by 8 px, or 32 px with Shift |
+| Home, End on a sidebar resize handle | Set the sidebar to its minimum or maximum width |
 
-The letters shown beside tools in search results are visual hints and are not bound to keys.
+The letters shown beside tools in the search results are labels only and are not bound to keys.
 
 ## Canvas
 
-These apply in every tool that uses the shared canvas viewport, while the canvas has focus or the pointer is over it.
+These apply in every tool with the shared canvas viewport while the canvas has focus or the pointer is over it.
 
 | Shortcut | Action |
 | --- | --- |
-| ⌘Z | Undo |
-| Shift + ⌘Z | Redo |
+| ⌘Z, Shift + ⌘Z | Undo, redo (Design Lab, Animation and the expression tools) |
 | Scroll | Zoom around the pointer |
-| F | Fit canvas |
+| F | Fit the canvas |
 | + or =, − | Zoom in, zoom out |
 | Drag on empty canvas | Pan |
-| Arrow keys | Nudge the selected layer 1 px |
-| Shift + arrow keys | Nudge 10 px |
+| Space + drag, middle-button drag | Pan over content |
+| Arrow keys on a selected layer | Nudge the layer 1 px |
+| Shift + arrow keys on a selected layer | Nudge the layer 10 px |
+| Arrow keys on the focused **Navigate canvas map** | Move the visible area by 15% of its size |
+| ←, → on the focused **Move artboard map** handle | Dock the artboard map left or right |
 
 ## Design Lab
 
-Press **?** or choose **Keyboard shortcuts** in the canvas toolbar to open the shortcut sheet in Design Lab. Escape closes it.
+Design Lab is the layered composition tool. Press **?** or select **Keyboard shortcuts** in the canvas toolbar to open its shortcut sheet, and press Escape to close it.
 
 | Shortcut | Action |
 | --- | --- |
-| T, S, M, I, K, E | Add a text layer, shader layer, brand mark, image, sticker, or effect layer |
-| ⌘C, ⌘X, ⌘V | Copy, cut, paste layers; with no layer selected, ⌘C copies the artboard |
+| T, S, M, I, K, E | Add a text layer, shader layer, brand mark, image, sticker or Effect layer. E works only on an artboard |
+| ⌘C, ⌘X, ⌘V | Copy, cut, paste layers. With no layer selected, ⌘C copies the active artboard |
 | ⌘A | Select every unlocked layer on the active surface |
 | Option + ⌘C, Option + ⌘V | Copy style, paste style |
 | ⌘D | Duplicate the selection |
 | Delete or Backspace | Delete the selection |
-| ⌘] and ⌘[ | Bring forward, send backward |
-| Shift + ⌘] and Shift + ⌘[ | Bring to front, send to back |
-| ⌘G, Shift + ⌘G | Group, ungroup |
+| ⌘], ⌘[ | Bring forward, send backward |
+| Shift + ⌘], Shift + ⌘[ | Bring to front, send to back |
+| ⌘G, Shift + ⌘G | Group (two or more layers), ungroup |
 | Shift + ⌘L | Lock or unlock |
-| Option + A, H, D | Align left, horizontal center, right |
-| Option + W, V, S | Align top, vertical center, bottom |
-| Option + Shift + H, V | Distribute horizontally, vertically |
-| Space + drag, middle-button drag | Pan over content |
-| ⌘B, ⌘I, ⌘U | Bold, italic, underline while editing text |
-| Escape | Finish editing text; leave crop mode |
-| Enter | Finish crop mode |
-| ← and → on the focused Artboard map header | Dock the map left or right |
+| Option + A, Option + H, Option + D | Align left, horizontal center, right |
+| Option + W, Option + V, Option + S | Align top, vertical center, bottom |
+| Option + Shift + H, Option + Shift + V | Distribute horizontally, vertically |
+| Shift while dragging the rotate handle | Snap the rotation to 15° steps |
+| ⌘B, ⌘I, ⌘U while editing text | Bold, italic, underline |
+| Escape while editing text | Finish editing |
+| Enter or Escape in crop mode | Finish cropping |
+| Arrow keys in crop mode | Move the focal point by 1%, or 5% with Shift |
 
-Design Lab keys work while the Design Lab has focus or the pointer is over it, and never while a text field, menu, or dialog has focus. Duplicate, delete, cut, and the order chords act on the canvas selection, or on the layer chosen in the layer list. Option shortcuts and the bracket chords read the physical key.
+Design Lab shortcuts work while Design Lab has focus or the pointer is over it. They do not act while a text field, menu or dialog has focus. Duplicate, delete, cut and the order chords act on the canvas selection, or on the layer chosen in the layer list when nothing is selected on the canvas. Delete and duplicate skip a locked layer chosen in the layer list. The Option shortcuts and the bracket chords read the physical key, so they work on keyboard layouts where those keys type other characters.
 
 ## Expression tools
 
-OpenGraph, Terminal card, Partnership lockup, Blog cover, and Slide templates:
+The expression tools are OpenGraph, Terminal card, Partnership lockup, Blog cover and Slide templates. These keys work while their canvas has focus.
 
 | Shortcut | Action |
 | --- | --- |
 | Delete or Backspace | Delete the selected layers |
-| ⌘D | Duplicate |
-| ⌘A | Select every unlocked layer |
-| ⌘] and ⌘[ | Bring forward, send backward |
-| Shift + ⌘] and Shift + ⌘[ | Bring to front, send to back |
+| ⌘D | Duplicate the selected layers |
+| ⌘A | Select every unlocked layer on the page |
+| ⌘], ⌘[ | Bring the selected layer forward, send it backward |
+| Shift + ⌘], Shift + ⌘[ | Bring the selected layer to front, send it to back |
 | Enter | Edit the selected text layer on the canvas |
 | Escape | Finish editing text, or clear the selection |
-| Option + ↑, Option + ↓ | Move the focused layer row or slide thumbnail |
+| Option + ↑, Option + ↓ | Move the focused layer row or slide thumbnail up or down |
+
+The order chords need exactly one selected layer.
 
 ## Animation
 
 | Shortcut | Action |
 | --- | --- |
-| Home, End | Move the storyboard playhead to the start or end |
-| ←, → on the playhead | Step one output frame; with Shift, one second |
-| ←, → on a trim handle | Move the cut one frame; with Shift, ten frames; with Option, ripple later scenes |
-| ←, → on a keyframe diamond | Move the keyframe one frame; with Shift, ten frames |
+| Home, End on the playhead | Move the playhead to the start or end |
+| ←, → on the playhead | Step one output frame, or one second with Shift |
+| ←, → or ↑, ↓ on a trim handle | Move the cut one frame, or ten frames with Shift. With Option, later scenes ripple |
+| ←, → on a keyframe diamond | Move the keyframe one frame, or ten frames with Shift |
 | Delete or Backspace on a keyframe diamond | Remove the keyframe |
-| ←, → on the rotate handle | Rotate 1°; with Shift, 15° |
-| ⌘ + scroll over the storyboard | Zoom the storyboard |
+| ←, → on the rotate handle | Rotate 1°, or 15° with Shift |
+| ⌘ + scroll over the storyboard | Zoom the storyboard's time axis |
+
+## Moodboard
+
+| Shortcut | Action |
+| --- | --- |
+| Escape | Clear the tile selection when no field is being edited |
 
 ## Brand book
 
 | Shortcut | Action |
 | --- | --- |
-| ←, → | Previous or next page in Read |
-| Escape | Return from Read to Overview |
+| ←, → in **Read** | Previous or next page |
+| Escape in **Read** | Return to **Overview** |
 
 ## Source drawer
 
 | Shortcut | Action |
 | --- | --- |
-| ⌘Enter or ⌘S | Apply code |
-| ⌘F | Find and replace |
+| ⌘Enter or ⌘S | Apply the code |
+| ⌘F | Open find and replace |
 | Enter, Shift + Enter in find | Next or previous match |
+| Enter in replace | Replace the current match |
 | Shift + Option + F | Format the JSON |
 | Tab, Shift + Tab | Indent, outdent |
 | Escape | Close the find bar, then the drawer |
+| ←, → on the resize handle | Resize the drawer by 8 px, or 32 px with Shift |
+| Home, End on the resize handle | Set the drawer to its minimum or maximum width |
 
 ## Documentation
 
@@ -112,4 +128,4 @@ OpenGraph, Terminal card, Partnership lockup, Blog cover, and Slide templates:
 | --- | --- |
 | ⌘K | Open documentation search |
 
-Documentation search indexes headings and body text of every page.
+Documentation search covers the headings and body text of every page.

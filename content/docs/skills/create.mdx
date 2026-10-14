@@ -1,16 +1,16 @@
 ---
-title: Create
-description: Use $glyphfield-create to build and revise editable Design Lab compositions without losing source structure.
+title: Create skill
+description: Use the $glyphfield-create skill to build and revise layered Design Lab compositions while keeping their source, layer IDs and layer order intact.
 icon: WandSparkles
 ---
 
-`$glyphfield-create` owns editable visual composition. Use it for Design Lab artboards containing text, marks, images, stickers, shader layers, converter effects, and saved designs.
+`$glyphfield-create` covers editable composition in Design Lab, the Studio's layered composition tool. Use it for artboards with text, marks, images, stickers, shader layers, converter effects and saved designs.
 
-<DocsMedia alt='Design Lab showing a layered composition and the layer dock' caption='The create skill works in the real composition model' meta='CanvasDocument schema 2 · source 4' src='/screenshots/studio-gt-design-lab-dark-2026.webp' />
+<DocsMedia alt='Design Lab showing a layered composition and the layer dock' caption='The create skill edits the Design Lab composition model' meta='CanvasDocument schema 2 · source 4' src='/screenshots/studio-gt-design-lab-dark-2026.webp' />
 
-## Invoke it
+## Invocation
 
-Ask for the skill explicitly or describe a matching outcome:
+Name the skill or describe a matching outcome:
 
 ```text
 Use $glyphfield-create to build a 1920×1080 launch card with Gem Smoke,
@@ -20,24 +20,24 @@ Save the composition as “Launch signal”.
 
 ## Workflow
 
-1. Identify the active brand, dimensions, still or motion intent, and whether the work starts from an existing design.
-2. Open Design Lab and call `describe()` before relying on controls or actions. Its public tool ID is `material`.
-3. For existing work, call `readSource()` and preserve unknown fields, stable page and element IDs, asset records, and back-to-front ordering.
-4. Add or update only the necessary layers. Use each layer's own opacity, blend mode, geometry, and effect settings.
-5. Apply the complete source through the Studio adapter, then re-read the normalized CanvasDocument.
-6. Inspect the authentic canvas at the intended shader frame and save the design when it needs to be restored later.
+1. Identify the active brand, the dimensions, still or motion output, and whether the work starts from an existing design.
+2. Open Design Lab at `/studio?tool=material` and call `describe()` before relying on controls or actions. Design Lab's public tool ID is `material`.
+3. For existing work, call `readSource()` and keep unknown fields, stable page and element IDs, asset records and back-to-front order.
+4. Add or update only the layers the request needs. Use each layer's own opacity, blend mode, geometry and effect settings.
+5. Apply the complete source through the Studio adapter, then read the normalized CanvasDocument again.
+6. Inspect the canvas at the intended shader frame. Save the design when it needs to be restored later.
 
 ## Composition rules
 
-- Start with no shader when the brand mark is strong enough; otherwise Gem Smoke is the preferred general-purpose material.
-- Keep shader layers behind authored content unless the composition intentionally masks or converts the result.
-- Give Bayer, ASCII, halftone, and posterize effects deliberate foreground and background colors.
-- For engraving, halftone, light leak, CRT, watercolor, chalk, and the other Shaders.com image effects, add an Effect layer with `design.effects.add { effectId }`. Check its `status` with `design.effects.describe`: image effects need WebGPU, and exports stop without it.
-- Use `design.layers.arrange` to align or distribute, `design.layers.lock` to protect finished layers, `design.layers.rotate` to turn layers about their centers, and `design.layers.copyStyle` / `design.layers.pasteStyle` to reuse an appearance.
-- Preserve contrast between white artwork and white sticker borders with a fill, outline, alpha-aware shadow, surface, or border color.
-- Treat shader size as material zoom from `0.1` to `10`, not as canvas zoom.
-- Save the selected frame history and timeline state with the design.
+- Leave out the shader when the brand mark carries the design alone. Otherwise use Gem Smoke as the general-purpose material.
+- Keep shader layers behind authored content unless the design masks or converts them on purpose.
+- Give Bayer, ASCII, halftone and posterize converters explicit foreground and background colors.
+- For Engraving, Halftone, Light Leak, Watercolor, Chalkboard and the other Shaders.com image effects, add an Effect layer with `design.effects.add { effectId }`. Image effects need WebGPU, and an export stops with an error when WebGPU is missing. Check each layer's `status` with `design.effects.describe` first.
+- Use `design.layers.arrange` to align or distribute, `design.layers.lock` to protect finished layers, `design.layers.rotate` to turn layers about their centers, and `design.layers.copyStyle` with `design.layers.pasteStyle` to reuse an appearance.
+- Keep white artwork visible against a white sticker border with a fill, outline, alpha-aware shadow, surface or border color.
+- Treat shader size as material zoom from `0.1` to `10`. It does not change the canvas zoom.
+- Save the design so that its selected frame and timeline settings are kept.
 
-## Completion proof
+## Completion check
 
-The skill is not finished when source application resolves. Confirm layer order, visible placement, identity, opacity, selected material frame, saved-design restoration, and the resulting canvas. If the request includes a file, hand the result to [`$glyphfield-export`](/docs/skills/export).
+The work is not finished when `applySource` resolves. Confirm the layer order, visible placement, identity, opacity, selected material frame, saved-design restore and the rendered canvas. If the request includes a file, hand the result to [`$glyphfield-export`](/docs/skills/export).

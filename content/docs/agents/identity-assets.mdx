@@ -1,29 +1,29 @@
 ---
 title: Identities and custom assets
-description: Use built-in identity systems, override foundation fields, and safely send local logo and image data.
+description: Choose a built-in brand identity for a generation request, override its name, colors and logo, and embed local images as base64 data URLs.
 icon: BadgeCheck
 ---
 
-Every `POST /api/generate` request accepts an `identity` object in one of three forms:
+Every `POST /api/generate` request accepts an `identity` object, the brand that the output uses. It takes one of three forms:
 
 | Form | Example | Use |
 | --- | --- | --- |
-| Built-in ID | `{ "id": "gt" }` | Use a built-in identity exactly as shipped |
-| Full identity | The complete object from `/api/identities` or `identity.read`, with `id`, `colors`, and `typography` | Generate with a custom or edited identity |
-| Preset with overrides | `{ "preset": "gt", "name": "…", "ink": "#…" }` | Change a few fields of a preset |
+| Built-in ID | `{ "id": "gt" }` | A built-in identity exactly as shipped. Send `id` alone |
+| Complete identity | The full object from `/api/identities` or `identity.read`, with `id`, `colors` and `typography` | A custom or edited identity |
+| Preset with overrides | `{ "preset": "gt", "name": "…", "ink": "#…" }` | A preset with a few changed fields |
 
-An unknown built-in ID returns `unknown_identity`; an invalid full identity returns `invalid_identity`.
+An unknown built-in ID returns `unknown_identity`. An invalid complete identity, or an `id` sent with other fields, returns `invalid_identity`.
 
-<DocsMedia alt='Glyphfield Brand identity workspace showing the shared identity and asset system' caption='The browser identity is richer than a one-off generation override' meta='Assets · provenance · type · color' src='/screenshots/studio-gt-identity-light-2026.webp' />
+<DocsMedia alt='Glyphfield Brand identity workspace showing the shared identity and asset system' caption='The Brand identity tool holds more fields than a generation override' meta='Assets · provenance · type · color' src='/screenshots/studio-gt-identity-light-2026.webp' />
 
 ## Presets
 
-- `starter` is the default: the complete neutral Starter identity.
-- `basement`, `gt`, `ramp`, `mintlify`, `tailwind`, `viteplus`, `cloudflare`, and `stripe` resolve the reference identities and their local logo assets.
-- `custom` avoids inheriting a preset logo and creates a monogram when no logo is supplied.
-- `template` is still accepted for older requests. It has no built-in record and behaves like `custom` on Starter defaults.
+- `starter` is the default: the complete neutral Starter identity, which is original Glyphfield work.
+- `basement`, `gt`, `ramp`, `mintlify`, `tailwind`, `viteplus`, `cloudflare` and `stripe` load the reference identities with their bundled logo files.
+- `custom` starts from Starter's colors and type without its logo. Without `logoDataUrl`, the output shows a monogram made from `shortName`.
+- `template` is still accepted for older requests. It has no built-in record and behaves like `custom`.
 
-`GET /api/identities` returns `{ agentPresetField: "identity.preset", identities, localIdentityPersistence: "browser-localStorage", schemaVersion: 2 }`. `identities` holds the nine built-in `BrandIdentity` records with foundations, strategy, graphic-system rules, applications, proof references, and local asset IDs. Fetch it at runtime instead of hard-coding the list.
+`GET /api/identities` returns `{ agentPresetField: "identity.preset", identities, localIdentityPersistence: "browser-localStorage", schemaVersion: 2 }`. `identities` holds the nine built-in `BrandIdentity` records with their foundations, strategy, graphic system rules, applications, proof references and local asset IDs. Read the list at runtime instead of copying it into a client.
 
 ## Identity fields
 
@@ -35,10 +35,10 @@ An unknown built-in ID returns `unknown_identity`; an invalid full identity retu
 | `tagline` | 180 characters |
 | `positioning` | 320 characters |
 | `description` | 320 characters |
-| `ink`, `paper` | Six-digit HEX |
-| `logoDataUrl` | Supported base64 image data URL, maximum 5 MB |
+| `ink`, `paper` | Six-digit HEX colors for text and background |
+| `logoDataUrl` | A base64 image data URL of up to 5,000,000 characters |
 
-Fields override the selected preset. Omitted values inherit from the preset.
+Text fields must contain at least one character after trimming. A field you send replaces the preset's value, and a field you leave out keeps it. A logo replaces the preset's mark and wordmark in every slot.
 
 ## Convert a logo to a data URL
 
@@ -49,7 +49,7 @@ MIME=image/png
 LOGO_DATA="data:$MIME;base64,$(base64 < logo.png | tr -d '\n')"
 ```
 
-Then construct the request with `jq` so shell escaping is handled safely:
+Build the request with `jq` so that the shell does not alter the data:
 
 ```bash
 jq -n --arg logo "$LOGO_DATA" '{
@@ -74,20 +74,19 @@ jq -n --arg logo "$LOGO_DATA" '{
 }' > request.json
 ```
 
-Supported custom image data includes PNG, JPEG, WebP, GIF, and SVG. Remote URLs are rejected; download and authorize the asset before converting it.
+Image data URLs must be base64 PNG, JPEG, WebP, GIF or SVG. The API rejects remote URLs. Download an asset you are allowed to use, then convert it.
 
 ## Background and partner images
 
-Templates additionally support `backgroundImageDataUrl` and `partnerLogoDataUrl`. Use `partnerId` only for asset IDs returned by `/api/identities` for the selected preset.
+`template` requests also accept `backgroundImageDataUrl` and `partnerLogoDataUrl` with the same format and limit. `partnerId` takes a proof asset ID of the selected identity from `/api/identities`, another built-in identity ID, or `template-northstar`.
 
-The API embeds accepted assets into the returned SVG so it remains portable.
+The API embeds accepted images in the returned SVG, so the file does not depend on other URLs.
 
-## Reference sources and trademark boundary
+## Reference sources and trademarks
 
-The reference identities were studied from primary brand sources current in July 2026:
+The reference identities were built from each brand's published sources, captured in July 2026 and reviewed in October 2026:
 
 - [Basement Studio site](https://basement.studio/)
-
 - [Ramp press kit](https://ramp.com/press/)
 - [Mintlify documentation appearance guide](https://www.mintlify.com/docs/organize/settings-appearance) and [design practice](https://www.mintlify.com/blog/how-we-design-at-mintlify)
 - [Tailwind CSS brand assets](https://tailwindcss.com/brand)
@@ -95,8 +94,10 @@ The reference identities were studied from primary brand sources current in July
 - [Cloudflare press kit](https://www.cloudflare.com/en-gb/press/press-kit/) and [logo guidance](https://www.cloudflare.com/en-gb/logo/)
 - [Stripe newsroom and logo kit](https://stripe.com/newsroom/information)
 
-These systems are included for design study and interoperability. Brand names, marks, and source assets remain the property of their respective owners. Glyphfield’s MIT license applies to the software and original templates; it does not grant trademark rights or imply endorsement.
+These identities are included for design study and interoperability. Brand names, marks and source assets belong to their owners. Glyphfield's MIT license covers the software and the original templates. It grants no trademark rights and implies no endorsement.
 
-General Translation's identity follows GT's own brand canon. Its marks and brand-system artwork (glyph globes, fields, speed marks and the product still) are © General Translation, included with permission for that identity and not covered by the MIT license. Its ten artifact pictures are GT's dithered screens of public-domain and CC BY-SA 4.0 originals; each asset record carries its credit, license and source link, and [Third-party notices](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/THIRD_PARTY_NOTICES.md#general-translation-artifact-pictures) lists them all. Show the credit wherever you publish one of these pictures.
+The General Translation (GT) identity follows GT's own brand canon. Its marks and brand-system artwork are © General Translation, Inc. They are included with permission for that identity and are not covered by the MIT license. This artwork includes the glyph globes, the glyph and horizon fields, the speed marks, the signal gem smoke and the product still.
 
-Reference identities also bundle the font files needed to render their Display, Body, Accent, and Code roles without falling back to Glyphfield's interface typeface. Those files retain their original licenses and are not relicensed by Glyphfield's MIT license. The bundled role map and redistribution notice live in [`public/fonts/brands/README.md`](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/public/fonts/brands/README.md).
+The GT identity also carries ten artifact pictures. They are GT's dithered screens of public-domain and CC BY-SA 4.0 originals. Each asset record carries its credit (`attribution`), `license` and `sourceUrl`, and [Third-party notices](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/THIRD_PARTY_NOTICES.md#general-translation-artifact-pictures) lists all ten. Show the credit wherever you publish one of these pictures.
+
+Reference identities also bundle the font files for their Display, Body, Accent and Code roles, so they render in their own typefaces instead of Glyphfield's interface font. Those files keep their original licenses, and Glyphfield's MIT license does not relicense them. [`public/fonts/brands/README.md`](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/public/fonts/brands/README.md) lists the role map and the redistribution terms.

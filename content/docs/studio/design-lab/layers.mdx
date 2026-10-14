@@ -1,10 +1,10 @@
 ---
 title: Layers and editing
-description: Add and edit Design Lab text, mark, image, sticker, shader, and effect layers; format text; crop images; align, distribute, lock, and copy styles.
+description: Add and edit every kind of Design Lab layer, format parts of a text box, crop images, and rotate, align, lock, or copy the style of selected layers.
 icon: Blocks
 ---
 
-Every Design Lab element is a layer in one ordered stack. The layer dock and the **Layers** section of the inspector list layers front to back. In source, `page.elementIds` stores the same order back to front.
+Every element in Design Lab, the layered composition tool, is a layer in one ordered stack. The layer dock and the **Layers** section of the inspector list layers front to back. In source, `page.elementIds` stores the same order back to front.
 
 ## Layer kinds
 
@@ -17,44 +17,59 @@ Every Design Lab element is a layer in one ordered stack. The layer dock and the
 | Sticker | **Sticker** or K | 34% × 38% | Image, crop, surface finish, finish settings, appearance, opacity |
 | Image | **Image** or I | 34% × 38% | Image, crop, focus, zoom, appearance, opacity |
 
-New text, text stickers, and recolorable marks start black in light mode and white in dark mode. Text outlines start with the opposite color. These colors are stored on the layer when it is created. Changing the Studio theme, duplicating a layer, or reopening a project does not recolor existing layers. Imported images and shader palettes keep their own colors.
+I and K open the image import dialog, which adds the chosen files as images or stickers. New text, text stickers, and recolorable marks start black in light mode and white in dark mode. Text outlines start with the opposite color. These colors are stored on the layer when it is created. Changing the Studio theme, duplicating a layer, or reopening a project does not recolor existing layers. Imported images and shader palettes keep their own colors.
 
 A new layer is selected when it is added.
 
 ## Select, move, and resize
 
-- Click a layer on the canvas or its card in the dock to select it. Shift-click or ⌘/Ctrl-click adds a layer to the selection.
-- Drag to move. While dragging, the layer snaps within 6 screen pixels to the artboard edges, center, and rule-of-thirds lines, and to the edges and centers of other layers. A rotated layer snaps by the area it covers. On the open canvas, layers snap to edges and centers only.
-- Drag a selection handle to resize. Shader layers can also be sized numerically with **Frame width** and **Frame height** (0.02–3 of the artboard) and placed with **Horizontal position** and **Vertical position**.
-- Drag the round handle below a selected layer to rotate it about its center. Hold Shift to rotate in 15° steps. **Layer rotation** in the inspector sets the angle in degrees, clockwise; values are stored from −180° to 180°. A rotated layer moves and resizes along its own sides.
-- Press the arrow keys to nudge by 1 px, or with Shift by 10 px.
-- The **Rotation** slider in a shader's **Advanced** section rotates the material inside the layer. **Layer rotation** turns the layer itself.
-- Align, distribute, and **Frame selection** use the area a rotated layer covers. **Reset mark position**, **Reset image position**, and **Reset text box** also reset the rotation. Copy style does not copy the rotation; copy, paste, and duplicate keep it.
+- Click a layer on the canvas or its card in the dock to select it. Shift-click or ⌘/Ctrl-click a layer on the canvas to add it to the selection.
+- Drag to move. While dragging, the layer snaps within 6 screen pixels to the artboard's edges, center, and rule-of-thirds lines, and to the edges and centers of other layers. A rotated layer snaps by the area it covers. On the open canvas, layers snap to edges and centers only.
+- Drag a selection handle to resize. Shader layers can also be sized with **Frame width** and **Frame height** (2% to 300% of the artboard) and placed with **Horizontal position** and **Vertical position**.
+- Press the arrow keys to nudge by 1 px, or by 10 px with Shift.
 
-Text and image boxes do not auto-fit their contents. Text that overflows a narrow box stays visible in the preview and in the export.
+Text and image boxes do not resize to fit their contents. Text that overflows a narrow box stays visible in the preview and in the export.
+
+## Rotate layers
+
+Text, mark, image, sticker, and shader layers rotate about their centers.
+
+- Drag the round handle below a selected layer to rotate it. Hold Shift to rotate in 15° steps.
+- **Layer rotation** in the inspector sets the angle in degrees, clockwise. Angles are stored in the range −180° to 180°, so 270 is stored as −90.
+- A rotated layer resizes along its own sides.
+- **Reset mark position**, **Reset image position**, **Reset text box**, and **Fit shader to canvas** also reset the rotation.
+- Align, distribute, and **Frame selection** use the area a rotated layer covers.
+- Copy, paste, and duplicate keep the rotation. Copy style does not copy it.
+- The **Rotation** slider in a shader's **Advanced** section turns the material inside the layer. **Layer rotation** turns the layer itself.
+
+Effect layers cover the whole artboard and do not rotate.
+
+`design.layers.rotate` takes `{ layerIds: string[], rotation: number }`. Each listed unlocked layer turns to `rotation` degrees clockwise about its own center. Locked layers are skipped, and the action fails when every listed layer is locked. `0` removes the rotation. The action returns `null` after the change commits.
 
 ## Layer dock and menus
 
-Each dock card shows a live thumbnail, the layer name, its position in the stack, and its kind. Card actions are **Duplicate**, **Move forward**, **Move backward**, **Hide** or **Show**, **Lock** or **Unlock**, and **Delete**. Converter thumbnails draw the converter's real algorithm on a sample; image effect thumbnails show the effect's library preview.
+Each dock card shows a live thumbnail, the layer name, its position in the stack, and its kind. The card buttons are **Duplicate**, **Move forward**, **Move backward**, **Hide layer** or **Show layer**, **Lock layer** or **Unlock layer**, and **Delete**. Effect layer cards have no lock button. Converter thumbnails draw the converter's real algorithm on a sample, and image effect thumbnails show the effect's library preview.
 
-Right-click a layer, its dock card, or an empty artboard area for a menu. Shift + F10 opens the same menu from the keyboard. The layer menu groups:
+Right-click a layer on the canvas, or press Shift + F10, for the selection menu:
 
-- **Copy**, **Cut**, **Paste**, **Duplicate**
+- **Move to canvas** and the named artboards, or **Frame selection** for loose layers
+- **Crop image** (or **Finish cropping**) and **Reset crop** for images and stickers
+- **Cut**, **Copy**, **Paste**, **Duplicate**, **Select all layers**
 - **Copy style**, **Paste style**
-- **Hide** or **Show**, **Lock layer**
+- **Group selection**, **Ungroup selection**
 - **Bring forward**, **Bring to front**, **Send backward**, **Send to back**
-- **Align selection** (two or more layers), **Align to artboard**
-- **Move to canvas** and artboard destinations
-- **Crop image** for images and stickers
-- **Delete**
+- **Align selection** (two or more layers) and **Align to artboard**
+- **Lock selection**, **Selection visible** or **Selection hidden**, **Delete selection**
 
-Multi-selection and groups move related layers as one unit. ⌘/Ctrl + G groups the selection and Shift + ⌘/Ctrl + G ungroups it. Each layer in a group keeps its own settings.
+Right-click a dock card or a row in the inspector's **Layers** list for the layer menu. It has **Copy layer**, **Cut layer**, **Paste**, **Duplicate layer**, **Copy style**, **Paste style**, **Layer visible** or **Layer hidden**, **Lock layer** or **Unlock layer**, the four order commands, and **Delete layer**. Effect layers have no style or lock items.
 
-**Undo** and **Redo** sit in the canvas toolbar. **Action history** lists recent edits. ⌘/Ctrl + Z and Shift + ⌘/Ctrl + Z work while the canvas has focus or the pointer is over it, including while editing text on the canvas. Fields in the inspector keep their native text undo. Named checkpoints in **Saved designs** are separate from the edit history.
+Multi-selection and groups move related layers as one unit. ⌘/Ctrl + G groups the selection, and Shift + ⌘/Ctrl + G ungroups it. Each layer in a group keeps its own settings.
+
+**Undo** and **Redo** sit in the canvas toolbar, and **Action history** lists recent edits. ⌘/Ctrl + Z and Shift + ⌘/Ctrl + Z work while the canvas has focus or the pointer is over it. Fields in the inspector keep their own text undo. Named checkpoints in **Saved designs** are separate from the edit history. The full shortcut list is on the [Design Lab](/docs/studio/design-lab#keyboard-shortcuts) page.
 
 ## Clipboard, paste, and drop
 
-⌘/Ctrl + C and ⌘/Ctrl + V copy and paste layers or a whole artboard, including their assets and captured shader frames. Pasting image files from the system clipboard, or dropping image files onto an artboard or the canvas, opens the image import for those files. Accepted image types are PNG, JPG, WebP, AVIF, GIF, BMP, and SVG, up to 4,000,000 bytes each.
+⌘/Ctrl + C and ⌘/Ctrl + V copy and paste layers or a whole artboard, including their assets and captured shader frames. ⌘/Ctrl + X copies the selected layers and deletes them. Pasting image files from the system clipboard, or dropping image files onto an artboard or the canvas, opens the image import for those files. The accepted image types are PNG, JPG, WebP, AVIF, GIF, BMP, and SVG, up to 4,000,000 bytes each.
 
 ## Text
 
@@ -62,16 +77,17 @@ Text is a canvas layer with its own box. New text starts at 48 px.
 
 | Control | Range or values |
 | --- | --- |
-| Text content | Any text; edit in the inspector, or click the text on the canvas and type |
+| Text content | Any text. Edit it in the inspector, or click the text on the canvas and type |
 | Font role | Display, Body, Accent, Code (from the identity) |
-| **Text size in pixels** and **Text size** | 1–2048 artboard pixels |
+| **Text size in pixels** and **Text size** | 1–2048 artboard pixels in the number field. The slider reaches 512 |
 | **Font weight** | The supported range of the selected brand font |
-| Bold, Italic, Underline, Strikethrough | Toggles; underline and strikethrough combine |
-| Alignment and wrapping | Left, center, right; wrap within the box |
+| Bold, Italic, Underline, Strikethrough | Toggles. Underline and strikethrough combine |
+| Alignment | Left, center, right |
+| Wrapping | **Wrap** or **Single line** |
 | Text box width | 0.25–3 × the default box |
 | Line height | 0.7–1.8 |
 | Tracking | −0.12 to 0.2 em |
-| Text effect | Solid, Bayer sweep, Halftone, Scan lines, Gradient ink |
+| Text effect | Solid, Bayer sweep, Halftone, Scan lines, Gradient ink, with **Effect strength**, **Pattern scale**, and **Effect angle** |
 | Outline | Color and width 0.5–12 px |
 | Shadow | Color, blur 0–64 px, X and Y offset ±48 px, opacity |
 | Layer opacity | 0–100% |
@@ -80,13 +96,13 @@ Setting a pixel size keeps the box position and dimensions and resets the separa
 
 ### Format part of a text box
 
-Select words or lines on the canvas or in the inspector text field. The inspector shows **Selected text · N characters**, and font, size, weight, color, italic, underline, strikethrough, and tracking then apply only to those characters. **Whole text box** returns to box-wide formatting. A selection that spans different styles shows **Mixed formatting**. Alignment, wrapping, line height, opacity, outline, shadow, text effect, and shader fill always apply to the whole box.
+Select words or lines on the canvas or in the inspector text field. The inspector shows **Selected text · N characters**. Font, size, weight, color, italic, underline, strikethrough, and tracking then apply only to those characters. **Whole text box** returns to formatting the whole box. A selection that spans different styles shows **Mixed formatting**. Alignment, wrapping, line height, opacity, outline, shadow, text effect, and shader fill always apply to the whole box.
 
-While editing, ⌘/Ctrl + B, ⌘/Ctrl + I, and ⌘/Ctrl + U toggle bold, italic, and underline. Formatting follows the characters as text is inserted or deleted. Plain-text paste takes the formatting at the insertion point. Pasted HTML is not imported.
+While editing with a range of text selected, ⌘/Ctrl + B, ⌘/Ctrl + I, and ⌘/Ctrl + U toggle bold, italic, and underline. Formatting follows the characters as text is inserted or deleted. Plain-text paste takes the formatting at the insertion point. Pasted HTML is not imported.
 
 In source, a text element stores its plain `value` and optional ordered `runs`: `{ start, end, style }` with UTF-16 offsets and an exclusive end. Unset style fields inherit from the layer. Run `fontSize` is in authored pixels before layer scale.
 
-`design.text.format` applies run styling through the Browser API:
+`design.text.format` applies run styling through the Browser API (`window.glyphfield.studio`):
 
 ```js
 await window.glyphfield.studio.invoke('design.text.format', {
@@ -97,7 +113,7 @@ await window.glyphfield.studio.invoke('design.text.format', {
 });
 ```
 
-`style` accepts `color`, `fontRole` (`Display`, `Body`, `Accent`, `Code`), `fontSize`, `weight`, `fontStyle` (`normal`, `italic`), `underline`, `strikethrough`, and `tracking`. The range must be non-empty and inside the text. The action returns `null`; read `element.data.runs` from `readSource()` to confirm.
+`style` accepts `color`, `fontRole` (`Display`, `Body`, `Accent`, `Code`), `fontSize`, `weight`, `fontStyle` (`normal`, `italic`), `underline`, `strikethrough`, and `tracking`. The range must be non-empty and inside the text. The action returns `null`. Read `element.data.runs` from `readSource()` to confirm the change.
 
 ### Text rendering options
 
@@ -105,39 +121,50 @@ await window.glyphfield.studio.invoke('design.text.format', {
 - A live shader clipped to the glyphs (choose a material while the text layer is selected)
 - A text effect preset
 - A converter or image effect from an Effect layer above it
-- A sticker with a cut border and finish
+- A sticker with a cut border and a finish
 - An outline and a shadow
 
 ## Images and crop
 
-Images come from local files or the identity asset library. Double-click an image or sticker, or choose **Crop image** from its menu, to enter crop mode. The frame stays in place and the parts of the source outside it are dimmed.
+Images come from local files or the identity asset library. Double-click an image or sticker, or choose **Crop image** from its menu, to enter crop mode. The frame stays in place, and the parts of the source outside it are dimmed.
 
 - Drag the source to reposition it. Hold Shift to lock the drag to one axis.
 - Drag an edge or corner of the frame to change the crop area.
+- Press the arrow keys to move the source.
 - Double-click again, press Enter or Escape, or choose **Done** to finish.
 
-The image inspector adds **Crop to frame**, **Edit crop**, **Reset crop**, **Fit image**, **Original ratio**, a crop aspect (Freeform, 1:1, 4:3, 16:9, 3:4, 9:16), **Crop zoom**, **Horizontal focus**, and **Vertical focus**. Cropping is non-destructive and is kept by duplicate, undo, autosave, saved designs, project files, source, and export.
+The image inspector has **Crop to frame**. With it on, the inspector adds **Edit crop on canvas**, **Fill frame**, **Fit image**, **Original ratio**, **Crop aspect** (Freeform, Square · 1:1, Landscape · 4:3, Widescreen · 16:9, Portrait · 3:4, Story · 9:16), **Crop zoom**, **Horizontal focus**, **Vertical focus**, and **Reset crop**. Cropping is non-destructive. Duplicate, undo, autosave, saved designs, project files, source, and export all keep the crop.
 
 The image and sticker pickers list saved brand assets. Each asset has a delete action that asks for confirmation and removes only the library copy. Layers already placed keep their embedded image. If browser storage is full, delete unused library assets and import again.
 
 ## Stickers
 
-A sticker is an image layer with a cut border and a physical finish. Choose one of 13 **Surface finish** presets: Holo vinyl, Prismatic, Mirror chrome, Brushed metal, Pearl laminate, Glitter flake, Retroreflective, Clear frost, Soft touch, Spot gloss, Epoxy dome, Embossed foil, or Precision metal inset. Then adjust **Shine**, **Texture**, **Relief**, **Glint angle**, and **Depth**.
+A sticker is an image layer with a cut border and a physical finish. **Surface finish** has 13 presets: Holo vinyl, Prismatic, Mirror chrome, Brushed metal, Pearl laminate, Glitter flake, Retroreflective, Clear frost, Soft touch, Spot gloss, Epoxy dome, Embossed foil, and Precision metal inset. **Shine**, **Texture**, **Relief**, **Glint angle**, and **Depth** adjust the finish.
 
-The cut border has its own color and width, and an inner separation edge keeps white artwork visible on a white border. A sticker needs no background: export it over the artboard color or combine it with a shader layer.
+**Die-cut outline** sets the border's color and width (up to 24 px). An inner separation edge keeps white artwork visible on a white border. A sticker needs no background. Export it over the artboard color or combine it with a shader layer.
 
 ## Marks
 
-A mark layer places a logo from the active identity: the dark or light mark, the wordmark, or another logo asset. Its inspector has **Mark color**, opacity, SVG conversion and the mark library, and **Reset mark position**. The shared appearance controls apply to marks, images, and stickers:
+A mark layer places a logo from the active identity: the dark or light mark, the wordmark, or another logo asset. Its inspector has **Mark color**, opacity, the appearance controls, **SVG conversion & mark library**, and **Reset mark position**.
 
-- **Invert** reverses the resolved mark.
-- **Dither** applies an ordered dot field with amount, cell size, and direction.
-- **Outline** follows the alpha shape of the SVG or transparent image.
-- **Shadow** sets color, opacity, blur, and X/Y offset.
+**SVG conversion & mark library** adds local SVG, PNG, JPG, WebP, GIF, AVIF, or BMP files smaller than 25 MB as marks. It sanitizes SVG input, converts each file to a transparent PNG at 1024, 2048, or 4096 px (**Converted asset size**), and keeps the original and the PNG in IndexedDB in this browser. Nothing is uploaded.
+
+## Appearance
+
+Marks, images, and stickers share these controls:
+
+| Control | Mark label | Image and sticker label | Settings |
+| --- | --- | --- | --- |
+| Invert | **Invert logo color** | **Invert image colors** | On or off |
+| Dither | **Dither logo** | **Dither image** | **Dither amount** 0–100%, **Cell size** 2–18 px, **Dither direction** 0°–360° |
+| Outline | **Outline** | **Outline**, or **Die-cut outline** on stickers | Color with opacity, **Outline width** 0.5–12 px (24 px on stickers) |
+| Shadow | **Logo shadow** | **Image shadow** or **Sticker shadow** | Color with opacity, **Blur** 0–64 px, **Horizontal offset** and **Vertical offset** ±48 px |
+
+The outline follows the alpha shape of the SVG or transparent image.
 
 ## Align and distribute
 
-Select two or more layers and open the layer menu. **Align selection** aligns the layers to the bounds of the whole selection: **Align left edges**, **Align horizontal centers**, **Align right edges**, **Align top edges**, **Align vertical centers**, and **Align bottom edges**. **Distribute horizontally** and **Distribute vertically** need three or more units; the outermost units stay in place and every neighboring pair gets the same gap. **Align to artboard** aligns the selection to the artboard edges and centers instead.
+Select two or more layers and open the selection menu. **Align selection** aligns the layers to the bounds of the whole selection: **Align left edges**, **Align horizontal centers**, **Align right edges**, **Align top edges**, **Align vertical centers**, and **Align bottom edges**. **Distribute horizontally** and **Distribute vertically** need three or more units. The outermost units stay in place, and every neighboring pair gets the same gap. **Align to artboard** aligns the selection to the artboard's edges and centers with **Align left**, **Center horizontally**, **Align right**, **Align top**, **Center vertically**, and **Align bottom**.
 
 A fully selected group moves as one unit. Locked layers are skipped. Effect layers are not arranged.
 
@@ -148,23 +175,19 @@ A fully selected group moves as one unit. Locked layers are skipped. Effect laye
 | `arrangement` | `left`, `horizontal-center`, `right`, `top`, `vertical-center`, `bottom`, `distribute-horizontal`, `distribute-vertical` |
 | `layerIds` | Optional. Omit it, or pass an empty array, to use the current selection |
 
-Alignment needs two units and distribution three. The action returns `null` after the change commits.
+Alignment needs two units and distribution needs three. The action returns `null` after the change commits.
 
 ## Lock layers
 
-Lock a layer from its dock card, the **Layers** list in the inspector, the layer menu, or Shift + ⌘/Ctrl + L. Shift + ⌘/Ctrl + L locks the targets if any is unlocked, otherwise it unlocks them.
+Lock a layer from its dock card, the **Layers** list in the inspector, either menu, or Shift + ⌘/Ctrl + L. Shift + ⌘/Ctrl + L locks the targets if any of them is unlocked, and unlocks them otherwise.
 
-A locked layer stays visible and exports normally. It ignores canvas clicks, drags, resize handles, on-canvas text editing, and nudges, and it leaves the canvas selection and **Select all**. Its inspector controls stay available. Locks are saved as `element.locked` in source, autosave, saved designs, and project files. Effect layers cannot be locked.
+A locked layer stays visible and exports normally. It ignores canvas clicks, drags, resize handles, on-canvas text editing, and nudges, and it is left out of the canvas selection and **Select all layers**. Its inspector controls stay available. Locks are saved as `element.locked` in source, autosave, saved designs, and project files. Effect layers cannot be locked.
 
 `design.layers.lock` takes `{ layerIds: string[], locked: boolean }` and returns `null`.
 
-## Rotate layers
-
-`design.layers.rotate` takes `{ layerIds: string[], rotation: number }`. Each listed unlocked layer turns to `rotation` degrees clockwise about its own center; locked layers are skipped, and the action fails when every listed layer is locked. The angle is stored from −180° to 180°, so 270 is stored as −90. `0` removes the rotation. The action returns `null` after the change commits. Effect layers cover the whole artboard and do not rotate.
-
 ## Copy and paste style
 
-**Copy style** (Option/Alt + ⌘/Ctrl + C) takes the selected layer's appearance. **Paste style** (Option/Alt + ⌘/Ctrl + V) applies it to the selected unlocked layers. Content, position, size, name, visibility, and lock state never change.
+**Copy style** (Option/Alt + ⌘/Ctrl + C) takes the selected layer's appearance. **Paste style** (Option/Alt + ⌘/Ctrl + V) applies it to the selected unlocked layers. Content, position, size, rotation, name, visibility, and lock state stay unchanged.
 
 | Source layer | Style that is copied |
 | --- | --- |
@@ -174,8 +197,8 @@ A locked layer stays visible and exports normally. It ignores canvas clicks, dra
 | Sticker | Appearance, opacity, finish |
 | Shader, or a layer with a material fill | The material, which fills content targets |
 
-`design.layers.copyStyle` takes `{ layerId }`. `design.layers.pasteStyle` takes `{ layerIds }` and skips locked layers. Both return `null`. Effect layers cannot be style sources or targets.
+`design.layers.copyStyle` takes `{ layerId }`. `design.layers.pasteStyle` takes `{ layerIds }` and skips locked layers. It fails with "Copy a style first, then paste it onto unlocked layers." when no style was copied or every target is locked. Both actions return `null`. Effect layers cannot be style sources or targets.
 
 ## Opacity and blending
 
-Every layer has its own opacity. Shader layers also have a blend mode: Normal, Screen, Overlay, or Multiply. A material applied to a text, mark, or image layer has its own opacity in addition to the layer opacity.
+Every layer has its own opacity. Shader layers also have a blend mode: Normal, Screen, Overlay, or Multiply. A material applied to a text, mark, or image layer has its own opacity and blend mode in addition to the layer opacity. **Remove shader from layer** takes the material off a content layer.

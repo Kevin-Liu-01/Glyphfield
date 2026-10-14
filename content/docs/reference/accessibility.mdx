@@ -1,10 +1,10 @@
 ---
 title: Accessibility
-description: Use and extend Glyphfield with keyboard access, visible focus, semantic controls, reduced motion, contrast, and accessible exported artifacts.
+description: Operate the Glyphfield Studio from the keyboard with labelled controls and reduced motion, and make exported images, video and documents accessible.
 icon: Keyboard
 ---
 
-Glyphfield combines ordinary document UI with direct-manipulation canvases and animated GPU output. Accessibility therefore has two boundaries: operating the Studio itself and making the exported artifact usable in its destination.
+Glyphfield combines ordinary form controls with direct-manipulation canvases and animated GPU output. Accessibility has two parts: operating the Studio itself, and making each exported artifact usable where it is published.
 
 <DocsMediaGrid>
   <DocsMedia alt='Glyphfield Brand identity workspace in light mode with structured form controls' caption='Structured editing surfaces' meta='Labels · focus · keyboard' src='/screenshots/studio-gt-identity-light-2026.webp' />
@@ -13,102 +13,92 @@ Glyphfield combines ordinary document UI with direct-manipulation canvases and a
 
 ## Interaction model
 
-- Navigation, buttons, selects, fields, dialogs, drawers, tabs, and layer actions should expose visible labels or accessible names.
-- The visual canvas is paired with a layer list and inspector so geometry and appearance are not controlled only by pointer gestures.
-- Selected canvas items support arrow-key movement; Shift + arrow performs a larger nudge. Layer, artboard, project tab, and canvas menus open from the keyboard with Shift + F10 or the ContextMenu key.
-- Design Lab lists its shortcuts in a sheet opened with **?**. Every shortcut is listed in [Keyboard shortcuts](/docs/reference/shortcuts).
-- Global Studio and documentation search expose keyboard shortcuts described in [Keyboard shortcuts](/docs/reference/shortcuts).
-- Source-enabled tools provide a Code drawer for exact structured editing when direct manipulation is insufficient.
+- Navigation, buttons, selects, fields, dialogs, drawers, tabs and layer actions have visible labels or accessible names.
+- Each canvas is paired with a layer list and an inspector, so geometry and appearance can be changed without pointer gestures.
+- A selected canvas layer moves 1 px with the arrow keys and 10 px with Shift and an arrow key. Layer, artboard, project tab and canvas menus open from the keyboard with Shift + F10 or the ContextMenu key.
+- Design Lab, the layered composition tool, lists its shortcuts in a sheet that opens with **?**. [Keyboard shortcuts](/docs/reference/shortcuts) lists every shortcut in the Studio and the documentation.
+- Tools with editable source have a source drawer, opened with **Code**, for exact structured edits when direct manipulation is not enough.
+- **Tooltips** in the Studio's Visual settings is on by default and names controls on hover and focus. Turning it off hides those hints.
 
-The current product is not represented as having completed a formal accessibility certification. Treat the guidance and checks below as the maintained contract and report gaps rather than assuming conformance.
+Glyphfield has not completed a formal accessibility audit or certification. Use the guidance and checks on this page, and report any gap you find.
 
 ## Keyboard workflow
 
-1. Use Studio navigation or search to open a tool.
-2. Tab through the library, canvas-adjacent controls, inspector, and layer dock.
-3. Select a layer from the list when selecting it visually is difficult.
-4. Use arrow keys for precise movement and inspector fields for numeric changes.
-5. Open **Code** for exact source edits.
-6. Return focus to the invoking control when closing menus, dialogs, or drawers.
-
-Do not make hover the only way to reveal a required action. Reordering, visibility, duplication, deletion, and export must remain reachable without dragging.
+1. Open a tool from the Studio navigation or with **Search Studio tools** (⌘K).
+2. Tab through the library, the controls beside the canvas, the inspector and the layer list.
+3. Select a layer from the layer list when selecting it on the canvas is difficult.
+4. Use the arrow keys for small moves and the inspector fields for exact numbers.
+5. Open the source drawer with **Code** for exact source edits.
+6. Escape closes context menus and returns focus to the control that opened them.
 
 ## Focus and labels
 
-Shared Studio components use semantic control roles and accessible labels as part of both human accessibility and Browser API automation. A missing label is therefore two bugs: assistive technology cannot name the control, and an agent cannot address it reliably through `controls()`.
+Studio components use semantic roles and accessible labels. The labels serve assistive technology and the Browser API (`window.glyphfield.studio`), which finds controls through `controls()` by the same names. A control without a label cannot be announced by a screen reader or addressed by an agent.
 
 When adding or changing a control:
 
-- Give icon-only controls an `aria-label`.
-- Associate form labels with their input.
-- Preserve visible focus indicators against light and dark surfaces.
-- Keep disabled state semantic, not only visual.
-- Announce validation and export failures near the operation that caused them.
-- Avoid focus traps outside intentional modal/dialog behavior.
+- Give every icon-only control an `aria-label`.
+- Associate each form label with its input.
+- Keep focus indicators visible on light and dark surfaces.
+- Mark disabled state in the markup as well as visually.
+- Show validation and export failures next to the operation that caused them.
+- Trap focus only inside an intentional modal dialog.
 
 ## Motion
 
-The Studio respects `prefers-reduced-motion`. **Reduce motion** in **Visual customization** pauses decorative effects for this browser, independent of the system setting. With either one on, tool and project switches, menus, popovers, command search, drawers and shader replacements change in a single frame instead of fading or sliding (see [Switching and motion](/docs/studio#switching-and-motion)). Design Lab's Auto preview quality does not measure frame times while reduced motion is on. Offscreen and hidden live-material previews pause independently for performance.
+The Studio follows the operating system's `prefers-reduced-motion` setting. **Reduce motion** in the Studio's Visual settings (the **Visual customization** button) pauses decorative effects in this browser regardless of the system setting. With either one on, tool and project switches, menus, popovers, Studio search and drawers change in a single frame instead of fading or sliding ([Switching and motion](/docs/studio#switching-and-motion) has the details). While the operating system requests reduced motion, Design Lab's Auto preview quality stops measuring frame times. Live material previews pause on their own when they are offscreen or the page is hidden.
 
-Exporting motion is an explicit action, so the file can still contain animation. When using it elsewhere:
+Exporting motion is an explicit action, so an exported file can still contain animation. When you publish it:
 
 - Provide a still alternative.
-- Avoid forced autoplay when the destination can honor `prefers-reduced-motion`.
-- Add pause/stop controls for long or repeating motion.
-- Avoid rapid flashes and inspect the complete loop, not only the first frame.
-- Provide captions or a transcript when audio carries meaning.
+- Avoid forced autoplay where the destination can respect `prefers-reduced-motion`.
+- Add pause or stop controls for long or repeating motion.
+- Avoid rapid flashes, and inspect the whole loop as well as the first frame.
+- Provide captions or a transcript when the audio carries meaning.
 
 ## Color and contrast
 
-The landing page, Studio, and documentation share one theme preference. By default,
-**Auto** follows your operating system, including changes while the site is open.
-The theme is applied before the first page paint, without waiting for the editor
-or shaders to load. Choosing light or dark overrides Auto across the site and
-other open Glyphfield tabs. To follow the system again, choose **Visual customization
-→ Theme → Auto** in Studio. Theme changes affect the interface, not your artwork.
-If browser storage is unavailable, theme controls still work for the current page;
-the choice may not survive a reload.
+The landing page, the Studio and the documentation share one theme setting. **Auto** is the default and follows the operating system, including changes while the site is open. The theme is applied before the first paint, so the page does not flash while the editor or shaders load. Choosing **Light** or **Dark** overrides Auto across the site and in other open Glyphfield tabs. To follow the system again, set **Theme** to **Auto** in the Studio's Visual settings. The theme changes the interface and leaves your artwork unchanged. When browser storage is unavailable, the theme controls still work for the current page, but the choice may not survive a reload.
 
-Glyphfield exposes brand colors faithfully, including combinations that may not meet the needs of every destination. Verify the artifact in context.
+Glyphfield shows brand colors exactly as the identity defines them, including combinations that do not meet every destination's contrast needs. Check the artifact in context:
 
-- Check text and essential marks against every shader/material frame they cross.
-- Use the sticker inner separation edge when white artwork meets a white border.
-- Prefer explicit converter foreground/background colors over accidental transparency.
+- Check text and essential marks against every shader frame they cross.
+- Set explicit converter foreground and background colors instead of relying on transparency.
 - Check focus and selected-state contrast in both Studio themes.
-- Do not encode status using color alone.
+- Do not convey status with color alone.
 
-Generated graphics can be brand-correct and still be inaccessible for a specific use. The publishing product owns final contrast requirements.
+A graphic can follow the brand and still be inaccessible for a specific use. The product that publishes it owns the final contrast requirement.
 
-## Images, video, and documents
+## Images, video and documents
 
-Exports do not create surrounding semantic HTML automatically.
+Exports do not include surrounding semantic HTML.
 
-| Artifact | Accessibility responsibility |
+| Artifact | What the publisher provides |
 | --- | --- |
-| PNG/JPG/SVG | Supply concise alternative text in the destination; use empty alt text for decorative images |
-| GIF | Provide an equivalent still or description and avoid essential information that appears only briefly |
-| MP4 | Provide captions/transcript where relevant, controls, and a reduced-motion alternative |
-| PDF | Check reading order, headings, links, color, and selectable text in the final browser-produced PDF |
-| Lottie | Provide a fallback, accessible name in the host UI, and reduced-motion behavior |
-| JSON/source | Document the schema and validation errors; source is not an accessible replacement for the rendered communication |
+| PNG, JPG, SVG | Short alternative text in the destination, or empty alt text for a decorative image |
+| GIF | An equivalent still or a description, and no essential information that appears only briefly |
+| MP4 | Captions or a transcript where relevant, playback controls and a reduced-motion alternative |
+| PDF | A check of reading order, headings, links, color and selectable text in the final PDF from the browser |
+| Lottie | A fallback, an accessible name in the host interface and reduced-motion behavior |
+| JSON source | Documentation of the schema and validation errors. Source does not replace the rendered artifact for readers |
 
 ## Canvas limitations
 
-A rendered canvas does not expose its pixels as a semantic document tree. The layer list, inspectors, source drawer, labels, and keyboard commands are the accessible control surface. Visual content still requires human review or an equivalent described artifact.
+A rendered canvas does not expose its pixels as a semantic document tree. The layer list, inspectors, source drawer, labels and keyboard commands are the accessible way to control it. The visual content still needs human review or an equivalent description.
 
-When a task depends on visual judgment—alignment, contrast over animation, legibility, or loop flashing—source validation alone is insufficient.
+When a task depends on visual judgment, such as alignment, contrast over animation, legibility or flashing in a loop, passing source validation is not enough.
 
-## Contributor acceptance checklist
+## Contributor checklist
 
 Before shipping a Studio interaction:
 
-1. Navigate to it and operate it using only the keyboard.
-2. Confirm every control has a meaningful accessible name.
-3. Confirm focus remains visible and returns predictably after overlays close.
-4. Test at browser zoom and narrow viewport widths.
-5. Test light/dark themes and reduced-motion preference.
-6. Confirm status/error changes are exposed as text.
-7. Confirm the equivalent Browser API control/action remains discoverable.
-8. Inspect the exported artifact for contrast, motion, and media alternatives.
+1. Reach it and operate it with the keyboard alone.
+2. Confirm that every control has a meaningful accessible name.
+3. Confirm that focus stays visible and returns to a predictable place after an overlay closes.
+4. Test with browser zoom and at narrow viewport widths.
+5. Test both themes and the reduced-motion setting.
+6. Confirm that status and error changes are exposed as text.
+7. Confirm that the matching Browser API control or action can still be discovered.
+8. Inspect the exported artifact for contrast, motion and media alternatives.
 
-See [Editor systems](/docs/studio/editor-systems), [Browser API](/docs/reference/browser-api), and [Contributing](/docs/contributing).
+[Shared editor components](/docs/studio/editor-systems), [Studio Browser API](/docs/reference/browser-api) and [Contributing](/docs/contributing) cover the shared editing systems and the contribution process.

@@ -1,21 +1,22 @@
 ---
 title: Generation API
-description: Generate templates, backgrounds, resolved brand-element briefs, and apply-ready Design Lab sequences with the versioned JSON contract.
+description: Generate template SVGs, background SVGs, element briefs and apply-ready Design Lab documents with POST /api/generate and its versioned JSON contract.
 icon: WandSparkles
 ---
 
-`POST /api/generate` accepts `application/json`. The request `kind` selects one of four generators: `template` (the default), `background`, `element-brief`, and `design-sequence`. `GET /api/generate` returns the current contract (`schemaVersion` 3) with the request schema, enums, limits, and examples. Read it before building a request.
+`POST /api/generate` accepts a JSON body with `Content-Type: application/json`. The `kind` field selects one of four generators: `template` (the default), `background`, `element-brief` and `design-sequence`. `GET /api/generate` returns the current contract (`schemaVersion` 3) with the request schema, value ranges and examples. Read it before building a request. A top-level field that the contract does not define is rejected with `unknown_field`.
 
-## Output selection
+## Output
 
-- `output: "json"` is the default for SVG generators. The response contains metadata and `artifact.content`.
-- `output: "raw"` returns `image/svg+xml` directly.
-- `element-brief` always returns JSON.
-- `design-sequence` returns an apply-ready Design Lab document, its resolved shader timeline, and browser API commands.
+- `template` and `background` return a JSON envelope by default (`output: "json"`). The SVG is in `artifact.content`.
+- `output: "raw"` returns the SVG itself as `image/svg+xml`.
+- `element-brief` and `design-sequence` always return JSON.
+
+Successful responses send `Cache-Control: no-store` and a `Content-Disposition` header with the file name.
 
 ## Design sequence
 
-Design sequence creates the same versioned composition used by Design Lab. It supports an identity-aware brand mark, up to 32 text layers, a Bayer, ASCII, halftone, or posterize converter, any material listed by `/api/materials`, 8–12 cuts, and a 3–6 second final hold. Unlisted (retired) material IDs are rejected. Image effects are added in the browser with `design.effects.add` after the document is applied.
+A `design-sequence` request builds a document for Design Lab, the Studio's layered composition tool. The document holds a shader sequence: a series of cuts through other materials that ends on the chosen material and holds it. The composition can also include the identity's brand mark, text layers and one converter effect.
 
 ```json
 {
@@ -43,16 +44,34 @@ Design sequence creates the same versioned composition used by Design Lab. It su
 }
 ```
 
-The response is JSON with:
+| Field | Values |
+| --- | --- |
+| `shader.materialId` | Any ID listed by `/api/materials` (default `paper-gem-smoke`). Retired material IDs are rejected |
+| `shader.shaderSize` | Material zoom from 0.1 to 10 (default 1) |
+| `shader.opacity`, `shader.blendMode` | 0–1; `normal`, `multiply`, `overlay` or `screen` |
+| `shader.settings` | Shared material controls from `/api/materials`, and `effectProps` for Shaders.com materials |
+| `sequence.cutCount` | 8–12 cuts (default 10) |
+| `sequence.finalHoldMs` | 3000–6000 ms (default 5000) |
+| `sequence.pace` | `accelerating` (default) or `even` |
+| `effect.kind` | `bayer` (default), `ascii`, `halftone` or `posterize`, with `opacity`, `foreground`, `background` and converter settings |
+| `texts` | Up to 32 text layers, each with a `value` of up to 1000 characters |
+| `includeBrandMark` | `true` by default. An identity without a mark gets a monogram |
+| `ratio` | `wide` (default), `square` or `opengraph` |
+| `backgroundColor` | Six-digit HEX (default `#111216`) |
+| `export` | `width` 320–3840, `fps` 12, 15, 24 or 30, `quality` `fast`, `balanced` or `best`, `durationMs` 1200–4000, `gifLoop` `raw` or `seamless` |
 
-- `schemaVersion: 1`: the HTTP response-envelope version.
+Image effects are not part of this request. Add them in the browser with `design.effects.add` after the document is applied.
+
+The response is JSON with these fields:
+
+- `schemaVersion: 1`: the version of the response envelope.
 - `document`: an apply-ready Design Lab compatibility source with `version: 3`.
-- `sequence.timeline`: resolved material IDs and cut boundaries.
-- `automation`: the stable browser global and exact apply/export commands.
+- `sequence.timeline` and `sequence.durationMs`: the resolved material IDs and cut boundaries.
+- `automation`: the browser global and the exact apply and export commands.
 
-`document.version` is not the active canvas schema. `applySource(response.document)` validates and migrates the compact compatibility source, then the Design Lab adapter exposes the normalized result as CanvasDocument schema 2 with Design Lab source metadata version 4. Re-read source after application before making targeted CanvasDocument edits.
+`document.version` is not the active canvas schema. `applySource(response.document)` validates and migrates the compatibility source. The Design Lab adapter then exposes the normalized result as CanvasDocument schema 2 with Design Lab metadata source version 4. Read the source again after applying it and before making targeted CanvasDocument edits. When the document is applied, Design Lab keeps `export.durationMs` only if it is 1200, 1600, 2400 or 4000 and uses 1600 otherwise.
 
-Apply and render inside `/studio`:
+Apply and render inside `/studio?tool=material`:
 
 ```js
 await window.glyphfield.studio.applySource(response.document);
@@ -62,11 +81,13 @@ const artifact = await window.glyphfield.studio.invoke(
 );
 ```
 
-Choose `png`, `jpg`, `gif`, or `mp4`. Shader-sequence mode is available for GIF and MP4. The export action resolves to the real UI artifact object and uses the authentic shader canvases, composition effects, text, marks, layer order, and output settings; `download: true` also saves it.
+Choose `png`, `jpg`, `gif` or `mp4`. `mode: 'shader-sequence'` works with GIF and MP4 only. The export action resolves to the same artifact object that the UI produces, rendered with the live shader canvases, composition effects, text, marks, layer order and output settings. `download: true` also saves the file.
 
 ## Templates
 
-Template renders the Studio's brand templates as standalone SVG: OpenGraph images, terminal cards, slides, blog covers, and partnership lockups. Output uses the same layouts and renderer as the Studio and embeds the brand's font files and images, so it renders in the brand face in a plain `<img>`. A font whose data URL exceeds 560,000 characters is not embedded. Each request renders one page. Without copy, the identity supplies it: its headline and voice, its proof figures for metrics, its strategy pillars for agendas, and its own proof partner (or a written **Partner** placeholder) for lockups.
+The `template` kind renders the Studio's brand templates as standalone SVG: OpenGraph images, terminal cards, slides, blog covers and partnership lockups. It uses the same layouts and renderer as the Studio and embeds the brand's font files and images, so the SVG renders in the brand typeface inside a plain `<img>` element. A font whose data URL is longer than 560,000 characters is not embedded. Each request renders one page.
+
+When a request leaves out copy, the identity fills it in. Proof figures fill metrics slides, strategy pillars fill agenda slides, and the identity's own proof partner fills lockups. A lockup without a partner shows the placeholder text “Partner”.
 
 ```json
 {
@@ -81,34 +102,28 @@ Template renders the Studio's brand templates as standalone SVG: OpenGraph image
 }
 ```
 
-### Template enums
-
-- `template`: `slides | blog | partnership | opengraph | terminal`
-- `texture`: `white | dark | grid | noise`
-- `slideLayout`: `title | section | agenda | split | metrics | quote | timeline | statement | comparison | process | chart | team | image | closing`
-- `layout` (other templates): opengraph `split | statement | media | centered | editorial`; blog `editorial | feature | statement | centered | ledger`; terminal `card | split | focus | caption`; partnership `lockup | centered | hero | announcement`
-- `format`: `opengraph | wide | square | portrait | story | linkedin | lockup`; slides `16x9 | 4x3 | square`
-- `language` (terminal): `typescript | tsx | javascript | python | bash | json | html | css`
-
 | Field | Values |
 | --- | --- |
-| `template` | Default `slides` |
-| `layout`, `slideLayout` | One of the template's layouts. `slideLayout` applies to slides; `layout` is also accepted for slides. Sending both is an error |
-| `title` | Up to 240 characters |
-| `body` | Up to 1000 characters, or 4000 for `terminal`. The list for slides (one item per line), the code for terminal, and the supporting copy on layouts that have a supporting-copy slot; other layouts ignore it |
-| `background`, `foreground` | Six-digit HEX overrides |
-| `backgroundImageDataUrl` | A base64 image data URL, up to 5 MB |
-| `partnerId` | A partner for `partnership`: a proof asset ID of the identity, another built-in identity, or `template-northstar` |
-| `partnerLogoDataUrl` | A base64 partner logo, up to 5 MB |
+| `template` | `slides` (default), `blog`, `partnership`, `opengraph` or `terminal` |
+| `slideLayout` | Slides only: `title`, `section`, `agenda`, `split`, `metrics`, `quote`, `timeline`, `statement`, `comparison`, `process`, `chart`, `team`, `image` or `closing` |
+| `layout` | `opengraph`: `split`, `statement`, `media`, `centered`, `editorial`. `blog`: `editorial`, `feature`, `statement`, `centered`, `ledger`. `terminal`: `card`, `split`, `focus`, `caption`. `partnership`: `lockup`, `centered`, `hero`, `announcement`. Slides also accept `layout`, and sending both `layout` and `slideLayout` is an error |
+| `format` | `opengraph`, `wide`, `square`, `portrait`, `story`, `linkedin` or `lockup`. Slides use `16x9`, `4x3` or `square` |
+| `texture` | `white`, `dark`, `grid` or `noise` |
+| `language` | Terminal only: `typescript`, `tsx`, `javascript`, `python`, `bash`, `json`, `html` or `css` |
+| `title` | 1–240 characters |
+| `body` | 1–1000 characters, or 4000 for `terminal`. Slides read one list item per line, terminal cards read it as code, and other layouts use it as supporting copy where they have a slot for it |
+| `background`, `foreground` | Six-digit HEX colors for the page surface and for every text layer |
+| `backgroundImageDataUrl`, `partnerLogoDataUrl` | Base64 image data URLs of up to 5,000,000 characters |
+| `partnerId` | For `partnership`: a proof asset ID of the identity, another built-in identity ID, or `template-northstar` |
 | `output` | `json` (default) or `raw` |
 
-Default sizes are 1600 × 900 for slides, 1200 × 630 for OpenGraph, terminal, and blog, and 1200 × 600 for partnership; `format` changes them. The file name is `<identity slug>-<template>-<width>x<height>.svg`.
+The default size is 1600 × 900 for slides, 1200 × 630 for OpenGraph, terminal and blog, and 1200 × 600 for partnership. `format` changes it. The file name is `<identity slug>-<template>-<width>x<height>.svg`.
 
-`identity` accepts `{ preset }` with optional overrides, `{ id }` with an ID from `/api/identities`, or the complete identity object from `/api/identities` (custom identities included). The default preset is `starter`. An unknown `id` returns `unknown_identity` and an invalid full identity returns `invalid_identity`. Any other field next to `preset` is rejected with `unknown_field` rather than silently rendering Starter. See [Identities and custom assets](/docs/agents/identity-assets).
+`identity` accepts `{ preset }` with optional overrides, `{ id }` with an ID from `/api/identities`, or a complete identity object from `/api/identities` (custom identities included). The default preset is `starter`. An unknown `id` returns `unknown_identity`, and an invalid complete identity returns `invalid_identity`. A field next to `preset` that is not an override is rejected with `unknown_field`. See [Identities and custom assets](/docs/agents/identity-assets).
 
 ## Background
 
-Background generates gradient, grain-gradient, dither, pattern, and tactile surface SVGs. [Tactile backgrounds](/docs/studio/logo-background) lists every setting, including the `surface*` fields and the CC0 surface references.
+The `background` kind generates gradient, grain-gradient, dither, pattern and tactile surface SVGs. For a built-in identity, the colors default to its palette. [Tactile backgrounds](/docs/studio/logo-background) lists every setting, including the `surface*` fields and the CC0 surface references.
 
 ```json
 {
@@ -140,11 +155,11 @@ Background generates gradient, grain-gradient, dither, pattern, and tactile surf
 }
 ```
 
-Width and height must each be 64–4096 (`invalid_dimensions`), and the total may not exceed 12,000,000 pixels (`pixel_limit`).
+`settings.width` and `settings.height` must each be an integer from 64 to 4096 (`invalid_dimensions`). Width × height may not exceed 12,000,000 pixels (`pixel_limit`). Unknown keys inside `settings` are ignored, so check their spelling against the contract.
 
 ## Element brief
 
-Element brief resolves a stable record from `/api/elements` against an identity.
+The `element-brief` kind resolves one record from `/api/elements` against an identity. `elementId` is required.
 
 ```json
 {
@@ -159,7 +174,7 @@ Element brief resolves a stable record from `/api/elements` against an identity.
 }
 ```
 
-The response is `{ element, generation: { previewFamily, source: '/api/elements' }, identity, schemaVersion: 1 }`. `element` is the catalog record (ID, name, category, dimensions, format, symbol, keywords). `identity` holds the resolved colors, description, ID, name, positioning, short name, tagline, typography, voice, and website. The HTTP brief has no editor settings and does not rasterize an image; the Studio's **Download element brief** adds the element's current settings.
+The response is `{ element, generation: { previewFamily, source: '/api/elements' }, identity, schemaVersion: 1 }`. `element` is the catalog record with its ID, name, category, description, dimensions, format, symbol, keywords and preview family. `identity` holds the resolved colors, description, ID, name, positioning, short name, tagline, typography, voice and website. The HTTP brief has no editor settings and does not render an image. The Brand elements menu item **Download element brief** adds the element's current settings.
 
 ## JSON artifact envelope
 
@@ -176,14 +191,14 @@ The response is `{ element, generation: { previewFamily, source: '/api/elements'
 }
 ```
 
-Check `schemaVersion`, `mimeType`, and dimensions before storing the content.
+Check `schemaVersion`, `mimeType` and the dimensions before storing the content.
 
-## Studio source is a separate contract
+## Studio source and generation requests
 
-The **Code** drawer inside `/studio` serializes the active browser tool. It supports exact edits for identities, boards, Animation, Lottie, Design Lab, templates, foundations, and components. Design Lab uses CanvasDocument schema 2 with Design Lab metadata source version 4. Browser documents are intentionally shaped around each interactive tool and are not interchangeable with the `POST /api/generate` request body.
+The Studio source drawer (**File** → **Edit source code**) shows the complete JSON state of the active browser tool. Design Lab source is CanvasDocument schema 2 with Design Lab metadata source version 4. Each tool's source has its own shape, and none of them is a valid `POST /api/generate` body.
 
-Use the HTTP contract on this page for deterministic remote generation. `design-sequence` is deliberately a bridge: it emits a compact, apply-ready compatibility document for programmatic browser rendering, and the browser normalizes it to current Studio source. For every other tool, use the active `window.glyphfield.studio` API to read/apply source or operate visible controls.
+`design-sequence` is the one bridge between the two. It returns a compact document that the browser converts to current Studio source. For other tools, read and apply source or operate the controls through `window.glyphfield.studio`.
 
 ## Errors
 
-Errors return `{ error: { code, field, message }, schemaVersion: 1 }`. Codes include `invalid_json`, `unknown_field`, `invalid_request`, `unknown_identity`, `invalid_identity`, `invalid_dimensions`, `pixel_limit`, `request_too_large` (413, body over 5,250,000 bytes), `unsupported_media_type` (415), and `generation_failed` (500). See [Errors and limits](/docs/agents/errors).
+Errors return `{ error: { code, field, message }, schemaVersion: 1 }`. The codes are `invalid_json`, `unknown_field`, `invalid_request`, `unknown_identity`, `invalid_identity`, `invalid_dimensions` and `pixel_limit` (400), `request_too_large` (413, a body over 5,250,000 bytes), `unsupported_media_type` (415) and `generation_failed` (500). See [API errors and limits](/docs/agents/errors).

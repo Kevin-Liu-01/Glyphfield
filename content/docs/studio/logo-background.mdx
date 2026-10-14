@@ -1,45 +1,46 @@
 ---
 title: Tactile backgrounds
-description: Generate deterministic SVG gradients, grain, dither, patterns, and physical surface textures from the active identity, without WebGL.
+description: Generate deterministic SVG backgrounds with gradients, grain, dither, patterns and physical surface textures from a brand identity through the HTTP API.
 icon: Palette
 ---
 
-A tactile background is a standalone SVG made by `POST /api/generate` with `kind: "background"`. It needs no browser and no WebGL, so the same request always returns the same file. Use it when a live shader is not required, for example as a fixed background in a web page or as an image layer in Design Lab.
+A tactile background is a standalone SVG that the Generation API (`POST /api/generate`) returns for a request with `kind: "background"`. It needs no browser and no WebGL, and the same request always returns the same file. Use it when a live shader is not required, for example as a fixed web page background or as an image layer in Design Lab, Glyphfield's layered composition tool.
 
-<DocsMediaGrid>
-  <DocsMedia alt='Design Lab composition with a material, type, and brand mark' caption='Background behind a composition' meta='Design Lab' src='/screenshots/studio-gt-design-lab-light-2026.webp' />
-  <DocsMedia alt='OpenGraph editor with the General Translation identity' caption='Background in a social image' meta='Expression tools' src='/screenshots/studio-gt-opengraph-light-2026.webp' />
-</DocsMediaGrid>
+Tactile backgrounds have no Studio tool of their own. The HTTP API is the only way to generate them. Studio links that name the retired tool IDs `backgrounds`, `logo` or `surface` (for example `/studio?tool=backgrounds`) open Design Lab.
 
 ## Settings
 
-All settings are optional. Read `GET /api/generate` for the current contract.
+Every setting is optional. `GET /api/generate` returns the current contract. With a built-in preset or a complete identity, the default colors come from the identity's palette, and the default logo tone and color are the ones that read best on `colorA`. With `preset: "custom"`, the default colors are `#FFFFFF`, `#181818` and `#737373` with a white logo.
 
-| Setting | Values |
-| --- | --- |
-| `width`, `height` | 64–4096 px; at most 12,000,000 pixels in total |
-| `style` | `gradient`, `grain-gradient`, `dither`, `pattern` |
-| `gradient` | `linear`, `radial`, `mesh`, `orbit`, `wave`, `bloom` |
-| `colorA`, `colorB`, `colorC` | Six-digit HEX; default to the identity colors |
-| `angle` | −360 to 360 |
-| `focalX`, `focalY` | 0–100 |
-| `grain` | 0–100 |
-| `relief` | 0–80 |
-| `bandCount`, `bandDepth`, `bandGap` | 3–24, 0–100, 0–64 |
-| `lightingEnabled` | `false` gives flat bands without gradient lighting |
-| `ditherMatrix`, `ditherShape` | Bayer 2, 4, or 8; `dots` or `squares` |
-| `pattern`, `patternOpacity`, `spacing` | `none`, `dots`, `lines`, `grid`, `fibers`, `speckles`, `topographic`, `crosshatch`; 0–100; 8–256 px |
-| `surfaceMaterial` | `none`, `kerf-wood`, `woven-wire`, `perforated-metal`, `carved-stone`, `embossed-paper`, `brushed-metal`, `hammered-foil`, `corrugated-polymer`, `cork-composite`, `frosted-glass`, `iridescent-film`, `holo-cloth`, `linen-weave`, `felted-wool`, `pebbled-leather`, `crackle-glaze`, `sandblasted-plaster`, `graphite`, `carbon-twill` |
-| `surfaceScale`, `surfaceAngle` | 12–140, 0–180 |
-| `surfaceDepth`, `surfaceRoughness`, `surfaceMetallic`, `surfaceIrregularity`, `surfaceTextureAmount` | 0–100 |
-| `surfaceOpenArea` | 0–92 |
-| `surfaceLibraryAssetId` | Empty, or one of the CC0 references below |
-| `logoTone`, `logoColor` | `black` or `white`; six-digit HEX |
-| `logoScale`, `logoOpacity`, `logoX`, `logoY` | 5–90, 0–100, −50 to 50, −50 to 50 |
+| Setting | Values | Default |
+| --- | --- | --- |
+| `width`, `height` | 64–4096 px each, at most 12,000,000 pixels in total | 1200, 750 |
+| `style` | `gradient`, `grain-gradient`, `dither`, `pattern` | `gradient` |
+| `gradient` | `linear`, `radial`, `mesh`, `orbit`, `wave`, `bloom` | `linear` |
+| `colorA`, `colorB`, `colorC` | Six-digit HEX | From the identity |
+| `angle` | −360 to 360 | 32 |
+| `focalX`, `focalY` | 0–100 | 42, 38 |
+| `grain` | 0–100. Applies to `grain-gradient`. | 10 |
+| `relief` | 0–80 | 18 |
+| `bandCount`, `bandDepth`, `bandGap` | 3–24, 0–100, 0–64. Apply to the `mesh` gradient, which draws vertical bands. | 15, 56, 0 |
+| `lightingEnabled` | `true` shades each band with a gradient. `false` fills each band with a flat color. | `true` |
+| `ditherMatrix`, `ditherShape` | Bayer matrix 2, 4 or 8; `dots` or `squares`. Apply to `dither`. | 4, `dots` |
+| `pattern`, `patternOpacity`, `spacing` | `none`, `dots`, `lines`, `grid`, `fibers`, `speckles`, `topographic`, `crosshatch`; 0–100; 8–256 px | `none`, 12, 24 |
+| `surfaceMaterial` | `none`, `kerf-wood`, `woven-wire`, `perforated-metal`, `carved-stone`, `embossed-paper`, `brushed-metal`, `hammered-foil`, `corrugated-polymer`, `cork-composite`, `frosted-glass`, `iridescent-film`, `holo-cloth`, `linen-weave`, `felted-wool`, `pebbled-leather`, `crackle-glaze`, `sandblasted-plaster`, `graphite`, `carbon-twill` | `none` |
+| `surfaceScale`, `surfaceAngle` | 12–140, 0–180 | 44, 28 |
+| `surfaceDepth`, `surfaceRoughness`, `surfaceMetallic`, `surfaceIrregularity`, `surfaceTextureAmount` | 0–100 | 28, 58, 0, 34, 72 |
+| `surfaceOpenArea` | 0–92 | 52 |
+| `surfaceLibraryAssetId` | Empty, or one of the CC0 references below | Empty |
+| `logoTone`, `logoColor` | `black` or `white`; six-digit HEX | From the identity |
+| `logoScale`, `logoOpacity`, `logoX`, `logoY` | 5–90, 0–100, −50 to 50, −50 to 50 | 28, 100, 0, 0 |
+
+With `style: "pattern"`, a `pattern` of `none` renders `dots`. The SVG embeds the identity's mark (`mark-light` for a white tone and `mark-dark` for a black tone) or the `identity.logoDataUrl` image. An identity without a mark gets its short name as text.
 
 ## CC0 surface references
 
-`surfaceLibraryAssetId` selects one of eleven CC0 references from Poly Haven and ambientCG: `polyhaven-velour-velvet`, `ambientcg-fabric-061`, `ambientcg-leather-037`, `polyhaven-oak-veneer`, `polyhaven-plywood`, `polyhaven-marble`, `polyhaven-metal-plate`, `ambientcg-metal-063`, `polyhaven-beige-wall`, `polyhaven-rubber-tiles`, and `ambientcg-paper-006`. `GET /api/surface-textures/{assetId}/{map}` serves their `color`, `displacement`, `metalness`, `normal`, and `roughness` maps with `X-Surface-License` and `X-Surface-Provider` headers. It serves only these assets and maps; it is not a general proxy. `/api/catalog` publishes the recipes, references, and attribution under `surfaceLibrary`.
+`surfaceLibraryAssetId` names one of eleven CC0 1.0 texture references from Poly Haven and ambientCG: `polyhaven-velour-velvet`, `ambientcg-fabric-061`, `ambientcg-leather-037`, `polyhaven-oak-veneer`, `polyhaven-plywood`, `polyhaven-marble`, `polyhaven-metal-plate`, `ambientcg-metal-063`, `polyhaven-beige-wall`, `polyhaven-rubber-tiles` and `ambientcg-paper-006`. The generated SVG records the ID in its `data-surface-library-asset` attribute and draws the texture from `surfaceMaterial`. `GET /api/catalog` publishes a preset for each reference under `surfaceLibrary`, with the `surfaceMaterial` settings that approximate it, its source and its attribution.
+
+`GET /api/surface-textures/<assetId>/<map>` serves the available `color`, `displacement`, `metalness`, `normal` and `roughness` maps of these references from their providers, with `X-Surface-License` and `X-Surface-Provider` headers. It serves only these assets and maps and is not a general proxy.
 
 ## Example
 
@@ -65,16 +66,16 @@ curl -fsS -X POST http://localhost:3012/api/generate \
   }' -o tactile-background.svg
 ```
 
-With `output: "raw"` the response is `image/svg+xml`. With `output: "json"` (the default) the SVG is in `artifact.content`.
+With `output: "raw"` the response is `image/svg+xml`. With `output: "json"` (the default) the SVG is in `artifact.content`, and the file is named `<brand>-background-<width>x<height>.svg`.
 
 ## Use a background in the Studio
 
-Add the SVG to a Design Lab artboard as an image layer, or to an expression tool as an image or background. A live shader from the [Shader Library](/docs/studio/shader-library) is the moving alternative. Foundations for the colors come from [Color tokens](/docs/studio/colors) and [Brand identity](/docs/studio/brand-settings).
+Upload the SVG to Design Lab with **Add image layer**. You can also add it to the **Asset library** in [Brand identity](/docs/studio/brand-settings) as a `background` asset, so the Studio tools offer it from the identity's library. A material from the [Shader Library](/docs/studio/shader-library) is the animated alternative. The palette that supplies the default colors is edited in [Color tokens](/docs/studio/colors) and Brand identity.
 
 ## Limits
 
-- 64–4096 px per side and 12,000,000 pixels in total; larger requests return `invalid_dimensions` or `pixel_limit`.
-- Request bodies up to 5 MB. Remote image URLs are not fetched.
-- The SVG is deterministic: the same request returns the same file.
+- 64–4096 px per side and 12,000,000 pixels in total. Larger requests return `invalid_dimensions` or `pixel_limit`.
+- Request bodies up to 5,250,000 bytes. The request takes images only as base64 data URLs and does not fetch remote URLs.
+- The same request returns the same SVG.
 
-See [Generation API](/docs/agents/generate) for the request envelope and errors.
+See [Generation API](/docs/agents/generate#background) for the request envelope and errors.

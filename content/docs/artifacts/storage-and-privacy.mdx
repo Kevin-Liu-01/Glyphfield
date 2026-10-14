@@ -1,41 +1,41 @@
 ---
 title: Storage and privacy
-description: Understand browser persistence, API request processing, local assets, and source licensing.
+description: See where Glyphfield keeps projects, saves and local files in your browser, what the HTTP API does with request data, and which license terms apply.
 icon: ShieldCheck
 ---
 
 ## Browser projects
 
-The Studio stores projects, active tabs, most tool drafts, appearance, and canvas view state in browser `localStorage`. Design Lab named designs, complete autosaves, and converted assets use IndexedDB. A small localStorage recovery journal protects the newest portable Design Lab source during unload and is cleared after IndexedDB catches up. Data is scoped to the current origin and browser profile.
+The Studio keeps projects, open tabs, the active tool and folder, most tool drafts, Visual settings and canvas view state in browser `localStorage`. Design Lab, Animation, Lottie and the expression tools (OpenGraph, Terminal card, Partnership lockup, Blog cover and Slide templates) keep named saves and complete autosaves in IndexedDB. Converted assets and captured shader frames are also stored in IndexedDB. A small recovery journal in `localStorage` holds the newest portable source while the page unloads, and it is cleared once IndexedDB has the same version. All of this data belongs to the current origin and browser profile.
 
-Closing a project tab does not delete the project. Deleting a custom project removes it from the Studio’s stored project list.
+Closing a project tab does not delete the project. **Delete active project** asks for confirmation, and **Delete project** then removes that project from the project list in this browser. The deletion cannot be undone. Built-in identities cannot be deleted.
 
 ## Local files
 
-Uploaded images, logos, fonts, Lottie files, and shader inputs are loaded by the browser. Some are represented by temporary object URLs for the current page session; converted assets and portable canvas records may store embedded data locally. A downloaded artifact captures or embeds the selected visual input where its format allows it.
+The browser loads the images, logos, fonts, Lottie files and shader inputs that you upload. Some are held in temporary object URLs for the current page session. Converted assets and portable canvas records can store embedded copies locally. A downloaded artifact contains or embeds the selected visual input where its format allows.
 
-Clearing site data can remove projects, drafts, saved designs, and converted assets. Export identity/source documents and original authorized files before clearing the origin when the work must survive.
+Clearing site data can remove projects, drafts, saved designs and converted assets. Export the identity and source documents and keep the original authorized files before clearing the origin when the work must survive.
 
-Named saves and autosaves are recovery conveniences inside the current browser, not off-device backups. Follow [Backup and restore](/docs/artifacts/backup-and-restore) for a durable source-plus-assets bundle.
+Named saves and autosaves let you recover work inside the current browser, but they are not off-device backups. [Backup and restore](/docs/artifacts/backup-and-restore) describes a lasting backup of source and files.
 
-Ordinary Design Lab Pause and PNG/JPG/GIF/MP4 exports do not create captured-frame assets. **Capture shader frame** explicitly stores a lossless PNG checkpoint with the editable shader recipe; named saves and portable source can retain these checkpoints. Playback and extending the time explorer do not continually encode or save new shader frames.
+Pausing Design Lab and exporting PNG, JPG, GIF or MP4 do not create captured-frame assets. **Capture shader frame** stores a lossless PNG checkpoint with the editable shader recipe, and named saves and portable source keep these checkpoints. Playback and extending the time explorer do not encode or save new shader frames.
 
-## Agent requests
+## HTTP requests
 
-`POST /api/generate` processes request data in memory and does not persist the submitted identity or asset. The route responds with `Cache-Control: no-store`.
+`POST /api/generate` processes request data in memory and does not store the submitted identity or assets. Its responses send `Cache-Control: no-store`. `POST /api/brand/validate` and `POST /api/brand/kit` are also stateless and send `no-store`.
 
-GET discovery endpoints are public and cacheable for a short period. The generation route supports CORS with `Access-Control-Allow-Origin: *`.
+The GET discovery routes are public. `/api/agent`, `/api/labs`, `/api/materials`, `GET /api/generate` and `/openapi.json` allow caching for 300 seconds. The agent routes send `Access-Control-Allow-Origin: *`, so pages on other origins can call them.
 
-## Asset boundaries
+## Asset limits
 
 - Submit only assets you are authorized to process.
-- Remote URLs are not fetched.
-- Custom assets must be supplied as supported base64 data URLs.
-- A request body may not exceed 5 MB.
-- Bundled GT and reference-brand assets remain the property of their respective owners.
+- The API does not fetch remote URLs.
+- Custom images must be base64 data URLs of GIF, JPEG, PNG, SVG or WebP files, up to 5,000,000 characters each.
+- A request body cannot exceed 5,250,000 bytes.
+- Bundled General Translation and reference-brand assets remain the property of their owners.
 
 ## License
 
-Glyphfield source is open-source software released under the MIT License. You may use, copy, modify, merge, publish, distribute, sublicense, and sell the software subject to the notice and warranty terms in `LICENSE`.
+Glyphfield's source is open-source software released under the MIT License. You may use, copy, modify, merge, publish, distribute, sublicense and sell the software under the notice and warranty terms in `LICENSE`.
 
-The software license does not transfer rights in bundled third-party marks, reference-brand assets, or assets submitted by users.
+The software license does not grant rights to bundled third-party marks, reference-brand assets or assets that users submit. [Licensing](/docs/reference/licensing) lists the material that keeps its own terms.
