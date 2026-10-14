@@ -1,6 +1,7 @@
 import { EMAIL_LIFECYCLE_TEMPLATES, getEmailLifecycleTemplate } from '@/lib/emailLifecycle';
 import type { BrandIdentity } from '@/lib/brandIdentity';
 import { DEFAULT_LOGO_APPEARANCE, type LogoAppearanceSettings } from '@/lib/logoAppearance';
+import { actionVerb, brandElementContent, featuredPlanIndex, type BrandElementContent } from '@/lib/brandElementContent';
 
 export type BrandElementCategory =
   | 'Digital'
@@ -803,15 +804,378 @@ export const BRAND_ELEMENTS: readonly BrandElement[] = [
   },
 ];
 
+type ElementCopy = {
+  action0: string;
+  apiHero: BrandElementOverrides;
+  caseBody: string;
+  checklist: string;
+  checkoutBody: string;
+  codeLabel: string;
+  emptyBody: string;
+  eventInvite: string;
+  eventJoin: string;
+  eventLine: string;
+  eventName: string;
+  eventWhere: string;
+  featuredCta: string;
+  featuredFeature: string;
+  featuredName: string;
+  featuredPrice: string;
+  heroCta: string;
+  install: string;
+  lead: string;
+  metricChange: string;
+  metricValue: string;
+  modalBody: string;
+  modalCta: string;
+  modalHeadline: string;
+  navLinks: string;
+  packageName: string;
+  partner: string;
+  partnershipBody: string;
+  partnershipHeadline: string;
+  personName: string;
+  personRole: string;
+  phrase0: string;
+  phrase1: string;
+  pillar0: string;
+  productLine0: string;
+  productLine1: string;
+  productName0: string;
+  productSummary0: string;
+  promise: string;
+  promiseOrTagline: string;
+  proofHeadline: string;
+  proofOrLead: string;
+  proofOrPhrase: string;
+  rawAction0: string;
+  releaseTitle: string;
+  searchHeadline: string;
+  shortOrName: string;
+  sidebarHeadline: string;
+  sidebarItems: string;
+  statusServices: string;
+  tableBody: string;
+  tagline: string;
+  testimonialBody: string;
+  toastHeadline: string;
+};
+
+/** Customer-facing copy only: positioning, product lines, proof and samples. The
+ * identity description is internal guidance about the identity system and never ships. */
+function productCopy(identity: BrandIdentity, content: BrandElementContent) {
+  const { products } = content;
+  const lead = identity.positioning || identity.mission;
+  const line = (index: number) => products[index]?.summary || products[index]?.name || lead;
+  return {
+    lead,
+    navLinks: products.slice(0, 4).map(({ name }) => name).join(' · '),
+    productLine0: line(0),
+    productLine1: line(1),
+    productName0: products[0]?.name ?? content.tagline,
+    productSummary0: products[0]?.summary || content.tagline,
+    searchHeadline: products[0]?.name ?? identity.name,
+    sidebarHeadline: products[0]?.name ?? 'Overview',
+    sidebarItems: [...products.slice(0, 3).map(({ name }) => name), 'Settings'].join(' · '),
+    statusServices: products.slice(0, 5).map(({ name }) => name).join('\n'),
+    tableBody: `${products.length} products · owned by ${content.person.name}`,
+  };
+}
+
+function messageCopy(identity: BrandIdentity, content: BrandElementContent) {
+  const { promise, proof, story, tagline } = content;
+  const phrase0 = content.phrases[0] ?? (promise || tagline);
+  const lead = identity.positioning || identity.mission;
+  return {
+    caseBody: story ? `How ${story.customer} works with ${identity.name}.` : lead,
+    phrase0,
+    phrase1: content.phrases[1] ?? phrase0,
+    pillar0: identity.strategy.pillars[0] ?? content.phrases[1] ?? phrase0,
+    promise,
+    promiseOrTagline: promise || tagline,
+    proofHeadline: story?.statement ?? proof[0] ?? phrase0,
+    proofOrLead: proof[0] ?? lead,
+    proofOrPhrase: proof[0] ?? phrase0,
+    releaseTitle: content.release.title,
+    shortOrName: identity.shortName.length > 1 ? identity.shortName : identity.name,
+    tagline,
+    testimonialBody: story ? `${story.customer} · ${identity.name} customer` : identity.website,
+  };
+}
+
+function actionCopy(content: BrandElementContent) {
+  const [first, second = first] = content.actions as [string, string | undefined];
+  const action0 = capitalize(first);
+  return {
+    action0,
+    checklist: content.actions.slice(0, 4).map(capitalize).join('\n'),
+    emptyBody: `${action0} to see it here.`,
+    modalCta: actionVerb(second),
+    modalHeadline: `${capitalize(second)}?`,
+    rawAction0: first,
+    toastHeadline: `${action0}: done`,
+  };
+}
+
+function planCopy(identity: BrandIdentity, content: BrandElementContent) {
+  const featured = content.plans[featuredPlanIndex(content.plans)];
+  if (!featured) return { checkoutBody: identity.name, featuredCta: 'Get started', featuredFeature: '', featuredName: identity.name, featuredPrice: '', heroCta: 'Get started' };
+  return {
+    checkoutBody: `${featured.name} · ${featured.features[0] ?? identity.name}`,
+    featuredCta: /contact/i.test(featured.price) ? 'Contact sales' : 'Get started',
+    featuredFeature: featured.features[0] ?? '',
+    featuredName: featured.name,
+    featuredPrice: featured.price,
+    heroCta: `Start with ${featured.name}`,
+  };
+}
+
+function eventCopy(identity: BrandIdentity, content: BrandElementContent) {
+  const { event, person } = content;
+  const partner = content.customers[0];
+  return {
+    eventInvite: `${event.name} · ${event.date}, ${event.time} · ${event.location}`,
+    eventJoin: `Join us at ${event.name}`,
+    eventLine: `${event.name} · ${event.date}`,
+    eventName: event.name,
+    eventWhere: `${event.date} · ${event.location}`,
+    partner: partner ?? 'Partner',
+    partnershipBody: partner ? `${identity.name} and ${partner}` : identity.name,
+    partnershipHeadline: `${identity.name} × ${partner ?? 'Partner'}`,
+    personName: person.name,
+    personRole: person.role,
+  };
+}
+
+function elementCopy(identity: BrandIdentity): ElementCopy {
+  const content = brandElementContent(identity);
+  const products = productCopy(identity, content);
+  const http = /^(?:GET|POST|PUT|PATCH|DELETE)\s/.test(content.code.label);
+  return {
+    ...products,
+    ...messageCopy(identity, content),
+    ...actionCopy(content),
+    ...planCopy(identity, content),
+    ...eventCopy(identity, content),
+    apiHero: http
+      ? { body: products.productLine0, cta: content.code.label, headline: `${identity.name} API`, pattern: 'none' }
+      : { body: products.productLine0, cta: content.install, headline: content.code.label, pattern: 'none' },
+    codeLabel: content.code.label,
+    install: content.install,
+    metricChange: content.metric.change,
+    metricValue: content.metric.value,
+    modalBody: `${products.productLine1} Check the details before you confirm.`,
+    packageName: content.packageName,
+  };
+}
+
+function contentOverrides(identity: BrandIdentity, k: ElementCopy): Partial<Record<string, BrandElementOverrides>> {
+  const { lead, tagline } = k;
+  return {
+    'email-system-sheet': {
+      body: 'Onboarding, utility, transactional, lifecycle and billing messages as one system.',
+      cta: 'Review system',
+      headline: `${identity.name} email system`,
+      layout: 'stacked',
+      pattern: 'none',
+    },
+    'email-signature': {
+      body: identity.contactEmail || identity.website,
+      headline: k.personName,
+      layout: 'split',
+      pattern: 'none',
+    },
+    'web-card': { body: k.productLine0, cta: 'Learn more', headline: k.productName0, pattern: 'none' },
+    // A link preview reads at thumbnail size: the tagline and one short promise, not the positioning paragraph.
+    opengraph: { body: k.promise, layout: 'split', pattern: 'none' },
+    'error-page': {
+      body: 'The page you asked for has moved or no longer exists.',
+      cta: 'Back to home',
+      headline: 'This page is not here.',
+      layout: 'centered',
+      pattern: 'none',
+    },
+    'navigation-bar': { body: k.navLinks, cta: k.action0, headline: identity.name, pattern: 'none' },
+    'hero-section': { body: lead, cta: k.heroCta, layout: 'split', pattern: 'none', scale: 'bold' },
+    'feature-grid': { body: lead, headline: k.promiseOrTagline, pattern: 'none' },
+    'pricing-card': { body: k.featuredFeature, cta: k.featuredCta, headline: k.featuredName, layout: 'stacked', pattern: 'none' },
+    'testimonial-card': {
+      body: k.testimonialBody,
+      headline: k.proofHeadline,
+      layout: 'stacked',
+      pattern: 'none',
+    },
+    'form-controls': { body: 'Changes apply to everyone in this workspace.', cta: 'Save changes', headline: 'Workspace details', pattern: 'none' },
+    'command-menu': { body: 'Type a command or search', headline: k.rawAction0, pattern: 'none' },
+    'modal-dialog': {
+      body: `${k.productLine1} Check the details before you confirm.`,
+      cta: k.modalCta,
+      headline: k.modalHeadline,
+      layout: 'centered',
+      pattern: 'none',
+    },
+    'toast-notification': { body: k.productLine0, headline: k.toastHeadline, layout: 'stacked', pattern: 'none' },
+    'data-table': { body: k.tableBody, cta: k.action0, headline: 'Products', pattern: 'none' },
+    'dashboard-widget': { body: k.metricChange, headline: k.metricValue, pattern: 'none' },
+    'empty-state': { body: k.emptyBody, cta: k.action0, headline: 'Nothing here yet', layout: 'centered', pattern: 'none' },
+    'checkout-card': { body: k.checkoutBody, cta: 'Confirm and pay', headline: k.featuredPrice, layout: 'stacked', pattern: 'none' },
+    'settings-panel': { body: 'Members, billing and integrations for this workspace.', cta: 'Save settings', headline: 'Workspace settings', pattern: 'none' },
+    'cli-banner': { cta: k.install, headline: tagline, pattern: 'none' },
+    'ascii-mark': {
+      body: 'Copy-safe banner for terminals, README files and source headers.',
+      headline: identity.shortName,
+      layout: 'centered',
+      pattern: 'none',
+    },
+    'terminal-theme': {
+      body: 'Syntax and status colors tuned to the identity.',
+      headline: k.codeLabel,
+      pattern: 'none',
+    },
+    'github-readme': {
+      body: lead,
+      cta: k.install,
+      headline: tagline,
+      pattern: 'none',
+      scale: 'bold',
+    },
+    'docs-header': {
+      body: k.productLine0,
+      cta: 'Read the docs',
+      headline: `${identity.name} documentation`,
+      pattern: 'none',
+    },
+    'package-card': {
+      body: k.productLine0,
+      cta: k.install,
+      headline: k.packageName,
+      pattern: 'none',
+    },
+    'x-post': { body: k.proofOrLead, headline: k.phrase0, layout: 'stacked', pattern: 'none' },
+    'linkedin-post': {
+      body: lead,
+      headline: k.promiseOrTagline,
+      layout: 'stacked',
+      pattern: 'none',
+    },
+    'community-card': {
+      body: k.eventLine,
+      cta: 'Join the community',
+      headline: `Build with ${identity.name}.`,
+      pattern: 'none',
+    },
+    'launch-card': {
+      body: k.productLine0,
+      cta: 'Available now',
+      headline: k.releaseTitle,
+      pattern: 'none',
+      scale: 'bold',
+    },
+    'slide-title': { body: k.promise, pattern: 'none', scale: 'bold' },
+    'slide-section': {
+      body: k.productLine1,
+      headline: k.pillar0,
+      pattern: 'none',
+      scale: 'bold',
+    },
+    'blog-cover': {
+      body: lead,
+      headline: k.releaseTitle,
+      pattern: 'none',
+      scale: 'bold',
+    },
+    'report-cover': {
+      body: identity.mission,
+      headline: k.proofOrPhrase,
+      layout: 'stacked',
+      pattern: 'none',
+    },
+    'press-kit': {
+      body: `Logos, product images, company facts and press contacts. ${identity.contactEmail}`.trim(),
+      headline: 'Press and media',
+      pattern: 'none',
+    },
+    'newsletter-email': { body: lead, cta: 'Read the update', headline: k.releaseTitle, layout: 'stacked', pattern: 'none' },
+    'app-store-gallery': { body: k.productLine0, headline: k.productSummary0, pattern: 'none', scale: 'bold' },
+    'event-invitation-email': { body: k.eventInvite, cta: 'Reserve your place', headline: k.eventJoin, layout: 'stacked', pattern: 'none' },
+    'auth-screen': { body: `Continue to ${identity.name}.`, cta: 'Continue', headline: 'Sign in', layout: 'centered', pattern: 'none' },
+    'sidebar-navigation': { body: k.sidebarItems, cta: k.action0, headline: k.sidebarHeadline, pattern: 'none' },
+    'search-surface': { body: 'Search products, docs and recent activity.', cta: 'Open result', headline: k.searchHeadline, pattern: 'none' },
+    'onboarding-checklist': { body: k.checklist, cta: 'Continue setup', headline: `Set up ${identity.name}`, pattern: 'none' },
+    'file-uploader': { body: 'SVG, PNG, PDF or CSV up to 10 MB.', cta: 'Choose files', headline: 'Drop files to upload', layout: 'centered', pattern: 'none' },
+    'status-page': { body: k.statusServices, headline: 'All systems operational', pattern: 'none' },
+    'api-reference-hero': k.apiHero,
+    'code-playground': { body: k.productLine0, cta: k.install, headline: k.codeLabel, pattern: 'none' },
+    'release-notes': { body: lead, cta: 'Read the changelog', headline: k.releaseTitle, pattern: 'none' },
+    'video-thumbnail': { headline: k.phrase0, pattern: 'none', scale: 'bold' },
+    'podcast-cover': { body: identity.mission, headline: `Inside ${identity.name}`, layout: 'centered', pattern: 'none', scale: 'bold' },
+    'social-carousel': { body: k.productLine0, headline: k.phrase1, pattern: 'none', scale: 'bold' },
+    'case-study-cover': { body: k.caseBody, headline: k.proofHeadline, pattern: 'none', scale: 'bold' },
+    'whitepaper-cover': { body: identity.mission, headline: `The ${identity.name} field guide`, layout: 'stacked', pattern: 'none' },
+    'booth-wall': { body: identity.website, headline: tagline, pattern: 'none', scale: 'bold' },
+    'notebook-cover': { body: k.phrase0, headline: k.shortOrName, layout: 'centered', pattern: 'none', scale: 'bold' },
+    lanyard: { headline: k.personName, pattern: 'none' },
+    'event-badge': { headline: k.personName, pattern: 'none' },
+    'event-backdrop': {
+      body: k.eventWhere,
+      headline: k.eventName,
+      pattern: 'none',
+      scale: 'bold',
+    },
+    'partnership-lockup': {
+      body: k.partnershipBody,
+      headline: k.partnershipHeadline,
+      layout: 'centered',
+      pattern: 'none',
+    },
+    'business-card': { headline: k.personName, layout: 'stacked', pattern: 'none' },
+    'sticker-sheet': {
+      body: k.phrase0,
+      headline: k.shortOrName,
+      layout: 'centered',
+      pattern: 'none',
+    },
+    'packaging-label': {
+      body: k.productLine0,
+      headline: tagline,
+      pattern: 'none',
+    },
+    letterhead: {
+      body: lead,
+      headline: `A note from ${identity.name}`,
+      layout: 'stacked',
+      pattern: 'none',
+    },
+  };
+}
+
+const BASEMENT_OVERRIDES: Partial<Record<string, BrandElementOverrides>> = {
+      opengraph: { body: 'Independent digital studio · Strategy, identity, experience, and code.', headline: 'Cool work that performs.' },
+      'hero-section': { body: 'We partner with ambitious companies to turn one sharp idea into a complete digital system.', cta: 'See the work', headline: 'Cool work that performs.' },
+      'feature-grid': { body: 'Strategy gives the idea a reason. Identity makes it recognizable. Code makes it real.', headline: 'One idea. Built all the way through.' },
+      'github-readme': { body: 'A focused creative tool from Basement Lab, made to be useful before it is impressive.', headline: 'Tools for making better things.' },
+      'docs-header': { body: 'Principles, systems, and implementation notes for work that needs to hold up in the real world.', cta: 'Read the system', headline: 'How the work works.' },
+      'launch-card': { body: 'A complete identity and digital experience built around one ownable idea.', cta: 'View the project', headline: 'The work should earn the attention.' },
+      'slide-title': { body: 'Context, problem, idea, system, application, impact.', headline: 'Make it impossible to ignore.' },
+      'slide-section': { body: 'The visual move comes from the business problem—not from a folder of effects.', headline: 'The idea earns the attention.' },
+      'blog-cover': { body: 'Why recognizable systems beat a pile of one-off graphics.', headline: 'Build the system, not the skin.' },
+      'report-cover': { body: 'Strategy, design, code, and the decisions that connect them.', headline: 'The work behind the work.' },
+      'newsletter-email': { body: 'New work, tools, process notes, and the occasional thing we cannot stop thinking about.', cta: 'Read the dispatch', headline: 'From the Basement.' },
+      'case-study-cover': { body: 'A clearer story, an ownable device, and a digital system designed to perform.', headline: 'From problem to system.' },
+      'event-backdrop': { body: 'basement.studio', headline: 'Serious work. Good energy.' },
+      'partnership-lockup': { body: 'Two teams. One exact idea.' },
+      'notebook-cover': { body: 'ONE IDEA / BUILT ALL THE WAY THROUGH', headline: 'BSMNT' },
+};
+
 export function createBrandElementSettings(
   element: BrandElement,
   identity: BrandIdentity
 ): BrandElementSettings {
   const ink = identity.colors.find(({ id }) => id === 'ink')?.hex ?? '#181818';
   const paper = identity.colors.find(({ id }) => id === 'paper')?.hex ?? '#FFFFFF';
-  const emphasis = identity.colors.find(({ id }) => id === 'emphasis')?.hex ?? ink;
+  const k = elementCopy(identity);
   const defaults: BrandElementSettings = {
-    accentColor: emphasis,
+    accentColor: identity.colors.find(({ id }) => id === 'emphasis')?.hex ?? ink,
     assetId: '',
     assetOpacity: 12,
     assetPlacement: 'background',
@@ -819,19 +1183,19 @@ export function createBrandElementSettings(
     artworkX: 0,
     artworkY: 0,
     backgroundColor: paper,
-    body: identity.positioning || identity.description,
+    body: k.lead,
     cta: '',
     foregroundColor: ink,
     fontRole: 'Display',
     fontWeight: Math.min(identity.typography.find(({ role }) => role === 'Display')?.weight ?? 550, 550),
-    headline: identity.tagline,
+    headline: k.tagline,
     layout: 'stacked',
     logoAppearance: { ...DEFAULT_LOGO_APPEARANCE },
-    partnerName: 'Partner',
+    partnerName: k.partner,
     pattern: 'none',
     patternOpacity: 6,
-    personName: 'Alex Morgan',
-    personRole: `Design Engineer · ${identity.name}`,
+    personName: k.personName,
+    personRole: k.personRole,
     scale: 'balanced',
     showLogo: true,
     showWebsite: true,
@@ -846,192 +1210,16 @@ export function createBrandElementSettings(
         pattern: 'none',
       }
     : {};
-
-  const overrides: Partial<Record<string, BrandElementOverrides>> = {
-    'email-system-sheet': {
-      body: 'Review onboarding, utility, transactional, lifecycle, and billing states as one coherent system.',
-      cta: 'Review system',
-      headline: 'Complete email system',
-      layout: 'stacked',
-      pattern: 'none',
-    },
-    'email-signature': {
-      body: identity.contactEmail || identity.website,
-      headline: 'Alex Morgan',
-      layout: 'split',
-      pattern: 'none',
-    },
-    'web-card': { cta: 'Explore', pattern: 'none' },
-    opengraph: { pattern: 'none', scale: 'bold' },
-    'error-page': {
-      body: 'The page you requested may have moved or no longer exists.',
-      cta: 'Return home',
-      headline: 'Nothing here—yet.',
-      layout: 'centered',
-      pattern: 'none',
-    },
-    'navigation-bar': { body: 'Product · Docs · Customers', cta: 'Get started', headline: identity.name, pattern: 'none' },
-    'hero-section': { cta: 'Start building', pattern: 'none', scale: 'bold' },
-    'feature-grid': { body: identity.description, headline: 'Everything in one system.', pattern: 'none' },
-    'pricing-card': { body: 'Everything you need to get started, with room to scale.', cta: 'Choose plan', headline: 'Ship with confidence.', layout: 'stacked', pattern: 'none' },
-    'testimonial-card': { body: identity.voice.phrases[0] ?? identity.positioning, headline: '“The system finally feels like one product.”', layout: 'stacked', pattern: 'none' },
-    'form-controls': { body: 'Use clear labels and explain what happens next.', cta: 'Save changes', headline: 'Profile details', pattern: 'none' },
-    'command-menu': { body: 'Search pages, actions, and recent work.', headline: 'What do you want to do?', pattern: 'none' },
-    'modal-dialog': { body: 'This action updates the shared identity across every generated artifact.', cta: 'Confirm changes', headline: 'Update brand settings?', layout: 'centered', pattern: 'none' },
-    'toast-notification': { body: 'Your changes are now available across the Studio.', headline: 'Brand updated', layout: 'stacked', pattern: 'none' },
-    'data-table': { body: 'Manage active projects and their current status.', headline: 'Recent work', pattern: 'none' },
-    'dashboard-widget': { body: 'Compared with the previous 30 days.', headline: '42,851', pattern: 'none' },
-    'empty-state': { body: 'Create your first project to start generating consistent brand work.', cta: 'Create project', headline: 'No projects yet', layout: 'centered', pattern: 'none' },
-    'checkout-card': { body: 'Studio Pro · Annual billing', cta: 'Complete purchase', headline: '$588.00', layout: 'stacked', pattern: 'none' },
-    'settings-panel': { body: 'Manage identity, localization, notifications, and team preferences.', cta: 'Save settings', headline: 'Workspace settings', pattern: 'none' },
-    'cli-banner': { cta: `npx ${identity.id} init`, pattern: 'none' },
-    'ascii-mark': {
-      body: 'A copy-safe identity for terminals and source files.',
-      headline: identity.shortName,
-      layout: 'centered',
-      pattern: 'none',
-    },
-    'terminal-theme': {
-      body: 'Syntax and status colors tuned to the identity.',
-      headline: 'Code in your voice.',
-      pattern: 'none',
-    },
-    'github-readme': {
-      cta: `npm install ${identity.id}`,
-      pattern: 'none',
-      scale: 'bold',
-    },
-    'docs-header': {
-      body: 'Guides, concepts, API reference, and examples.',
-      cta: 'Read the docs',
-      headline: `${identity.name} documentation`,
-      pattern: 'none',
-    },
-    'package-card': {
-      body: identity.description,
-      cta: `pnpm add ${identity.id}`,
-      headline: `@${identity.id}/core`,
-      pattern: 'none',
-    },
-    'x-post': { layout: 'stacked', pattern: 'none' },
-    'linkedin-post': {
-      body: identity.description,
-      layout: 'stacked',
-      pattern: 'none',
-    },
-    'community-card': {
-      cta: 'Join the community',
-      headline: `Build with ${identity.name}.`,
-      pattern: 'none',
-    },
-    'launch-card': {
-      cta: 'Available now',
-      headline: identity.name,
-      pattern: 'none',
-      scale: 'bold',
-    },
-    'slide-title': { pattern: 'none', scale: 'bold' },
-    'slide-section': {
-      body: identity.description,
-      headline: 'A system that scales.',
-      pattern: 'none',
-      scale: 'bold',
-    },
-    'blog-cover': {
-      body: identity.positioning,
-      headline: 'How we build for every locale.',
-      pattern: 'none',
-      scale: 'bold',
-    },
-    'report-cover': {
-      body: identity.description,
-      headline: `The state of ${identity.name}.`,
-      layout: 'stacked',
-      pattern: 'none',
-    },
-    'press-kit': {
-      body: 'Approved logos, product images, company language, and press contacts.',
-      headline: 'Press & media',
-      pattern: 'none',
-    },
-    'newsletter-email': { cta: 'Read the edition', headline: identity.voice.phrases[0] ?? identity.tagline, layout: 'stacked', pattern: 'none' },
-    'app-store-gallery': { body: identity.description, headline: identity.tagline, pattern: 'none', scale: 'bold' },
-    'event-invitation-email': { cta: 'Reserve your place', headline: `Build with ${identity.name}.`, layout: 'stacked', pattern: 'none' },
-    'auth-screen': { body: `Continue to your ${identity.name} workspace.`, cta: 'Continue', headline: 'Sign in', layout: 'centered', pattern: 'none' },
-    'sidebar-navigation': { body: 'Overview · Projects · Assets · Settings', cta: 'New project', headline: 'Workspace', pattern: 'none' },
-    'search-surface': { body: 'Search projects, assets, people, and recent work.', cta: 'Open result', headline: 'Search everything', pattern: 'none' },
-    'onboarding-checklist': { body: 'Create identity\nAdd logo assets\nChoose typography\nExport first artifact', cta: 'Continue setup', headline: `Set up ${identity.name}`, pattern: 'none' },
-    'file-uploader': { body: 'SVG, PNG, JPG, WOFF2, or JSON up to 10 MB.', cta: 'Choose files', headline: 'Drop files to upload', layout: 'centered', pattern: 'none' },
-    'status-page': { body: 'API\nDashboard\nAsset delivery\nExports', headline: 'All systems operational', pattern: 'none' },
-    'api-reference-hero': { body: 'Create a complete brand artifact from a reusable identity.', cta: 'POST /v1/artifacts', headline: 'Generate an artifact', pattern: 'none' },
-    'code-playground': { body: 'Edit a request, preview the response, and copy production-ready code.', cta: `import { create } from '${identity.id}'`, headline: 'Try it live', pattern: 'none' },
-    'release-notes': { body: 'New components, faster exports, and sharper control over shared identity defaults.', cta: 'View changelog', headline: 'A more complete brand system', pattern: 'none' },
-    'video-thumbnail': { headline: identity.voice.phrases[0] ?? identity.tagline, pattern: 'none', scale: 'bold' },
-    'podcast-cover': { body: identity.mission, headline: 'Signals & Systems', layout: 'centered', pattern: 'none', scale: 'bold' },
-    'social-carousel': { body: identity.description, headline: identity.tagline, pattern: 'none', scale: 'bold' },
-    'case-study-cover': { body: identity.proof[0] ? `How ${identity.proof[0]} built with ${identity.name}.` : identity.description, headline: 'A system designed to scale.', pattern: 'none', scale: 'bold' },
-    'whitepaper-cover': { body: identity.mission, headline: `The ${identity.name} field guide.`, layout: 'stacked', pattern: 'none' },
-    'booth-wall': { body: identity.website, headline: identity.tagline, pattern: 'none', scale: 'bold' },
-    'notebook-cover': { body: identity.mission, headline: identity.shortName.length > 1 ? identity.shortName : identity.name, layout: 'centered', pattern: 'none', scale: 'bold' },
-    lanyard: { headline: 'Alex Morgan', pattern: 'none' },
-    'event-badge': { headline: 'Alex Morgan', pattern: 'none' },
-    'event-backdrop': {
-      body: identity.website,
-      pattern: 'none',
-      scale: 'bold',
-    },
-    'partnership-lockup': {
-      body: 'A shared announcement built from two distinct identities.',
-      headline: `${identity.name} × Partner`,
-      layout: 'centered',
-      pattern: 'none',
-    },
-    'business-card': { headline: 'Alex Morgan', layout: 'stacked', pattern: 'none' },
-    'sticker-sheet': {
-      body: identity.voice.phrases[0] ?? identity.tagline,
-      headline: identity.shortName,
-      layout: 'centered',
-      pattern: 'none',
-    },
-    'packaging-label': {
-      body: identity.description,
-      headline: `Made by ${identity.name}.`,
-      pattern: 'none',
-    },
-    letterhead: {
-      body: identity.positioning,
-      headline: `A note from ${identity.name}.`,
-      layout: 'stacked',
-      pattern: 'none',
-    },
-  };
-
-  const basementOverrides: Partial<Record<string, BrandElementOverrides>> = identity.id === 'basement'
-    ? {
-        opengraph: { body: 'Independent digital studio · Strategy, identity, experience, and code.', headline: 'Cool work that performs.' },
-        'hero-section': { body: 'We partner with ambitious companies to turn one sharp idea into a complete digital system.', cta: 'See the work', headline: 'Cool work that performs.' },
-        'feature-grid': { body: 'Strategy gives the idea a reason. Identity makes it recognizable. Code makes it real.', headline: 'One idea. Built all the way through.' },
-        'github-readme': { body: 'A focused creative tool from Basement Lab, made to be useful before it is impressive.', cta: 'npm install @basement/lab', headline: 'Tools for making better things.' },
-        'docs-header': { body: 'Principles, systems, and implementation notes for work that needs to hold up in the real world.', cta: 'Read the system', headline: 'How the work works.' },
-        'launch-card': { body: 'A complete identity and digital experience built around one ownable idea.', cta: 'View the project', headline: 'The work should earn the attention.' },
-        'slide-title': { body: 'Context, problem, idea, system, application, impact.', headline: 'Make it impossible to ignore.' },
-        'slide-section': { body: 'The visual move comes from the business problem—not from a folder of effects.', headline: 'The idea earns the attention.' },
-        'blog-cover': { body: 'Why recognizable systems beat a pile of one-off graphics.', headline: 'Build the system, not the skin.' },
-        'report-cover': { body: 'Strategy, design, code, and the decisions that connect them.', headline: 'The work behind the work.' },
-        'newsletter-email': { body: 'New work, tools, process notes, and the occasional thing we cannot stop thinking about.', cta: 'Read the dispatch', headline: 'From the Basement.' },
-        'case-study-cover': { body: 'A clearer story, an ownable device, and a digital system designed to perform.', headline: 'From problem to system.' },
-        'event-backdrop': { body: 'basement.studio', headline: 'Serious work. Good energy.' },
-        'partnership-lockup': { body: 'Two teams. One exact idea.', headline: `${identity.name} × Partner` },
-        'notebook-cover': { body: 'ONE IDEA / BUILT ALL THE WAY THROUGH', headline: 'BSMNT' },
-      }
-    : {};
-
   return {
     ...defaults,
     ...emailTemplateOverrides,
-    ...overrides[element.id],
-    ...basementOverrides[element.id],
+    ...contentOverrides(identity, k)[element.id],
+    ...(identity.id === 'basement' ? BASEMENT_OVERRIDES[element.id] : undefined),
   };
+}
+
+function capitalize(value: string): string {
+  return value ? `${value[0]!.toLocaleUpperCase()}${value.slice(1)}` : value;
 }
 
 export function filterBrandElements(

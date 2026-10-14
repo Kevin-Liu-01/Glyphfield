@@ -34,10 +34,13 @@ import {
 import {
   brandDeviceSvg,
   contrastRatio,
+  displayTrackingEm,
   isDarkColor,
   type BrandPalette,
 } from '@/lib/brandOutputKit';
 import { mixHexColors } from '@/lib/color';
+import { asciiBanner, asciiBannerWord } from '@/lib/asciiBanner';
+import { brandElementContent, featuredPlanIndex, type BrandElementContent } from '@/lib/brandElementContent';
 import { EMAIL_LIFECYCLE_TEMPLATES, getEmailLifecycleTemplate } from '@/lib/emailLifecycle';
 import { capVisibleFontWeight } from '@/lib/typography';
 
@@ -65,6 +68,25 @@ const FIELD_LABELS: Record<EditableField, string> = {
   personName: 'name',
   personRole: 'role',
 };
+
+const CONTENT_CACHE = new WeakMap<BrandIdentity, BrandElementContent>();
+
+/** Template content from the identity's own products, proof, customers and samples. */
+function contentOf(context: Pick<ElementPreviewContext, 'identity'>): BrandElementContent {
+  const cached = CONTENT_CACHE.get(context.identity);
+  if (cached) return cached;
+  const content = brandElementContent(context.identity);
+  CONTENT_CACHE.set(context.identity, content);
+  return content;
+}
+
+function firstName(name: string): string {
+  return name.split(/\s+/)[0] ?? name;
+}
+
+function capitalize(value: string): string {
+  return value ? `${value[0]!.toLocaleUpperCase()}${value.slice(1)}` : value;
+}
 
 function Edit({ as = 'span', className, context, field, multiline = false }: { as?: 'div' | 'h1' | 'h2' | 'p' | 'span' | 'strong'; className?: string; context: ElementPreviewContext; field: EditableField; multiline?: boolean }) {
   return (
@@ -240,7 +262,7 @@ function artboardStyle(context: ElementPreviewContext): CSSProperties {
   const body = brandTypographyRole(identity, 'Body');
   const code = brandTypographyRole(identity, 'Code');
   const display = brandTypographyRole(identity, settings.fontRole);
-  const tracking = Math.max(-3, Math.min(2, display.letterSpacing ?? 0)) * 0.018;
+  const tracking = displayTrackingEm(display.letterSpacing);
   return {
     '--el-accent': settings.accentColor,
     // Accent used as text or a thin mark falls back to the text colour when it would not read.
@@ -287,14 +309,14 @@ function LifecycleEmail({ context }: Props) {
   const template = getEmailLifecycleTemplate(element.id, identity);
   if (!template) return <TransactionalEmail context={context} />;
   if (template.artworkPath === null) return <PlainTextEmail context={context} />;
-  const products = identity.id === 'gt' ? [] : identity.products.slice(0, 3);
+  const products = identity.id === 'gt' ? [] : contentOf(context).products.slice(0, 3);
   return (
     <div className={styles.email}>
-      <header className={styles.emailTop}><Logo context={context} kind='wordmark' /><span className={styles.meta}>{template.timing}</span></header>
+      <header className={styles.emailTop}><Logo context={context} kind='wordmark' /></header>
       {settings.showLogo ? <EmailHeaderArt context={context} /> : null}
       <div className={styles.emailContent}>
         <Edit as='h1' className={styles.emailTitle} context={context} field='headline' multiline />
-        <p className={styles.emailGreeting}>Hi Alex,</p>
+        <p className={styles.emailGreeting}>Hi {firstName(contentOf(context).person.name)},</p>
         <Edit as='p' className={styles.emailText} context={context} field='body' multiline />
         <Button context={context} />
         {template.supportingCards.length > 0 ? (
@@ -307,7 +329,7 @@ function LifecycleEmail({ context }: Props) {
             ))}
           </div>
         ) : products.length > 0 && element.id === 'welcome-email' ? (
-          <ol className={styles.emailProducts}>{products.map((product, index) => <li key={product}><span>{String(index + 1).padStart(2, '0')}</span>{product}</li>)}</ol>
+          <ol className={styles.emailProducts}>{products.map((product, index) => <li key={product.name}><span>{String(index + 1).padStart(2, '0')}</span><span className={styles.emailProduct}><strong>{product.name}</strong>{product.summary ? <small>{product.summary}</small> : null}</span></li>)}</ol>
         ) : null}
       </div>
       <EmailFooter context={context} note={template.timing} />
@@ -329,11 +351,11 @@ function PlainTextEmail({ context }: Props) {
   const { identity, settings } = context;
   return (
     <div className={styles.letter}>
-      <p className={styles.meta}>Subject · {settings.headline}</p>
-      <p>Hi Alex,</p>
+      <p><strong>{settings.headline}</strong></p>
+      <p>Hi {firstName(contentOf(context).person.name)},</p>
       <Edit as='p' context={context} field='body' multiline />
-      <p>All best,<br />{settings.personName}<br /><span className={styles.quiet}>{identity.name}</span></p>
-      <p className={styles.meta}>{identity.website}/account · Unsubscribe</p>
+      <p>All best,<br />{settings.personName}<br /><span className={styles.quiet}>{settings.personRole}</span></p>
+      <p className={styles.quiet}>{identity.website}/account · Unsubscribe</p>
     </div>
   );
 }
@@ -359,20 +381,20 @@ function EmailSignature({ context }: Props) {
 }
 
 function NewsletterEmail({ context }: Props) {
-  const { identity } = context;
-  const stories = identity.voice.phrases.slice(1, 3);
+  const content = contentOf(context);
+  const stories = content.products.slice(0, 3);
   return (
     <div className={styles.email}>
-      <header className={styles.emailTop}><Logo context={context} kind='wordmark' /><span className={styles.meta}>Issue 12 · {new Date().getFullYear()}</span></header>
+      <header className={styles.emailTop}><Logo context={context} kind='wordmark' /></header>
       <EmailHeaderArt context={context} />
       <div className={styles.emailContent}>
-        <span className={styles.meta}>The {identity.name} dispatch</span>
         <Edit as='h1' className={styles.emailTitle} context={context} field='headline' multiline />
         <Edit as='p' className={styles.emailText} context={context} field='body' multiline />
+        {content.release.items.length ? <ul className={styles.newsletterList}>{content.release.items.slice(0, 3).map((item) => <li key={item}>{item}</li>)}</ul> : null}
         <Button context={context} />
         <div className={styles.newsletterStories}>
-          {stories.map((story, index) => (
-            <article key={story}><span className={styles.meta}>0{index + 2}</span><strong>{story}</strong><p>{identity.strategy.pillars[index] ?? identity.positioning}</p></article>
+          {stories.map((story) => (
+            <article key={story.name}><strong>{story.name}</strong><p>{story.summary || context.identity.positioning}</p></article>
           ))}
         </div>
       </div>
@@ -383,14 +405,15 @@ function NewsletterEmail({ context }: Props) {
 
 function InvitationEmail({ context }: Props) {
   const { identity } = context;
+  const { event } = contentOf(context);
   return (
     <div className={styles.email}>
-      <header className={styles.emailTop}><Logo context={context} kind='wordmark' /><span className={styles.meta}>Invitation</span></header>
+      <header className={styles.emailTop}><Logo context={context} kind='wordmark' /></header>
       <EmailHeaderArt context={context} />
       <div className={styles.emailContent}>
-        <dl className={styles.inviteFacts}><div><dt>Date</dt><dd>Thu 14 Nov</dd></div><div><dt>Time</dt><dd>17:00 UTC</dd></div><div><dt>Where</dt><dd>Online</dd></div></dl>
         <Edit as='h1' className={styles.emailTitle} context={context} field='headline' multiline />
         <Edit as='p' className={styles.emailText} context={context} field='body' multiline />
+        <dl className={styles.inviteFacts}><div><dt>Date</dt><dd>{event.date}</dd></div><div><dt>Time</dt><dd>{event.time}</dd></div><div><dt>Where</dt><dd>{event.location}</dd></div></dl>
         <Button context={context} />
       </div>
       <EmailFooter context={context} note={`${identity.name} events`} />
@@ -411,7 +434,7 @@ function EmailSystemSheet({ context }: Props) {
       <div className={styles.sheetGrid}>
         {templates.map((template) => (
           <article key={template.id}>
-            {template.artworkPath ? (identity.id === 'gt' ? <span className={styles.sheetArt}><img alt='' src={template.artworkPath} /></span> : <span className={styles.sheetArt}><Device context={context} dark seed={template.id.length} /></span>) : <span className={styles.sheetPlain}>Hi Alex,<br />Plain-text note</span>}
+            {template.artworkPath ? (identity.id === 'gt' ? <span className={styles.sheetArt}><img alt='' src={template.artworkPath} /></span> : <span className={styles.sheetArt}><Device context={context} dark seed={template.id.length} /></span>) : <span className={styles.sheetPlain}>Hi {firstName(contentOf(context).person.name)},<br />Plain-text note</span>}
             <strong>{template.subject}</strong>
             <span className={styles.meta}>{template.group} · {template.timing}</span>
           </article>
@@ -443,10 +466,13 @@ function Composition({ context, children, art, className = '' }: Props & { art?:
 }
 
 function SocialHeader({ context }: Props) {
+  // Brands whose only mark is a wordmark (Stripe) already show their name.
+  const markIsWordmark = /wordmark/i.test(context.identity.assets.find(({ id }) => id === 'mark-dark')?.label ?? '');
   return (
     <div className={styles.socialHeader}>
       <Logo context={context} />
-      <span><strong>{context.identity.name}</strong><span className={styles.meta}>{context.identity.socialHandle}</span></span>
+      {/* A link preview is not a post: it carries the brand, and the site URL closes the card. */}
+      <span>{markIsWordmark ? null : <strong>{context.identity.name}</strong>}{context.element.id === 'opengraph' ? null : <span className={styles.meta}>{context.identity.socialHandle}</span>}</span>
     </div>
   );
 }
@@ -460,8 +486,6 @@ function SocialPost({ context }: Props) {
     <Composition art={art} context={context}>
       <SocialHeader context={context} />
       <div className={styles.stack}>
-        {element.id === 'launch-card' ? <span className={styles.chip}>Now available</span> : null}
-        {element.id === 'community-card' ? <span className={styles.chip}># announcements</span> : null}
         <Edit as='h1' className={styles.headline} context={context} field='headline' multiline />
         {settings.body ? <Edit as='p' className={styles.lead} context={context} field='body' multiline /> : null}
         <Button context={context} />
@@ -496,16 +520,39 @@ function PodcastCover({ context }: Props) {
 }
 
 function AppStoreGallery({ context }: Props) {
-  const { identity } = context;
-  const captions = [context.settings.headline, ...identity.voice.phrases].slice(0, 3);
+  const content = contentOf(context);
+  const [first, second, third] = [content.products[0], content.products[1] ?? content.products[0], content.products[2] ?? content.products[0]];
   return (
     <div className={styles.gallery}>
-      {captions.map((caption, index) => (
-        <figure key={index}>
-          {index === 0 ? <Edit as='h2' className={styles.galleryCaption} context={context} field='headline' multiline /> : <h2 className={styles.galleryCaption}>{caption}</h2>}
-          <span className={styles.phone}><Device context={context} seed={index + 2} /><span className={styles.phoneBar}><Logo context={context} onDark /></span></span>
-        </figure>
-      ))}
+      <figure>
+        <Edit as='h2' className={styles.galleryCaption} context={context} field='headline' multiline />
+        <span className={styles.phone}>
+          <span className={styles.phoneScreen}>
+            <span className={styles.phoneTop}><Logo context={context} /><span className={styles.phoneTitle}>{first?.name}</span></span>
+            <span className={styles.phoneMetric}><strong>{content.metric.value}</strong><small>{content.metric.label} · {content.metric.change}</small></span>
+            <span className={styles.phoneArt}><Device context={context} dark seed={2} /></span>
+          </span>
+        </span>
+      </figure>
+      <figure>
+        <h2 className={styles.galleryCaption}>{second?.summary || second?.name}</h2>
+        <span className={styles.phone}>
+          <span className={styles.phoneScreen}>
+            <span className={styles.phoneTop}><Logo context={context} /><span className={styles.phoneTitle}>{second?.name}</span></span>
+            {content.actions.slice(0, 4).map((action, index) => <span className={styles.phoneRow} data-active={index === 0 || undefined} key={action}><i />{capitalize(action)}</span>)}
+          </span>
+        </span>
+      </figure>
+      <figure>
+        <h2 className={styles.galleryCaption}>{third?.summary || third?.name}</h2>
+        <span className={styles.phone}>
+          <span className={styles.phoneScreen}>
+            <span className={styles.phoneTop}><Logo context={context} /><span className={styles.phoneTitle}>{third?.name}</span></span>
+            <span className={styles.phoneCode}>{content.code.snippet}</span>
+            <span className={styles.phoneFoot}>{content.proof[0] ?? content.tagline}</span>
+          </span>
+        </span>
+      </figure>
     </div>
   );
 }
@@ -563,41 +610,30 @@ function WebPreview({ context }: Props) {
 // Developer
 // ---------------------------------------------------------------------------
 
-const ASCII_MARKS: Record<string, readonly string[]> = {
-  GT: [' ██████╗ ████████╗', '██╔════╝ ╚══██╔══╝', '██║  ███╗   ██║   ', '██║   ██║   ██║   ', '╚██████╔╝   ██║   ', ' ╚═════╝    ╚═╝   '],
-  ST: ['███████╗████████╗', '██╔════╝╚══██╔══╝', '███████╗   ██║   ', '╚════██║   ██║   ', '███████║   ██║   ', '╚══════╝   ╚═╝   '],
+/** Box-drawing shadows as strokes inside a one-by-two cell: [x, y, width, height] rects. */
+const ASCII_STROKES: Readonly<Record<string, readonly (readonly [number, number, number, number])[]>> = {
+  '═': [[0, 0.8, 1, 0.14], [0, 1.06, 1, 0.14]],
+  '║': [[0.3, 0, 0.14, 2], [0.56, 0, 0.14, 2]],
+  '╔': [[0.3, 0.8, 0.7, 0.14], [0.3, 0.8, 0.14, 1.2], [0.56, 1.06, 0.44, 0.14], [0.56, 1.06, 0.14, 0.94]],
+  '╗': [[0, 0.8, 0.7, 0.14], [0.56, 0.8, 0.14, 1.2], [0, 1.06, 0.44, 0.14], [0.3, 1.06, 0.14, 0.94]],
+  '╚': [[0.3, 0, 0.14, 1.2], [0.3, 1.06, 0.7, 0.14], [0.56, 0, 0.14, 0.94], [0.56, 0.8, 0.44, 0.14]],
+  '╝': [[0.56, 0, 0.14, 1.2], [0, 1.06, 0.7, 0.14], [0.3, 0, 0.14, 0.94], [0, 0.8, 0.44, 0.14]],
+  '▀': [[0, 0, 1.02, 1]],
+  '▄': [[0, 1, 1.02, 1]],
 };
-
-/** A 3 × 5 pixel alphabet; each pixel prints as two block characters so it reads square in monospace. */
-const PIXEL_FONT: Record<string, string> = {
-  '+': '000/010/111/010/000', A: '010/101/111/101/101', B: '110/101/110/101/110', C: '011/100/100/100/011',
-  D: '110/101/101/101/110', E: '111/100/110/100/111', F: '111/100/110/100/100', G: '011/100/101/101/011',
-  H: '101/101/111/101/101', I: '111/010/010/010/111', J: '001/001/001/101/010', K: '101/101/110/101/101',
-  L: '100/100/100/100/111', M: '101/111/111/101/101', N: '101/111/111/111/101', O: '010/101/101/101/010',
-  P: '110/101/110/100/100', Q: '010/101/101/111/011', R: '110/101/110/101/101', S: '011/100/010/001/110',
-  T: '111/010/010/010/010', U: '101/101/101/101/111', V: '101/101/101/101/010', W: '101/101/111/111/101',
-  X: '101/101/010/101/101', Y: '101/101/010/010/010', Z: '111/001/010/100/111',
-};
-
-/** A pixel-letter ASCII mark from the short name, or the full name when the short name is one letter. */
-function asciiMark(shortName: string, name = shortName): string {
-  const known = ASCII_MARKS[shortName];
-  if (known) return known.join('\n');
-  const source = shortName.length <= 1 && /^[a-z+ ]{2,8}$/i.test(name) ? name.replace(/\s+/g, '') : shortName;
-  const letters = [...source.toLocaleUpperCase()].slice(0, 8).map((letter) => (PIXEL_FONT[letter] ?? '111/101/101/101/111').split('/'));
-  return [0, 1, 2, 3, 4].map((row) => letters.map((rows) => [...rows[row]!].map((pixel) => (pixel === '1' ? '██' : '  ')).join('')).join('  ')).join('\n');
-}
 
 /**
  * Draws ASCII art as cells so it never depends on a font having block glyphs.
- * Solid blocks print at full strength; box-drawing shadows print lighter.
+ * Full blocks fill their cell; box-drawing shadows draw as thin double strokes.
  */
 function AsciiArt({ className, text }: { className: string; text: string }) {
   const lines = text.split('\n');
   const width = Math.max(...lines.map((line) => [...line].length));
   const cells = lines.flatMap((line, row) => [...line].flatMap((character, column) => {
     if (character === ' ') return [];
-    return [<rect fillOpacity={character === '█' ? 1 : 0.32} height='2' key={`${row}-${column}`} width='1.02' x={column} y={row * 2} />];
+    if (character === '█') return [<rect height='2' key={`${row}-${column}`} width='1.02' x={column} y={row * 2} />];
+    const strokes = ASCII_STROKES[character] ?? [[0.2, 0.6, 0.6, 0.8]];
+    return strokes.map(([x, y, w, h], index) => <rect fillOpacity='0.5' height={h} key={`${row}-${column}-${index}`} width={w} x={column + x} y={row * 2 + y} />);
   }));
   return (
     <svg aria-label={text} className={className} fill='currentColor' role='img' viewBox={`0 0 ${width} ${lines.length * 2}`} style={{ aspectRatio: `${width} / ${lines.length * 2}` }}>
@@ -618,58 +654,58 @@ function Terminal({ children, context, title }: Props & { children: ReactNode; t
 
 function CliBanner({ context }: Props) {
   const { identity, settings } = context;
+  const content = contentOf(context);
+  const next = content.code.snippet.split('\n').find((line) => line.trim() && line.trim() !== settings.cta.trim());
   return (
-    <Terminal context={context} title={`${identity.id} — zsh — 80×24`}>
-      <AsciiArt className={styles.ascii} text={asciiMark(identity.shortName, identity.name)} />
+    <Terminal context={context} title={`${identity.website || identity.id} — zsh — 80×24`}>
+      <AsciiArt className={styles.ascii} text={asciiBanner(asciiBannerWord(identity.name, identity.shortName))} />
       <p><span className={styles.prompt}>$</span> <Edit context={context} field='cta' /></p>
-      <p className={styles.ok}>✓ {identity.name} installed</p>
-      <p className={styles.ok}>✓ Brand context loaded from {identity.website}</p>
-      <p className={styles.quiet}>→ Next: run <span className={styles.accentText}>{identity.id} dev</span></p>
-      {settings.headline ? <Edit as='p' className={styles.terminalHeadline} context={context} field='headline' /> : null}
+      {next ? <p><span className={styles.prompt}>$</span> <span className={styles.quiet}>{next}</span></p> : null}
+      {settings.headline ? <p className={styles.terminalComment}># <Edit context={context} field='headline' /></p> : null}
     </Terminal>
   );
 }
 
 function AsciiMarkPreview({ context }: Props) {
+  const word = context.settings.headline.trim() || asciiBannerWord(context.identity.name, context.identity.shortName);
   return (
     <div className={styles.asciiBoard}>
-      <AsciiArt className={styles.asciiLarge} text={asciiMark(context.identity.shortName, context.identity.name)} />
+      <AsciiArt className={styles.asciiLarge} text={asciiBanner(word) || asciiBanner(asciiBannerWord(context.identity.name, context.identity.shortName))} />
       <Edit as='p' className={styles.quiet} context={context} field='body' multiline />
     </div>
   );
 }
 
 function TerminalTheme({ context }: Props) {
-  const { identity, palette } = context;
+  const { palette } = context;
+  const content = contentOf(context);
   const swatches = [['accent', context.settings.accentColor], ['success', palette.secondary], ['warning', palette.highlight], ['comment', mixHexColors(context.settings.foregroundColor, context.settings.backgroundColor, 0.5)]] as const;
   return (
-    <Terminal context={context} title='theme.json'>
-      <p><span className={styles.accentText}>import</span> {'{ createClient }'} <span className={styles.accentText}>from</span> <span className={styles.stringText}>&apos;{identity.id}&apos;</span>;</p>
-      <p className={styles.quiet}>{'// '}{identity.voice.phrases[0] ?? identity.tagline}</p>
-      <p><span className={styles.accentText}>const</span> client = createClient({'{'} brand: <span className={styles.stringText}>&apos;{identity.id}&apos;</span> {'}'});</p>
-      <p><span className={styles.accentText}>await</span> client.<span className={styles.okText}>publish</span>();</p>
-      <Edit as='p' className={styles.terminalHeadline} context={context} field='headline' />
+    <Terminal context={context} title={content.code.label}>
+      <p className={styles.terminalComment}># <Edit context={context} field='headline' /></p>
+      <pre className={styles.codeBlock}>{content.code.snippet}</pre>
       <div className={styles.swatches}>{swatches.map(([name, color]) => <span key={name}><i style={{ background: color }} />{name}<b>{color}</b></span>)}</div>
     </Terminal>
   );
 }
 
 function DocsHeader({ context }: Props) {
-  const { identity } = context;
+  const tabs = ['Get started', ...contentOf(context).products.slice(0, 3).map(({ name }) => name)];
   return (
     <div className={styles.docsHeader}>
       <Pattern context={context} />
       <div className={styles.docsTop}><Logo context={context} kind='wordmark' /><span className={styles.search}><Search aria-hidden='true' />Search documentation<kbd>⌘K</kbd></span></div>
-      <span className={styles.meta}>Docs / Guides / Getting started</span>
       <Edit as='h1' className={styles.headline} context={context} field='headline' />
       <Edit as='p' className={styles.lead} context={context} field='body' multiline />
-      <span className={styles.docsTabs}>{['Guides', 'API reference', 'Examples', identity.products[0] ?? 'Platform'].map((tab, index) => <span data-active={index === 0 || undefined} key={tab}>{tab}</span>)}</span>
+      <span className={styles.docsTabs}>{tabs.map((tab, index) => <span data-active={index === 0 || undefined} key={tab}>{tab}</span>)}</span>
       <Device className={styles.docsArt} context={context} seed={12} />
     </div>
   );
 }
 
 function ReadmeHero({ context }: Props) {
+  const { identity } = context;
+  const content = contentOf(context);
   return (
     <div className={styles.readme}>
       <Device className={styles.fill} context={context} seed={14} />
@@ -678,66 +714,65 @@ function ReadmeHero({ context }: Props) {
         <Edit as='h1' className={styles.headline} context={context} field='headline' multiline />
         <Edit as='p' className={styles.lead} context={context} field='body' multiline />
         <code className={styles.install}>$ <Edit context={context} field='cta' /></code>
-        <span className={styles.badges}><span>build passing</span><span>MIT</span><span>v2.4.0</span></span>
+        <span className={styles.badges}>{[content.packageName, identity.website, identity.socialHandle].filter(Boolean).map((badge) => <span key={badge}>{badge}</span>)}</span>
       </div>
     </div>
   );
 }
 
 function PackageCard({ context }: Props) {
+  const content = contentOf(context);
   return (
     <div className={styles.package}>
-      <div className={styles.packageTop}><Logo context={context} /><Edit as='strong' className={styles.packageName} context={context} field='headline' /><span className={styles.chip}>v2.4.0</span></div>
+      <div className={styles.packageTop}><Logo context={context} /><Edit as='strong' className={styles.packageName} context={context} field='headline' /></div>
       <Edit as='p' className={styles.body} context={context} field='body' multiline />
       <code className={styles.install}>$ <Edit context={context} field='cta' /></code>
-      <span className={styles.packageStats}><span>MIT</span><span>12 kB gzip</span><span>ESM · CJS</span></span>
+      <span className={styles.packageStats}>{[content.proof[0], context.identity.website].filter(Boolean).map((stat) => <span key={stat}>{stat}</span>)}</span>
     </div>
   );
 }
 
 function ApiHero({ context }: Props) {
-  const { identity } = context;
+  const content = contentOf(context);
+  const http = /^(GET|POST|PUT|PATCH|DELETE)\s/.test(content.code.label);
   return (
     <div className={styles.api}>
       <div className={styles.apiText}>
-        <span className={styles.meta}>API reference</span>
         <Edit as='h1' className={styles.headline} context={context} field='headline' />
         <Edit as='p' className={styles.lead} context={context} field='body' multiline />
-        <code className={styles.endpoint}><span className={styles.method}>POST</span> <Edit context={context} field='cta' /></code>
+        <code className={styles.endpoint}><Edit context={context} field='cta' /></code>
       </div>
       <div className={styles.apiCode}>
-        <span className={styles.meta}>Request</span>
-        <pre>{`curl https://api.${identity.website}/v1/artifacts \\\n  -H "Authorization: Bearer $TOKEN" \\\n  -d brand=${identity.id}`}</pre>
-        <span className={styles.meta}>Response · 201</span>
-        <pre>{`{\n  "id": "art_4kP2",\n  "brand": "${identity.id}",\n  "status": "ready"\n}`}</pre>
+        <span className={styles.meta}>{http ? 'Request' : content.code.label}</span>
+        <pre>{content.code.snippet}</pre>
+        {content.install && content.install !== content.code.snippet.split('\n')[0] ? <><span className={styles.meta}>Install</span><pre>{content.install}</pre></> : null}
       </div>
     </div>
   );
 }
 
 function CodePlayground({ context }: Props) {
-  const { identity } = context;
+  const lines = contentOf(context).code.snippet.split('\n');
   return (
     <div className={styles.playground}>
       <div className={styles.playgroundBar}><Edit as='strong' context={context} field='headline' /><span className={styles.chip}>Run ▸</span></div>
       <div className={styles.playgroundPanes}>
-        <pre className={styles.playgroundEditor}><span className={styles.quiet}>1</span>  <Edit context={context} field='cta' />{`\n`}<span className={styles.quiet}>2</span>{`\n`}<span className={styles.quiet}>3</span>  {`const result = await create({ brand: '${identity.id}' });`}{`\n`}<span className={styles.quiet}>4</span>  {'console.log(result.status);'}</pre>
-        <div className={styles.playgroundOutput}><span className={styles.meta}>Output</span><p className={styles.ok}>✓ ready</p><Edit as='p' className={styles.quiet} context={context} field='body' multiline /></div>
+        <pre className={styles.playgroundEditor}>{lines.map((line, index) => <span key={index}><span className={styles.quiet}>{String(index + 1).padStart(2, ' ')}</span>  {line}{'\n'}</span>)}</pre>
+        <div className={styles.playgroundOutput}><span className={styles.meta}>Install</span><p className={styles.ok}>$ <Edit context={context} field='cta' /></p><Edit as='p' className={styles.quiet} context={context} field='body' multiline /></div>
       </div>
     </div>
   );
 }
 
 function ReleaseNotes({ context }: Props) {
-  const { identity } = context;
-  const changes = [identity.strategy.pillars[0], identity.strategy.pillars[1], identity.proof[0]].filter(Boolean);
+  const { items } = contentOf(context).release;
   return (
     <div className={styles.release}>
       <Pattern context={context} />
-      <div className={styles.releaseTop}><Logo context={context} kind='wordmark' /><span className={styles.chip}>v2.4.0</span><span className={styles.meta}>Changelog</span></div>
+      <div className={styles.releaseTop}><Logo context={context} kind='wordmark' /></div>
       <Edit as='h1' className={styles.headline} context={context} field='headline' multiline />
       <Edit as='p' className={styles.lead} context={context} field='body' multiline />
-      <ul className={styles.changes}>{changes.map((change) => <li key={change}><Check aria-hidden='true' />{change}</li>)}</ul>
+      <ul className={styles.changes}>{items.map((change) => <li key={change}><Check aria-hidden='true' />{change}</li>)}</ul>
       <Button context={context} />
     </div>
   );
@@ -778,17 +813,24 @@ function listFromBody(value: string): string[] {
 }
 
 function NavigationBar({ context }: Props) {
+  const content = contentOf(context);
   return (
-    <AppFrame context={context}>
+    <AppFrame className={styles.navStage} context={context}>
       <nav className={styles.navBar}>
-        <span className={styles.navBrand}><Logo context={context} /><Edit as='strong' context={context} field='headline' /></span>
+        <span className={styles.navBrand}><Logo context={context} kind='wordmark' /></span>
         <span className={styles.navLinks}>{listFromBody(context.settings.body).map((item, index) => <span data-active={index === 0 || undefined} key={item}>{item}</span>)}</span>
         <span className={styles.navActions}><span className={styles.quiet}>Sign in</span><Button context={context} /></span>
       </nav>
-      <div className={styles.navContext}>
-        <span className={styles.meta}>{context.identity.website}</span>
-        <h2 className={styles.headlineSmall}>{context.identity.tagline}</h2>
-        <Device className={styles.navContextArt} context={context} seed={2} />
+      <div className={styles.navMenu}>
+        <div className={styles.navMenuList}>
+          {content.products.slice(0, 4).map((product, index) => (
+            <span data-active={index === 0 || undefined} key={product.name}><strong>{product.name}</strong><small>{product.summary}</small></span>
+          ))}
+        </div>
+        <div className={styles.navMenuFeature}>
+          <Device className={styles.fill} context={context} seed={2} />
+          <span className={styles.navMenuCaption}><Edit as='strong' context={context} field='headline' /><span className={styles.quiet}>{context.identity.website}</span></span>
+        </div>
       </div>
     </AppFrame>
   );
@@ -797,9 +839,8 @@ function NavigationBar({ context }: Props) {
 function HeroSection({ context }: Props) {
   return (
     <div className={styles.hero}>
-      <nav className={styles.navBar}><span className={styles.navBrand}><Logo context={context} kind='wordmark' /></span><span className={styles.navLinks}>{context.identity.products.slice(0, 4).map((item) => <span key={item}>{item}</span>)}</span><span className={styles.quiet}>Sign in</span></nav>
+      <nav className={styles.navBar}><span className={styles.navBrand}><Logo context={context} kind='wordmark' /></span><span className={styles.navLinks}>{contentOf(context).products.slice(0, 4).map(({ name }) => <span key={name}>{name}</span>)}</span><span className={styles.quiet}>Sign in</span></nav>
       <Composition context={context}>
-        <span className={styles.chip}>{context.identity.products[0] ?? context.identity.name}</span>
         <Edit as='h1' className={styles.headline} context={context} field='headline' multiline />
         <Edit as='p' className={styles.lead} context={context} field='body' multiline />
         <span className={styles.buttonRow}><Button context={context} /><span className={styles.ghostButton}>Talk to sales</span></span>
@@ -811,7 +852,7 @@ function HeroSection({ context }: Props) {
 const FEATURE_ICONS = [Layers3, Sparkles, ChartLineUp, Settings];
 
 function FeatureGrid({ context }: Props) {
-  const { identity } = context;
+  const products = contentOf(context).products.slice(0, 3);
   return (
     <AppFrame className={styles.features} context={context}>
       <div className={styles.featuresHead}>
@@ -819,13 +860,13 @@ function FeatureGrid({ context }: Props) {
         <Edit as='p' className={styles.lead} context={context} field='body' multiline />
       </div>
       <div className={styles.featureCards}>
-        {identity.strategy.pillars.slice(0, 3).map((pillar, index) => {
+        {products.map((product, index) => {
           const Icon = FEATURE_ICONS[index % FEATURE_ICONS.length]!;
           return (
-            <article key={pillar}>
+            <article key={product.name}>
               <span className={styles.featureIcon}><Icon aria-hidden='true' /></span>
-              <strong>{pillar}</strong>
-              <p>{identity.values[index] ?? identity.positioning}</p>
+              <strong>{product.name}</strong>
+              <p>{product.summary || context.identity.positioning}</p>
             </article>
           );
         })}
@@ -835,17 +876,17 @@ function FeatureGrid({ context }: Props) {
 }
 
 function PricingCard({ context }: Props) {
-  const tiers = [['Starter', '$0', ['Up to 3 projects', 'Community support']], ['Pro', '$49', ['Unlimited projects', 'High-resolution exports', 'Shared brand settings']], ['Enterprise', 'Custom', ['SSO and audit logs', 'Dedicated support']]] as const;
+  const plans = contentOf(context).plans.slice(0, 3);
+  const featured = featuredPlanIndex(plans);
   return (
-    <AppFrame className={styles.pricing} context={context}>
-      {tiers.map(([name, price, features], index) => (
-        <article data-featured={index === 1 || undefined} key={name}>
-          <span className={styles.meta}>{name}</span>
-          {index === 1 ? <Edit as='h2' className={styles.priceTitle} context={context} field='headline' /> : <h2 className={styles.priceTitle}>{name === 'Starter' ? 'Start for free.' : 'Built for scale.'}</h2>}
-          <strong className={styles.price}>{price}<small>{price.startsWith('$') ? ' / month' : ''}</small></strong>
-          {index === 1 ? <Edit as='p' className={styles.body} context={context} field='body' multiline /> : null}
-          <ul>{features.map((feature) => <li key={feature}><Check aria-hidden='true' />{feature}</li>)}</ul>
-          {index === 1 ? <Button context={context} /> : <span className={styles.ghostButton}>Choose {name}</span>}
+    <AppFrame className={styles.pricing} context={context} >
+      {plans.map((plan, index) => (
+        <article data-featured={index === featured || undefined} key={plan.name}>
+          {index === featured ? <Edit as='h2' className={styles.priceTitle} context={context} field='headline' /> : <h2 className={styles.priceTitle}>{plan.name}</h2>}
+          <strong className={styles.price} data-long={plan.price.length > 12 || undefined}>{plan.price}</strong>
+          {index === featured && context.settings.body ? <Edit as='p' className={styles.body} context={context} field='body' multiline /> : null}
+          <ul>{plan.features.map((feature) => <li key={feature}><Check aria-hidden='true' />{feature}</li>)}</ul>
+          {index === featured ? <Button context={context} /> : <span className={styles.ghostButton}>{/contact|custom/i.test(plan.price) ? 'Contact sales' : `Choose ${plan.name}`}</span>}
         </article>
       ))}
     </AppFrame>
@@ -853,13 +894,13 @@ function PricingCard({ context }: Props) {
 }
 
 function TestimonialCard({ context }: Props) {
-  const { identity } = context;
+  const { story, customers } = contentOf(context);
+  const others = customers.filter((name) => name !== story?.customer).slice(0, 4);
   return (
     <AppFrame className={styles.testimonial} context={context}>
-      <span aria-hidden='true' className={styles.quoteMark}>“</span>
       <Edit as='h1' className={styles.quote} context={context} field='headline' multiline />
-      <Edit as='p' className={styles.lead} context={context} field='body' multiline />
-      <span className={styles.person}><span className={styles.avatar}>AM</span><span><strong>Alex Morgan</strong><span className={styles.quiet}>Head of Design, {identity.proof[0] && !/\d/.test(identity.proof[0]) ? identity.proof[0] : 'Northwind'}</span></span><Logo className={styles.personLogo} context={context} kind='wordmark' /></span>
+      <span className={styles.person}><span className={styles.avatar}>{(story?.customer ?? context.identity.shortName).slice(0, 2)}</span><Edit as='span' className={styles.quiet} context={context} field='body' /><Logo className={styles.personLogo} context={context} kind='wordmark' /></span>
+      {others.length ? <span className={styles.customerRow}><span className={styles.quiet}>Also with {context.identity.name}</span>{others.map((name) => <strong key={name}>{name}</strong>)}</span> : null}
     </AppFrame>
   );
 }
@@ -881,13 +922,12 @@ function FormControls({ context }: Props) {
 }
 
 function CommandMenu({ context }: Props) {
-  const items = ['Open brand settings', 'Create a design board', 'Export current canvas', 'Invite a collaborator'];
+  const items = contentOf(context).actions.slice(0, 4);
   return (
     <AppFrame className={styles.overlayStage} context={context}>
       <div className={styles.command}>
         <div className={styles.commandInput}><Search aria-hidden='true' /><Edit context={context} field='headline' /><kbd>esc</kbd></div>
-        <span className={styles.meta}>Suggestions</span>
-        {items.map((item, index) => <div className={styles.commandItem} data-active={index === 0 || undefined} key={item}><Command aria-hidden='true' />{item}<kbd>↵</kbd></div>)}
+        {items.map((item, index) => <div className={styles.commandItem} data-active={index === 0 || undefined} key={item}><Command aria-hidden='true' />{capitalize(item)}<kbd>↵</kbd></div>)}
         <Edit as='p' className={styles.commandHint} context={context} field='body' />
       </div>
     </AppFrame>
@@ -909,7 +949,8 @@ function ModalDialog({ context }: Props) {
 
 function ToastStack({ context }: Props) {
   const { palette } = context;
-  const states = [['Saving changes…', palette.progress], ['Export ready to download', palette.highlight]] as const;
+  const actions = contentOf(context).actions;
+  const states = [[`${capitalize(actions[1] ?? actions[0] ?? 'Saving')}…`, palette.progress], [`${capitalize(actions[2] ?? actions[0] ?? 'Update')} needs review`, palette.highlight]] as const;
   return (
     <AppFrame className={styles.toasts} context={context}>
       <div className={styles.toast} data-primary><span className={styles.toastDot} style={{ background: context.settings.accentColor }} /><span><Edit as='strong' context={context} field='headline' /><Edit as='p' className={styles.quiet} context={context} field='body' multiline /></span></div>
@@ -919,17 +960,21 @@ function ToastStack({ context }: Props) {
 }
 
 function DataTable({ context }: Props) {
-  const rows = [['Product launch', 'Ready', 'Alex Morgan', 'Today'], ['Documentation', 'In review', 'Sam Rivera', 'Yesterday'], ['Email program', 'Ready', 'Jordan Lee', 'Mon'], ['Design board', 'Draft', 'Alex Morgan', 'Oct 2'], ['Release notes', 'Ready', 'Priya Shah', 'Sep 28']];
+  const content = contentOf(context);
+  const owners = [content.person.name, 'Platform team', 'Design', 'Support', 'Growth'];
+  const statuses = ['Live', 'Live', 'In review', 'Live', 'Draft', 'Live'];
+  const updated = ['Today', 'Yesterday', 'Mon', 'Oct 2', 'Sep 28', 'Sep 21'];
+  const rows = content.products.slice(0, 6).map((product, index) => [product.name, statuses[index]!, owners[index % owners.length]!, updated[index]!] as const);
   return (
     <AppFrame className={styles.table} context={context}>
       <div className={styles.tableHead}><span><Edit as='h1' className={styles.headlineSmall} context={context} field='headline' /><Edit as='p' className={styles.quiet} context={context} field='body' /></span><Button context={context} /></div>
       <div className={styles.tableGrid}>
-        {['Project', 'Status', 'Owner', 'Updated'].map((heading) => <span className={styles.meta} key={heading}>{heading}</span>)}
-        {rows.flatMap(([project, status, owner, updated]) => [
-          <strong key={`${project}-p`}>{project}</strong>,
-          <span className={styles.status} data-status={status} key={`${project}-s`}><i />{status}</span>,
-          <span key={`${project}-o`}>{owner}</span>,
-          <span className={styles.quiet} key={`${project}-u`}>{updated}</span>,
+        {['Product', 'Status', 'Owner', 'Updated'].map((heading) => <span className={styles.meta} key={heading}>{heading}</span>)}
+        {rows.flatMap(([product, status, owner, date]) => [
+          <strong key={`${product}-p`}>{product}</strong>,
+          <span className={styles.status} data-status={status === 'Live' ? 'Ready' : status} key={`${product}-s`}><i />{status}</span>,
+          <span key={`${product}-o`}>{owner}</span>,
+          <span className={styles.quiet} key={`${product}-u`}>{date}</span>,
         ])}
       </div>
     </AppFrame>
@@ -942,8 +987,8 @@ function DashboardWidget({ context }: Props) {
   return (
     <AppFrame className={styles.widgetStage} context={context}>
       <div className={styles.widget}>
-        <span className={styles.meta}>Monthly active brands</span>
-        <span className={styles.metric}><Edit as='strong' context={context} field='headline' /><span className={styles.delta}>+18.4%</span></span>
+        <span className={styles.metric}><Edit as='strong' context={context} field='headline' /></span>
+        <span className={styles.metricLabel}>{contentOf(context).metric.label}</span>
         <Edit as='p' className={styles.quiet} context={context} field='body' />
         <svg aria-hidden='true' className={styles.chart} preserveAspectRatio='none' viewBox='0 0 100 100'><path d={`${path}L100 100L0 100Z`} fill='var(--el-accent)' fillOpacity='0.14' /><path d={path} fill='none' stroke='var(--el-accent)' strokeWidth='2' vectorEffect='non-scaling-stroke' /></svg>
       </div>
@@ -965,14 +1010,14 @@ function EmptyState({ context }: Props) {
 }
 
 function CheckoutCard({ context }: Props) {
+  const plan = contentOf(context).plans[featuredPlanIndex(contentOf(context).plans)];
   return (
     <AppFrame className={styles.overlayStage} context={context}>
       <div className={styles.checkout}>
-        <span className={styles.meta}>Order summary</span>
         <Edit as='p' className={styles.body} context={context} field='body' />
         <dl>
-          <div><dt>Studio Pro × 1</dt><dd>$588.00</dd></div>
-          <div><dt>Tax</dt><dd>$0.00</dd></div>
+          <div><dt>{plan?.name ?? context.identity.name}</dt><dd>{plan?.price ?? ''}</dd></div>
+          {plan?.features.slice(1, 3).map((feature) => <div key={feature}><dt className={styles.quiet}>{feature}</dt><dd className={styles.quiet}>Included</dd></div>)}
           <div data-total><dt>Total</dt><dd><Edit context={context} field='headline' /></dd></div>
         </dl>
         <span className={styles.input}><CreditCard aria-hidden='true' />•••• 4242</span>
@@ -1002,11 +1047,15 @@ function SettingsPanel({ context }: Props) {
 function AuthScreen({ context }: Props) {
   return (
     <AppFrame className={styles.auth} context={context}>
-      <div className={styles.authArt}><Device context={context} dark seed={24} /><Logo className={styles.authMark} context={context} kind='wordmark' onDark /><p>{context.identity.tagline}</p></div>
+      <div className={styles.authArt}>
+        <Device context={context} dark seed={24} />
+        <Logo className={styles.authMark} context={context} kind='wordmark' onDark />
+        <span className={styles.authCaption}>{context.identity.tagline}</span>
+      </div>
       <div className={styles.authForm}>
         <Edit as='h1' className={styles.headlineSmall} context={context} field='headline' />
         <Edit as='p' className={styles.quiet} context={context} field='body' />
-        <label className={styles.field}><span>Email</span><span className={styles.input}>{context.identity.contactEmail}</span></label>
+        <label className={styles.field}><span>Email</span><span className={styles.input}>{firstName(contentOf(context).person.name).toLocaleLowerCase()}@{context.identity.website || 'example.com'}</span></label>
         <label className={styles.field}><span>Password</span><span className={styles.input}>••••••••••</span></label>
         <Button className={styles.wide} context={context} />
         <span className={styles.divider}>or</span>
@@ -1018,6 +1067,7 @@ function AuthScreen({ context }: Props) {
 
 function SidebarNavigation({ context }: Props) {
   const icons = [Layers3, Folder, FileText, Settings];
+  const content = contentOf(context);
   return (
     <AppFrame className={styles.shell} context={context}>
       <aside>
@@ -1027,11 +1077,11 @@ function SidebarNavigation({ context }: Props) {
           const Icon = icons[index % icons.length]!;
           return <span className={styles.sideItem} data-active={index === 0 || undefined} key={item}><Icon aria-hidden='true' />{item}</span>;
         })}
-        <span className={styles.sideFoot}><span className={styles.avatar}>AM</span>Alex Morgan</span>
+        <span className={styles.sideFoot}><span className={styles.avatar}>{content.person.initials}</span>{content.person.name}</span>
       </aside>
       <div className={styles.shellMain}>
         <Edit as='h1' className={styles.headlineSmall} context={context} field='headline' />
-        <div className={styles.shellCards}>{context.identity.values.slice(0, 3).map((value, index) => <article key={value}><span className={styles.meta}>0{index + 1}</span><strong>{value}</strong></article>)}</div>
+        <div className={styles.shellCards}>{content.products.slice(0, 3).map((product) => <article key={product.name}><strong>{product.name}</strong><p className={styles.quiet}>{product.summary}</p></article>)}</div>
         <Device className={styles.shellArt} context={context} seed={26} />
       </div>
     </AppFrame>
@@ -1039,13 +1089,13 @@ function SidebarNavigation({ context }: Props) {
 }
 
 function SearchSurface({ context }: Props) {
-  const results = [['Brand settings', 'Identity'], ['Launch moodboard', 'Moodboard'], ['Welcome email', 'Brand elements'], ['Q4 brand book', 'Brand book']];
+  const results = contentOf(context).products.slice(0, 4);
   return (
     <AppFrame className={styles.overlayStage} context={context}>
       <div className={styles.command}>
         <div className={styles.commandInput}><Search aria-hidden='true' /><Edit context={context} field='headline' /><kbd>⌘K</kbd></div>
-        <span className={styles.filters}>{['All', 'Projects', 'Assets', 'People'].map((filter, index) => <span data-active={index === 0 || undefined} key={filter}>{filter}</span>)}</span>
-        {results.map(([title, kind], index) => <div className={styles.commandItem} data-active={index === 0 || undefined} key={title}><FileText aria-hidden='true' /><span>{title}<small className={styles.quiet}> · {kind}</small></span><kbd>↵</kbd></div>)}
+        <span className={styles.filters}>{['All', 'Products', 'Docs', 'Activity'].map((filter, index) => <span data-active={index === 0 || undefined} key={filter}>{filter}</span>)}</span>
+        {results.map((result, index) => <div className={styles.commandItem} data-active={index === 0 || undefined} key={result.name}><FileText aria-hidden='true' /><span>{result.name}<small className={styles.quiet}> · {result.summary || 'Product'}</small></span><kbd>↵</kbd></div>)}
         <Edit as='p' className={styles.commandHint} context={context} field='body' />
       </div>
     </AppFrame>
@@ -1135,42 +1185,91 @@ function ComponentPreview({ context }: Props) {
 
 function EditorialCover({ context }: Props) {
   const { element, identity } = context;
-  const portrait = ['report-cover', 'whitepaper-cover', 'notebook-cover'].includes(element.id);
-  const kicker: Record<string, string> = {
-    'blog-cover': 'Engineering blog',
-    'case-study-cover': 'Customer story',
-    'press-kit': 'Press and media',
-    'report-cover': `${identity.name} report · ${new Date().getFullYear()}`,
-    'slide-section': 'Section 02',
-    'slide-title': `${identity.name} · Keynote`,
+  if (element.id === 'press-kit') return <PressKit context={context} />;
+  if (element.id === 'notebook-cover') return <NotebookCover context={context} />;
+  const portrait = ['report-cover', 'whitepaper-cover'].includes(element.id);
+  const content = contentOf(context);
+  // Context that used to sit above the headline now closes the page.
+  const footnote: Record<string, string> = {
+    'blog-cover': `${identity.name} blog`,
+    'case-study-cover': content.story ? `Customer story · ${content.story.customer}` : 'Customer story',
+    'report-cover': `${identity.name} report`,
+    'slide-section': '02',
+    'slide-title': `${content.event.name} · ${content.event.date}`,
     'whitepaper-cover': 'Field guide',
   };
   return (
     <div className={styles.editorial} data-layout={context.settings.layout} data-portrait={portrait || undefined}>
       <Pattern context={context} />
       <Device className={styles.editorialArt} context={context} seed={element.id.length} />
-      <div className={styles.editorialTop}><Logo context={context} kind='wordmark' /><span className={styles.meta}>{kicker[element.id] ?? identity.name}</span></div>
+      <div className={styles.editorialTop}><Logo context={context} kind='wordmark' /></div>
       <div className={styles.editorialText}>
         <Edit as='h1' className={styles.headline} context={context} field='headline' multiline />
         {context.settings.body ? <Edit as='p' className={styles.lead} context={context} field='body' multiline /> : null}
       </div>
-      <div className={styles.footerRow}><Website context={context} /><span className={styles.meta}>{element.id === 'press-kit' ? 'Logos · Images · Language · Contacts' : identity.shortName}</span></div>
+      <div className={styles.footerRow}><Website context={context} /><span className={styles.meta}>{footnote[element.id] ?? identity.socialHandle}</span></div>
+    </div>
+  );
+}
+
+function PressKit({ context }: Props) {
+  const { identity, palette } = context;
+  const content = contentOf(context);
+  const facts = [...content.proof.slice(0, 3), ...(content.customers.length ? [`Customers include ${content.customers.slice(0, 4).join(', ')}`] : [])];
+  const swatches = [palette.ink, palette.paper, palette.accent, palette.deep];
+  return (
+    <div className={styles.pressKit}>
+      <div className={styles.pressHead}>
+        <Logo context={context} kind='wordmark' />
+      </div>
+      <div className={styles.pressMain}>
+        <div className={styles.pressIntro}>
+          <Edit as='h1' className={styles.headline} context={context} field='headline' multiline />
+          <p className={styles.lead}>{identity.positioning}</p>
+          <Edit as='p' className={styles.quiet} context={context} field='body' multiline />
+        </div>
+        <ul className={styles.pressFacts}>
+          {facts.map((fact) => <li key={fact}>{fact}</li>)}
+        </ul>
+      </div>
+      <div className={styles.pressAssets}>
+        <span className={styles.pressTile} data-tone='light'><Logo context={context} kind='wordmark' onDark={false} /><small>Logo · light</small></span>
+        <span className={styles.pressTile} data-tone='dark' style={{ background: palette.deep }}><Logo context={context} kind='wordmark' onDark /><small>Logo · dark</small></span>
+        <span className={styles.pressTile} data-tone='art'><Device className={styles.fill} context={context} dark seed={17} /><small>Brand field</small></span>
+        <span className={styles.pressTile} data-tone='light'>{swatches.map((color) => <i className={styles.pressSwatch} key={color} style={{ background: color }} />)}<small>Colour</small></span>
+      </div>
+      <div className={styles.footerRow}><span className={styles.meta}>{identity.contactEmail}</span><Website context={context} /></div>
+    </div>
+  );
+}
+
+function NotebookCover({ context }: Props) {
+  const { identity } = context;
+  return (
+    <div className={styles.notebook}>
+      <Device className={styles.fill} context={context} dark seed={9} />
+      <span className={styles.notebookBand}><Logo context={context} kind='mark' onDark /></span>
+      <div className={styles.notebookText}>
+        <Edit as='h1' className={styles.notebookTitle} context={context} field='headline' />
+        <Edit as='p' className={styles.notebookLine} context={context} field='body' multiline />
+      </div>
+      <span className={styles.notebookFoot}><span>{identity.website}</span><span>No. 01</span></span>
     </div>
   );
 }
 
 function Badge({ context, lanyard }: Props & { lanyard: boolean }) {
-  const { identity, settings } = context;
+  const { settings } = context;
+  const { event } = contentOf(context);
   return (
     <div className={styles.badgeStage}>
       {lanyard ? <span className={styles.strap}><span>{Array.from({ length: 6 }, (_, index) => <Logo context={context} key={index} onDark={isDarkColor(settings.accentColor)} />)}</span></span> : null}
       <div className={styles.badgeCard}>
         <span className={styles.badgeBand}><Device context={context} dark seed={21} /><Logo className={styles.badgeMark} context={context} kind='wordmark' onDark /></span>
         <div className={styles.badgeBody}>
-          <span className={styles.meta}>{identity.name} Summit</span>
           <Edit as='h1' className={styles.badgeName} context={context} field='personName' />
           <Edit as='p' className={styles.quiet} context={context} field='personRole' />
-          <span className={styles.badgeFoot}><span className={styles.chip}>Speaker</span><span aria-hidden='true' className={styles.qr}>{Array.from({ length: 49 }, (_, index) => <i data-on={(index * 7 + index % 3) % 5 < 2 || undefined} key={index} />)}</span></span>
+          <span className={styles.badgeFoot}><span className={styles.badgeEvent}><strong>{event.name}</strong><span className={styles.quiet}>{event.date} · {event.location}</span></span><span aria-hidden='true' className={styles.qr}>{Array.from({ length: 49 }, (_, index) => <i data-on={(index * 7 + index % 3) % 5 < 2 || undefined} key={index} />)}</span></span>
         </div>
       </div>
     </div>
@@ -1179,26 +1278,28 @@ function Badge({ context, lanyard }: Props & { lanyard: boolean }) {
 
 function Backdrop({ context }: Props) {
   const wall = context.element.id === 'booth-wall';
+  const { event } = contentOf(context);
   return (
     <div className={styles.backdrop} data-wall={wall || undefined}>
       <Device className={styles.fill} context={context} seed={31} />
       <div className={styles.backdropText} style={artworkStyle(context.settings)}>
         <Logo context={context} kind='wordmark' />
         <Edit as='h1' className={styles.headline} context={context} field='headline' multiline />
-        <Website context={context} />
+        <Edit as='p' className={styles.backdropLine} context={context} field='body' />
       </div>
-      {wall ? <span className={styles.counter}><Logo context={context} kind='wordmark' onDark={isDarkColor(context.settings.foregroundColor)} /></span> : null}
+      {wall ? <span className={styles.counter}><span className={styles.counterTop}><Logo context={context} kind='wordmark' onDark={isDarkColor(context.palette.ink)} /></span><span className={styles.meta}>{event.name}</span></span> : null}
     </div>
   );
 }
 
 function PartnershipLockup({ context }: Props) {
   return (
-    <div className={styles.lockup}>
+    <div className={styles.lockup} data-placeholder={context.settings.partnerName.trim() === 'Partner' || undefined}>
       <Pattern context={context} />
       <span className={styles.lockupMarks} style={artworkStyle(context.settings)}>
         <Logo context={context} kind='wordmark' />
         <span aria-hidden='true' className={styles.lockupX}>×</span>
+        {/* With no customer to pair, the partner is a marked slot rather than a fake brand. */}
         <Edit as='strong' className={styles.partner} context={context} field='partnerName' />
       </span>
       <span className={styles.meta}>Partnership lockup · equal height · shared clear space</span>
@@ -1247,29 +1348,40 @@ function StickerSheet({ context }: Props) {
 
 function PackagingLabel({ context }: Props) {
   const { identity } = context;
+  const { person, event } = contentOf(context);
   return (
     <div className={styles.label}>
-      <div className={styles.labelTop}><Logo context={context} kind='wordmark' /><span className={styles.meta}>Ship to</span></div>
+      <div className={styles.labelTop}><Logo context={context} kind='wordmark' /></div>
+      <div className={styles.labelAddress}>
+        <strong>{person.name}</strong>
+        <span>{person.role}</span>
+        <span>{event.location}</span>
+      </div>
       <Device className={styles.labelArt} context={context} seed={43} />
       <Edit as='h1' className={styles.headline} context={context} field='headline' multiline />
       <Edit as='p' className={styles.body} context={context} field='body' multiline />
       <span aria-hidden='true' className={styles.barcode}>{Array.from({ length: 44 }, (_, index) => <i key={index} style={{ width: `${(index * 13) % 4 + 1}px` }} />)}</span>
-      <span className={styles.footerRow}><Website context={context} /><span className={styles.meta}>{identity.shortName}-0042</span></span>
+      <span className={styles.footerRow}><Website context={context} /><span className={styles.meta}>{identity.shortName.toLocaleUpperCase()}-0042</span></span>
     </div>
   );
 }
 
 function Letterhead({ context }: Props) {
-  const { identity } = context;
+  const { identity, settings } = context;
+  const content = contentOf(context);
   return (
     <div className={styles.letterhead}>
-      <div className={styles.letterTop}><Logo context={context} kind='wordmark' /><span className={styles.meta}>{identity.website}<br />{identity.contactEmail}</span></div>
-      <span className={styles.meta}>14 October {new Date().getFullYear()}</span>
+      <div className={styles.letterTop}><Logo context={context} kind='wordmark' /><span className={styles.meta}>{identity.website}<br />{identity.contactEmail}<br />{identity.socialHandle}</span></div>
+      <div className={styles.letterMeta}>
+        <span className={styles.quiet}>14 October {new Date().getFullYear()}</span>
+        <span>{content.customers[0] ? `The ${content.customers[0]} team` : 'Dear reader'}</span>
+      </div>
       <Edit as='h1' className={styles.headlineSmall} context={context} field='headline' />
       <Edit as='p' className={styles.body} context={context} field='body' multiline />
       <p className={styles.body}>{identity.mission}</p>
-      <p className={styles.body}>With thanks,<br />Alex Morgan</p>
-      <span className={styles.letterFoot}>{identity.name} · {identity.website}</span>
+      {content.products.length ? <ul className={styles.letterList}>{content.products.slice(0, 3).map((product) => <li key={product.name}><strong>{product.name}.</strong> {product.summary}</li>)}</ul> : null}
+      <p className={styles.body}>With thanks,<br /><strong>{settings.personName}</strong><br /><span className={styles.quiet}>{settings.personRole}</span></p>
+      <span className={styles.letterFoot}><span>{identity.name}</span><span>{identity.website}</span><span>{identity.contactEmail}</span></span>
     </div>
   );
 }

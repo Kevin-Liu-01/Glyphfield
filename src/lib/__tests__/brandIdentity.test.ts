@@ -47,7 +47,9 @@ describe('GT_BRAND_IDENTITY', () => {
       expect.arrayContaining(['mark-dark', 'mark-light', 'identity-field'])
     );
     expect(GT_BRAND_IDENTITY.assets.map(({ id }) => id)).not.toContain('locadex');
-    expect(GT_BRAND_IDENTITY.assets.map(({ id }) => id)).not.toContain('wordmark');
+    // The stacked GT wordmark fills wordmark slots instead of falling back to the mark.
+    expect(GT_BRAND_IDENTITY.assets.find(({ id }) => id === 'wordmark')?.path).toBe('/brands/gt/logos/wordmark-black.svg');
+    expect(GT_BRAND_IDENTITY.assets.find(({ id }) => id === 'wordmark-light')?.path).toBe('/brands/gt/logos/wordmark-white.svg');
     expect(GT_BRAND_IDENTITY.colors.map(({ id }) => id)).toEqual(
       expect.arrayContaining(['ink', 'paper', 'emphasis', 'success', 'warning', 'error'])
     );
@@ -56,12 +58,13 @@ describe('GT_BRAND_IDENTITY', () => {
     );
     expect(GT_BRAND_IDENTITY.motion).toHaveLength(4);
     expect(GT_BRAND_IDENTITY.products).toEqual(
-      expect.arrayContaining(['Internationalization', 'Translation', 'Locadex'])
+      expect.arrayContaining(['Internationalization', 'Translation review', 'Locadex'])
     );
-    expect(GT_BRAND_IDENTITY.proof).toEqual(
+    expect(GT_BRAND_IDENTITY.customers).toEqual(
       expect.arrayContaining(['Cursor', 'Ramp', 'Mintlify', 'ClickHouse'])
     );
-    expect(GT_BRAND_IDENTITY.strategy.concept).toContain('quiet monochrome field');
+    expect(GT_BRAND_IDENTITY.proof).not.toContain('Cursor');
+    expect(GT_BRAND_IDENTITY.strategy.concept).toContain('One source, every language');
     expect(GT_BRAND_IDENTITY.graphicSystem.device).toBe('The monochrome light field');
     expect(GT_BRAND_IDENTITY.applications.length).toBeGreaterThanOrEqual(8);
     expect(brandTypographyRole({
@@ -188,7 +191,7 @@ describe('BUILT_IN_BRAND_IDENTITIES', () => {
     }
   });
 
-  it('renders Ramp exclusively with its registered Lausanne family', () => {
+  it('renders Ramp with its site faces: Lausanne and IBM Plex Mono for code', () => {
     const ramp = BUILT_IN_BRAND_IDENTITIES.find(({ id }) => id === 'ramp')!;
     const fontIds = new Set(brandFontAssets(ramp).map(({ id }) => id));
 
@@ -197,11 +200,12 @@ describe('BUILT_IN_BRAND_IDENTITIES', () => {
       'Lausanne',
       'Lausanne',
       'Lausanne',
+      'IBM Plex Mono',
     ]);
     expect(ramp.typography.every(({ fontId }) => fontId && fontIds.has(fontId))).toBe(true);
     expect(['Display', 'Body', 'Accent', 'Code'].map((role) => (
       brandTypographyFamily(ramp, role as 'Display' | 'Body' | 'Accent' | 'Code')
-    ))).toEqual(['Lausanne', 'Lausanne', 'Lausanne', 'Lausanne']);
+    ))).toEqual(['Lausanne', 'Lausanne', 'Lausanne', 'IBM Plex Mono']);
 
     expect(brandFontFaceCss(ramp)).toContain(
       '@font-face{font-family:"Lausanne";src:url("/fonts/brands/ramp/lausanne-400.woff2") format("woff2");font-style:normal;font-weight:400;font-display:swap;}'
@@ -238,9 +242,8 @@ describe('createBrandIdentity', () => {
     expect(identity.colors).not.toBe(GT_BRAND_IDENTITY.colors);
     expect(identity.assets).not.toBe(GT_BRAND_IDENTITY.assets);
     expect(identity.fonts).not.toBe(GT_BRAND_IDENTITY.fonts);
+    // Only the faces the starting typography renders; no unused template fonts.
     expect(identity.fonts?.map(({ path }) => path)).toEqual([
-      '/fonts/switzer-400.ttf',
-      '/fonts/switzer-500.ttf',
       '/fonts/inter-variable.ttf',
       '/fonts/geist-mono-variable.ttf',
     ]);

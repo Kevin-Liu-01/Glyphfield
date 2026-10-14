@@ -9,9 +9,12 @@ const MARK = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path 
 test('an agent sets up a new brand through the Brand identity Browser API', async ({ page }) => {
   await page.goto('/studio?tool=identity&project=starter');
   await waitForStudioSource(page);
-  await page.getByRole('button', { name: 'Add brand project', exact: true }).click();
-  await page.getByRole('menu', { name: 'New project', exact: true }).getByRole('menuitem', { name: /^Brand identity / }).click();
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.glyphfield!.studio.readSource()).kind)).toBe('custom');
+  // The agent creates the project itself instead of clicking Add brand project.
+  const created = await page.evaluate(async () => window.glyphfield!.studio.invoke('identity.project.create', { from: 'scratch' }) as Promise<{ id: string; kind: string; url: string }>);
+  expect(created).toMatchObject({ kind: 'custom' });
+  expect(created.url).toContain(`project=${created.id}`);
+  const active = await page.evaluate(() => JSON.parse(window.glyphfield!.studio.readSource()) as { id: string; kind: string });
+  expect(active).toMatchObject({ id: created.id, kind: 'custom' });
 
   const prompt = await page.evaluate(async () => window.glyphfield!.studio.invoke('identity.setup.prompt') as Promise<{ mode: string; prompt: string }>);
   expect(prompt.mode).toBe('new');
@@ -63,4 +66,22 @@ test('an agent sets up a new brand through the Brand identity Browser API', asyn
   const persisted = await page.evaluate(() => JSON.parse(window.glyphfield!.studio.readSource()));
   expect(persisted).toMatchObject({ name: 'Kestrel', tagline: 'Weather you can build on.' });
   expect(persisted.assets.find(({ id }: { id: string }) => id === 'mark-dark').label).toBe('Kestrel mark for light surfaces');
+});
+
+test('an agent creates brand projects from the Starter template and by duplicating one', async ({ page }) => {
+  await page.goto('/studio?tool=identity&project=starter');
+  await waitForStudioSource(page);
+
+  const fromStarter = await page.evaluate(async () => window.glyphfield!.studio.invoke('identity.project.create', { from: 'starter', name: 'Kestrel' }) as Promise<{ id: string; name: string }>);
+  expect(fromStarter.name).toBe('Kestrel');
+  const starterCopy = await page.evaluate(() => JSON.parse(window.glyphfield!.studio.readSource()) as { id: string; kind: string; shortName: string; strategy: { concept: string } });
+  expect(starterCopy).toMatchObject({ id: fromStarter.id, kind: 'custom', shortName: 'Kestrel' });
+  expect(starterCopy.strategy.concept).toContain('signal window');
+
+  const duplicate = await page.evaluate(async (from) => window.glyphfield!.studio.invoke('identity.project.create', { from, name: 'Kestrel review' }) as Promise<{ id: string; name: string }>, fromStarter.id);
+  expect(duplicate.id).not.toBe(fromStarter.id);
+  expect(JSON.parse(await page.evaluate(() => window.glyphfield!.studio.readSource()))).toMatchObject({ id: duplicate.id, name: 'Kestrel review' });
+
+  await expect(page.evaluate(() => window.glyphfield!.studio.invoke('identity.project.create', { from: 'missing-project' })))
+    .rejects.toThrow(/not a project/);
 });

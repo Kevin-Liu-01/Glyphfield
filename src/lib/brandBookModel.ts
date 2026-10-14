@@ -5,6 +5,7 @@
  */
 import type { BrandIdentity } from './brandIdentity';
 import { BRAND_SURFACE_TONES, brandVisualAssets, type BrandSurfaceTone } from './brandOutputKit';
+import { brandSampleEvent, brandSamplePerson } from './brandContent';
 import { getEmailLifecycleTemplate } from './emailLifecycle';
 
 export const BOOK_SECTION_IDS = [
@@ -188,7 +189,7 @@ function colourPages(identity: BrandIdentity): PageSeed[] {
 function typographyPages(identity: BrandIdentity): PageSeed[] {
   return [
     { copy: { lead: identity.typography?.find((font) => font.role === 'Display')?.usage ?? 'Large statements and headlines.', sample: identity.tagline }, id: 'type-display', kind: 'typeDisplay', title: 'Display typeface', tone: 'paper' },
-    { copy: { lead: identity.typography?.find((font) => font.role === 'Body')?.usage ?? 'Reading, interface, and explanation.', sample: identity.description }, id: 'type-text', kind: 'typeText', title: 'Text typeface', tone: 'paper' },
+    { copy: { lead: identity.typography?.find((font) => font.role === 'Body')?.usage ?? 'Reading, interface, and explanation.', sample: identity.positioning || identity.mission }, id: 'type-text', kind: 'typeText', title: 'Text typeface', tone: 'paper' },
     { copy: { body: identity.positioning, headline: identity.strategy?.promise ?? identity.tagline }, id: 'type-pairing', kind: 'typePairing', title: 'Pairing', tone: 'muted' },
     { copy: { lead: 'One modular scale (1.333, perfect fourth) from a 16 px base. Tight leading for display, generous leading for text.' }, id: 'type-scale', kind: 'typeScale', title: 'Type scale', tone: 'paper' },
     { copy: { lead: identity.dossier?.typography ?? 'Each role has one job. Do not substitute faces between roles.' }, id: 'type-roles', kind: 'typeRoles', title: 'Roles', tone: 'paper' },
@@ -227,19 +228,19 @@ function voicePages(identity: BrandIdentity): PageSeed[] {
   const welcome = getEmailLifecycleTemplate('welcome-email', identity);
   return [
     { copy: { lead: identity.dossier?.personality ?? 'How the brand sounds when it is at its best.' }, id: 'voice-principles', kind: 'voicePrinciples', title: 'Voice principles', tone: 'paper' },
-    { copy: { lead: 'Use the lines on the left as patterns. The column on the right names what to leave out.' }, id: 'voice-dodont', kind: 'voiceDoDont', title: 'Do and don’t', tone: 'paper' },
+    { copy: { lead: 'Real lines in real places. Write the left column; the right column is the version to leave out.' }, id: 'voice-dodont', kind: 'voiceDoDont', title: 'Do and don’t', tone: 'paper' },
     { copy: messagingCopy(identity), id: 'voice-messaging', kind: 'voiceMessaging', title: 'Messaging hierarchy', tone: 'muted' },
-    { copy: { body: welcome?.body ?? identity.description, cta: welcome?.cta ?? 'Get started', subject: welcome?.subject ?? `Welcome to ${identity.name}` }, id: 'voice-sample', kind: 'voiceSample', title: 'Voice in use', tone: 'paper' },
+    { copy: { body: welcome?.body ?? identity.positioning, cta: welcome?.cta ?? 'Get started', subject: welcome?.subject ?? `Welcome to ${identity.name}` }, id: 'voice-sample', kind: 'voiceSample', title: 'Voice in use', tone: 'paper' },
   ];
 }
 
 function applicationPages(identity: BrandIdentity): PageSeed[] {
   return [
     { copy: { lead: identity.dossier?.layout ?? 'A twelve-column grid with generous margins aligns every surface.' }, id: 'applications-grid', kind: 'applicationsGrid', title: 'Layout grid', tone: 'paper' },
-    { copy: { name: 'Alex Morgan', role: `Design Engineer, ${identity.name}` }, id: 'applications-print', kind: 'applicationsPrint', title: 'Stationery', tone: 'muted' },
+    { copy: { name: brandSamplePerson(identity).name, role: brandSamplePerson(identity).role }, id: 'applications-print', kind: 'applicationsPrint', title: 'Stationery', tone: 'muted' },
     { copy: { body: identity.positioning, headline: identity.tagline }, id: 'applications-digital', image: true, kind: 'applicationsDigital', title: 'Digital', tone: 'paper' },
     { copy: { headline: at(identity.voice?.phrases, 1, identity.tagline) }, id: 'applications-social', image: true, kind: 'applicationsSocial', title: 'Social', tone: 'paper' },
-    { copy: { event: `${identity.name} Summit`, name: 'Alex Morgan' }, id: 'applications-event', kind: 'applicationsEvent', title: 'Events', tone: 'muted' },
+    { copy: { event: brandSampleEvent(identity).name, name: brandSamplePerson(identity).name }, id: 'applications-event', kind: 'applicationsEvent', title: 'Events', tone: 'muted' },
     { copy: { lead: 'The applications in this book, side by side.' }, id: 'applications-sheet', image: true, kind: 'applicationsSheet', title: 'Identity in use', tone: 'deep' },
   ];
 }

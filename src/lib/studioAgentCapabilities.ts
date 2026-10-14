@@ -142,6 +142,16 @@ export const STUDIO_TOOL_ACTION_CONTRACTS = {
       input: 'No input',
       output: EXPORT_ARTIFACT,
     },
+    'brand-element.export.png': {
+      description: 'Render a brand element, including in-place edits, as PNG at its real pixel size (for example 1200 × 630 for OpenGraph), or twice that with scale 2. Selects elementId first when given.',
+      input: '{ elementId?: string (from /api/elements), scale?: 1 | 2, download?: boolean }',
+      output: `${EXPORT_ARTIFACT}; width and height are the PNG pixel size`,
+    },
+    'brand-element.export.html': {
+      description: 'Export an email element as a send-ready HTML document: 600 px table layout, inlined styles, MSO wrapper, hidden preheader, bulletproof button and absolute image URLs. Generated header art is embedded as a PNG data URL; host it and replace the src before sending through clients that block data URLs, such as Gmail.',
+      input: '{ elementId?: string (an email element), assetOrigin?: string (origin for image URLs, default the Studio origin), download?: boolean }',
+      output: `${EXPORT_ARTIFACT}; previewText holds the HTML`,
+    },
   },
   buttons: {
     'components.code.copy': {
@@ -274,6 +284,11 @@ export const STUDIO_TOOL_ACTION_CONTRACTS = {
       description: 'Return the ready-to-run Set up with your agent prompt for this project.',
       input: "{ mode?: 'new' | 'improve' }",
       output: '{ mode, prompt: string }',
+    },
+    'identity.project.create': {
+      description: 'Create a brand project and make it the active tab in the Brand identity tool, like Add brand project. from is the Starter template (default), a built-in identity id to copy, scratch for an empty identity, or a custom project id to duplicate with its workspaces. After it resolves, read window.glyphfield.studio again: the new project\'s workspace owns the API.',
+      input: "{ from?: 'starter' | 'scratch' | string (built-in or project id), name?: string }",
+      output: '{ id, name, kind: "custom", from, url }',
     },
   },
   lottie: {
@@ -449,7 +464,7 @@ export const STUDIO_AGENT_CAPABILITIES = {
   },
   blog: { directHttpGeneration: ['template'], exports: [{ action: 'blog.export.png', format: 'PNG', route: 'browser-action' }, { action: 'blog.export.svg', format: 'SVG', route: 'browser-action' }, { format: 'SVG', route: 'http' }], source: { apply: true, boundary: 'Expression document: CanvasDocument schema 2 with expression source version 2', format: 'JSON', read: true } },
   'brand-book': { directHttpGeneration: [], exports: [{ action: 'brand-book.print', format: 'PDF print flow', route: 'browser-action' }], source: { apply: true, boundary: 'Brand book section order and visibility, and per-page visibility, layout, surface, image, and copy', format: 'JSON', read: true } },
-  'brand-elements': { directHttpGeneration: ['element-brief'], exports: [{ action: 'brand-element.export.brief', format: 'JSON brief', route: 'browser-action' }], source: { apply: true, boundary: 'Selected brand-element override', format: 'JSON', read: true } },
+  'brand-elements': { directHttpGeneration: ['element-brief'], exports: [{ action: 'brand-element.export.png', format: 'PNG at real pixel size', route: 'browser-action' }, { action: 'brand-element.export.html', format: 'HTML email (inlined styles)', route: 'browser-action' }, { action: 'brand-element.export.brief', format: 'JSON brief', route: 'browser-action' }], source: { apply: true, boundary: 'Selected brand-element override', format: 'JSON', read: true } },
   buttons: { directHttpGeneration: [], exports: [{ action: 'components.code.read', format: 'React + Tailwind or HTML + CSS component code', route: 'browser-action' }, { action: 'components.code.copy', format: 'Component code via clipboard', route: 'browser-action' }], source: { apply: true, boundary: 'Component Library workspace configuration (version 2: pattern, content, system, palette, typography, theme, code format)', format: 'JSON', read: true } },
   colors: { directHttpGeneration: [], exports: [{ action: 'colors.tokens.copy', format: 'OKLCH CSS, CSS variables, Tailwind v4 or DTCG tokens via clipboard', route: 'browser-action' }, { action: 'colors.tokens.read', format: 'OKLCH CSS, CSS variables, Tailwind v4 or DTCG tokens', route: 'browser-action' }], source: { apply: true, boundary: 'Identity palette, colorPairings and colorSystem (version 2), plus per-token opacity', format: 'JSON', read: true } },
   'design-board': { directHttpGeneration: [], exports: [{ action: 'moodboard.export.png', format: 'PNG', route: 'browser-action' }, { action: 'moodboard.export.svg', format: 'SVG', route: 'browser-action' }, { action: 'moodboard.export.identity', format: 'Identity JSON', route: 'browser-action' }], source: { apply: true, boundary: 'Moodboard boards, tiles (order, visibility, layout, size, surface, image, copy), and export settings', format: 'JSON', read: true } },

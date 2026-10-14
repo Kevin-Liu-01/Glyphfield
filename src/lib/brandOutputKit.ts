@@ -248,10 +248,20 @@ export function fitText(
   return { fontSize: minSize, lineHeight: minSize * lineHeight, lines: clipped };
 }
 
-/** Typography tracking: identity letterSpacing is authored in display "units" (≈1.8% em each). */
+/**
+ * Display tracking in em. Identity letterSpacing is authored in "units" of about
+ * 1.8% em; the result stays within -0.025em and 0 (never positive on lowercase)
+ * and eases to 0 below 40 px so smaller headlines are not crowded.
+ */
+export function displayTrackingEm(letterSpacing: number | undefined, fontSize = 64): number {
+  const base = Math.max(-0.025, Math.min(0, (letterSpacing ?? 0) * 0.018));
+  const ease = fontSize >= 40 ? 1 : fontSize <= 16 ? 0 : (fontSize - 16) / 24;
+  return Number((base * ease).toFixed(4));
+}
+
+/** Display tracking in px for a font size. */
 export function trackingFor(fontSize: number, letterSpacing: number | undefined): number {
-  const units = Math.max(-3, Math.min(2, letterSpacing ?? 0));
-  return Number((fontSize * units * 0.018).toFixed(2));
+  return Number((fontSize * displayTrackingEm(letterSpacing, fontSize)).toFixed(2));
 }
 
 export type BrandImageAsset = Pick<BrandAsset, 'focalPoint' | 'id' | 'label' | 'path' | 'tags' | 'type'>;
@@ -326,22 +336,70 @@ function lightFieldDevice(context: DeviceContext): string {
   return `<defs><radialGradient id="${id('field')}" cx="${w * 0.84}" cy="${h * 0.9}" r="${Math.max(w, h) * 0.86}" gradientUnits="userSpaceOnUse">${stops}</radialGradient><pattern id="${id('dither')}" width="${dot * 2}" height="${dot * 2}" patternUnits="userSpaceOnUse"><circle cx="${dot / 2}" cy="${dot / 2}" r="${round(dot * 0.22)}" fill="${ink}" fill-opacity=".1"/><circle cx="${dot * 1.5}" cy="${dot * 1.5}" r="${round(dot * 0.14)}" fill="${ink}" fill-opacity=".07"/></pattern></defs>${deviceBackground(context, '#050505', '#FFFFFF')}<rect width="${w}" height="${h}" fill="url(#${id('field')})"/><rect width="${w}" height="${h}" fill="url(#${id('dither')})"/>`;
 }
 
-/** Starter: one signal window anchored to an edge with quiet corner marks. */
+type EvidenceCard = { card: string; focus: boolean; h: number; kind: 'chart' | 'note' | 'photo'; line: string; palette: BrandPalette; rule: string; stroke: number; w: number; x: number; y: number };
+
+/** One card on Starter's research board: a photograph reduced to tone, a chart, or note lines. */
+function evidenceCard({ card, focus, h, kind, line, palette, rule, stroke, w, x, y }: EvidenceCard): string {
+  const inner = Math.min(w, h) * 0.1;
+  const frame = `<rect x="${round(x)}" y="${round(y)}" width="${round(w)}" height="${round(h)}" fill="${card}" stroke="${rule}" stroke-width="${round(stroke * 0.6)}"/>`;
+  if (kind === 'photo') {
+    const imageH = h * 0.58;
+    const top = y + inner;
+    return `${frame}<rect x="${round(x + inner)}" y="${round(top)}" width="${round(w - inner * 2)}" height="${round(imageH)}" fill="${focus ? palette.secondary : mixHexColors(card, line, 0.25)}"/><path d="M${round(x + inner)} ${round(top + imageH * 0.7)}Q${round(x + w * 0.45)} ${round(top + imageH * 0.45)} ${round(x + w - inner)} ${round(top + imageH * 0.62)}V${round(top + imageH)}H${round(x + inner)}Z" fill="${focus ? palette.deep : line}" fill-opacity="${focus ? 0.85 : 0.5}"/><rect x="${round(x + inner)}" y="${round(top + inner * 0.6 + imageH)}" width="${round((w - inner * 2) * 0.62)}" height="${round(stroke * 2.2)}" fill="${line}"/>`;
+  }
+  if (kind === 'chart') {
+    const barW = (w - inner * 2) / 5;
+    return frame + Array.from({ length: 5 }, (_, index) => {
+      const barH = (h - inner * 2) * (0.3 + ((index * 37) % 60) / 100);
+      return `<rect x="${round(x + inner + index * barW + barW * 0.15)}" y="${round(y + h - inner - barH)}" width="${round(barW * 0.7)}" height="${round(barH)}" fill="${index === 3 ? palette.accent : mixHexColors(card, line, 0.35)}"/>`;
+    }).join('');
+  }
+  return frame + [0, 1, 2, 3].map((index) => `<rect x="${round(x + inner)}" y="${round(y + inner + index * h * 0.18)}" width="${round((w - inner * 2) * (index === 0 ? 0.7 : 0.9 - index * 0.12))}" height="${round(stroke * (index === 0 ? 2.6 : 1.8))}" fill="${line}" fill-opacity="${index === 0 ? 1 : 0.6}"/>`).join('');
+}
+
+/**
+ * Starter: the signal window in use. A research board of evidence cards
+ * (photographs reduced to tone, notes, a chart) sits quiet while one card is
+ * framed by the blue window, its corner brackets and a label tab.
+ */
 function signalWindowDevice(context: DeviceContext): string {
-  const { h, palette, tone, w } = context;
+  const { h, palette, random, tone, w } = context;
   const dark = tone === 'dark';
-  const x = w * 0.5;
-  const y = h * 0.16;
-  const width = w * 0.42;
-  const height = h * 0.68;
-  const inset = Math.min(width, height) * 0.16;
-  const tick = Math.min(w, h) * 0.05;
-  const stroke = Math.max(1.5, Math.min(w, h) * 0.006);
-  const ink = dark ? palette.paper : palette.ink;
-  const corners = [[x - tick * 0.6, y - tick * 0.6, 1, 1], [x + width + tick * 0.6, y - tick * 0.6, -1, 1], [x - tick * 0.6, y + height + tick * 0.6, 1, -1], [x + width + tick * 0.6, y + height + tick * 0.6, -1, -1]] as const;
-  const lines = [0.3, 0.46, 0.6].map((offset, index) => `<rect x="${round(x + inset * 1.3)}" y="${round(y + inset + (height - inset * 2) * offset)}" width="${round((width - inset * 2.6) * (index === 1 ? 0.62 : 0.86))}" height="${round(stroke * 3)}" fill="${palette.ink}"/>`).join('');
-  const notes = [0, 1, 2].map((index) => `<rect x="${round(w * 0.08)}" y="${round(h * (0.62 + index * 0.075))}" width="${round(w * (index === 0 ? 0.22 : 0.16))}" height="${round(stroke)}" fill="${ink}" fill-opacity="${index === 0 ? 0.7 : 0.32}"/>`).join('');
-  return `${deviceBackground(context, palette.deep, palette.muted)}<rect x="${round(x)}" y="${round(y)}" width="${round(width)}" height="${round(height)}" fill="${palette.accent}"/><rect x="${round(x + inset)}" y="${round(y + inset)}" width="${round(width - inset * 2)}" height="${round(height - inset * 2)}" rx="${round(Math.min(width, height) * 0.03)}" fill="#FFFFFF"/>${lines}${corners.map(([cx, cy, dx, dy]) => `<path d="M${round(cx)} ${round(cy + tick * dy)}V${round(cy)}H${round(cx + tick * dx)}" fill="none" stroke="${ink}" stroke-width="${round(stroke)}"/>`).join('')}${notes}`;
+  const unit = Math.min(w, h);
+  const card = dark ? mixHexColors(palette.deep, palette.paper, 0.1) : palette.paper;
+  const rule = dark ? mixHexColors(palette.deep, palette.paper, 0.22) : mixHexColors(palette.paper, palette.ink, 0.12);
+  const line = dark ? mixHexColors(palette.deep, palette.paper, 0.45) : mixHexColors(palette.paper, palette.ink, 0.55);
+  const columns = w >= h ? 4 : 3;
+  const rows = w >= h ? 3 : 4;
+  const gap = unit * 0.035;
+  const cellW = (w * 0.94 - gap * (columns - 1)) / columns;
+  const cellH = (h * 0.9 - gap * (rows - 1)) / rows;
+  const originX = w * 0.03;
+  const originY = h * 0.05;
+  const focus = { column: Math.min(columns - 1, Math.floor(columns * 0.55)), row: Math.min(rows - 1, Math.floor(rows * 0.4)) };
+  const stroke = Math.max(1.5, unit * 0.006);
+  const cards: string[] = [];
+  let focusRect = { h: 0, w: 0, x: 0, y: 0 };
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      const x = originX + column * (cellW + gap);
+      const y = originY + row * (cellH + gap);
+      const isFocus = row === focus.row && column === focus.column;
+      if (isFocus) focusRect = { h: cellH, w: cellW, x, y };
+      const kind = isFocus ? 'photo' : (['note', 'photo', 'chart', 'note', 'photo'] as const)[Math.floor(random() * 5)]!;
+      cards.push(evidenceCard({ card, focus: isFocus, h: cellH, kind, line, palette, rule, stroke, w: cellW, x, y }));
+    }
+  }
+  const frameStroke = Math.max(3, unit * 0.014);
+  const offset = frameStroke * 2.2;
+  const tick = unit * 0.05;
+  const bracketColor = dark ? palette.paper : palette.ink;
+  const { x, y, w: fw, h: fh } = focusRect;
+  const corners = [[x - offset, y - offset, 1, 1], [x + fw + offset, y - offset, -1, 1], [x - offset, y + fh + offset, 1, -1], [x + fw + offset, y + fh + offset, -1, -1]] as const;
+  const brackets = corners.map(([cx, cy, dx, dy]) => `<path d="M${round(cx)} ${round(cy + tick * dy)}V${round(cy)}H${round(cx + tick * dx)}" fill="none" stroke="${bracketColor}" stroke-width="${round(stroke)}"/>`).join('');
+  const tabH = Math.max(8, unit * 0.04);
+  const tab = `<rect x="${round(x - frameStroke / 2)}" y="${round(y - frameStroke / 2 - tabH)}" width="${round(Math.min(fw * 0.5, unit * 0.2))}" height="${round(tabH)}" fill="${palette.accent}"/><rect x="${round(x + tabH * 0.4)}" y="${round(y - frameStroke / 2 - tabH * 0.58)}" width="${round(Math.min(fw * 0.5, unit * 0.2) * 0.6)}" height="${round(Math.max(1.5, tabH * 0.16))}" fill="${readableOn(palette.accent, palette)}"/>`;
+  return `${deviceBackground(context, palette.deep, palette.muted)}${cards.join('')}<rect x="${round(x)}" y="${round(y)}" width="${round(fw)}" height="${round(fh)}" fill="none" stroke="${palette.accent}" stroke-width="${round(frameStroke)}"/>${brackets}${tab}`;
 }
 
 /** Basement: one engineered interruption crossing a severe field. */

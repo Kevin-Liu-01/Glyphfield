@@ -7,6 +7,8 @@ import {
   BriefcaseBusiness,
   Component,
   Download,
+  FileImage,
+  FileJson,
   FileText,
   Mail,
   Presentation,
@@ -45,6 +47,9 @@ import {
   type BrandElementSettings,
 } from '@/lib/brandElements';
 import { getEmailLifecycleTemplate } from '@/lib/emailLifecycle';
+import { brandElementHasEmailHtml } from '@/lib/brandEmailHtml';
+import { downloadBlob } from '@/lib/download';
+import { exportInput, renderElementHtml, renderElementPng, waitForArtboard } from '@/lib/brandElementExport';
 import {
   brandTypographyFamily,
   brandTypographyRole,
@@ -54,7 +59,7 @@ import { brandPalette } from '@/lib/brandOutputKit';
 import { DEFAULT_LOGO_APPEARANCE, logoAppearanceCssFilter } from '@/lib/logoAppearance';
 import type { StudioTool } from '@/lib/studioCatalog';
 import { parseSourceObject, stringifySource } from '@/lib/sourceCode';
-import { capVisibleFontWeight, MAX_VISIBLE_FONT_WEIGHT } from '@/lib/typography';
+import { MAX_VISIBLE_FONT_WEIGHT } from '@/lib/typography';
 import { ElementPreview } from './brandElementPreviews';
 import { studioToolActionNames } from '@/lib/studioAgentCapabilities';
 import { registerStudioAutomation } from '@/lib/studioAutomation';
@@ -498,6 +503,7 @@ export default function BrandElementsStudio({
   const gt = useGT();
   const scope = `be${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const [lastExport, setLastExport] = useState<ExportPreviewAsset | null>(null);
+  const [exporting, setExporting] = useState(false);
   const [sourceOpen, setSourceOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useStudioDraft<BrandElementCategory | 'All'>(identity.id, tool.id, 'category', 'All');
@@ -573,13 +579,55 @@ export default function BrandElementsStudio({
     return asset;
   }
 
-  const automationRef = useCommittedRef({ applySource, exportBrief, readSource });
+  /** Select the requested element (when given) and wait until its artboard is on screen. */
+  async function prepareElement(input: unknown): Promise<BrandElement> {
+    const { elementId } = exportInput(input);
+    const element = elementId === undefined ? selectedElement : identityElements.find(({ id }) => id === elementId);
+    if (!element) throw new RangeError('elementId must reference an ID returned by /api/elements.');
+    if (element.id !== selectedElement.id) setSelectedElementId(element.id);
+    await waitForArtboard(studioRootRef.current, element.id);
+    return element;
+  }
+
+  function settingsFor(element: BrandElement): BrandElementSettings {
+    return { ...createBrandElementSettings(element, identity), ...overridesRef.current[element.id] };
+  }
+
+  async function exportPng(input?: unknown): Promise<ExportPreviewAsset> {
+    const { download, scale } = exportInput(input);
+    const element = await prepareElement(input);
+    setExporting(true);
+    try {
+      const asset = await renderElementPng(studioRootRef.current, identity, element, scale);
+      setLastExport(asset);
+      if (download) downloadBlob(asset.blob, asset.fileName);
+      return asset;
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function exportHtml(input?: unknown): Promise<ExportPreviewAsset> {
+    const { assetOrigin, download, elementId } = exportInput(input);
+    const element = elementId === undefined ? selectedElement : identityElements.find(({ id }) => id === elementId);
+    if (!element) throw new RangeError('elementId must reference an ID returned by /api/elements.');
+    if (!brandElementHasEmailHtml(element)) throw new RangeError(`${element.name} is not an email; use brand-element.export.png.`);
+    const asset = await renderElementHtml(identity, element, settingsFor(element), assetOrigin ?? window.location.origin);
+    setLastExport(asset);
+    if (download) downloadBlob(asset.blob, asset.fileName);
+    return asset;
+  }
+
+  const overridesRef = useCommittedRef(elementOverrides);
+  const automationRef = useCommittedRef({ applySource, exportBrief, exportHtml, exportPng, readSource });
   useEffect(() => registerStudioAutomation({
     actions: studioToolActionNames('brand-elements'),
     applySource: (source) => automationRef.current.applySource(source),
     getSource: () => automationRef.current.readSource(),
-    invoke: (action) => {
+    invoke: (action, input) => {
       if (action === 'brand-element.export.brief') return automationRef.current.exportBrief();
+      if (action === 'brand-element.export.png') return automationRef.current.exportPng(input);
+      if (action === 'brand-element.export.html') return automationRef.current.exportHtml(input);
       throw new RangeError(`Unknown Brand elements action: ${action}.`);
     },
     toolId: 'brand-elements',
@@ -601,11 +649,17 @@ export default function BrandElementsStudio({
       <StudioToolHeader
         actions={(
           <>
-          <StudioFileMenu onSource={() => setSourceOpen(true)} />
+          <StudioFileMenu onSource={() => setSourceOpen(true)} sections={[
+            { label: gt('Export'), items: [
+              { id: 'png-2x', label: gt('Export PNG at 2×'), description: gt('Twice the real pixel size, for retina screens.'), icon: <FileImage />, onSelect: () => { void exportPng({ scale: 2, download: true }); } },
+              { id: 'html', label: gt('Export HTML email'), description: gt('Send-ready table layout with inlined styles.'), disabled: !brandElementHasEmailHtml(selectedElement), icon: <Mail />, onSelect: () => { void exportHtml({ download: true }); } },
+              { id: 'brief', label: gt('Download element brief'), description: gt('JSON with the element, its settings and the identity.'), icon: <FileJson />, onSelect: exportBrief },
+            ] },
+          ]} />
           <ExportPreview asset={lastExport} />
-          <Button onClick={exportBrief} type='button' variant='outline'>
+          <Button disabled={exporting} onClick={() => { void exportPng({ download: false }); }} type='button'>
             <Download aria-hidden='true' />
-            <T>Element brief</T>
+            <T>Export PNG</T>
           </Button>
           </>
         )}
@@ -661,14 +715,12 @@ export default function BrandElementsStudio({
             </div>
             <CanvasViewport
               className='min-h-[560px] flex-1'
-              fontFamily={brandTypographyFamily(identity, 'Body')}
-              fontWeight={capVisibleFontWeight(brandTypographyRole(identity, 'Body').weight ?? 400)}
               identityId={identity.id}
               stageClassName='grid min-h-[560px] grid-cols-[minmax(0,1fr)] place-items-center p-5 sm:p-8'
               toolId={tool.id}
             >
               <div
-                className='brand-element-artboard mx-auto w-full max-w-6xl'
+                className='brand-element-stage mx-auto w-full max-w-6xl'
                 data-element={selectedElement.id}
                 style={{ '--brand-logo-filter': logoAppearanceCssFilter({ ...DEFAULT_LOGO_APPEARANCE, ...selectedSettings.logoAppearance }) } as CSSProperties}
               >

@@ -109,7 +109,8 @@ describe('brand kit', () => {
     const css = new TextDecoder().decode(files[2]!.bytes);
     expect(css).toContain('src: url("../fonts/AcmeSans-Variable.woff2") format("woff2");');
     const ramp = hydrateBrandIdentities(null).find(({ id }) => id === 'ramp')!;
-    expect(brandKitIncludedFonts(ramp)).toEqual([]);
+    // Only the open-licensed code face ships; the commercial Lausanne files never do.
+    expect(brandKitIncludedFonts(ramp).map(({ family }) => family)).toEqual(['IBM Plex Mono']);
     expect(new TextDecoder().decode((await brandKitFiles(ramp, async () => new Uint8Array([1]))).find(({ name }) => name === 'tokens/brand.css')!.bytes))
       .toContain('Lausanne Book is not included: kits package only uploaded or open-licensed fonts.');
   });
@@ -124,6 +125,17 @@ describe('brand kit', () => {
     expect(markdown).toContain('`--brand-color-ink`');
     expect(markdown).toContain('`logos/mark-dark.svg`');
     expect(brandLogoFileName({ id: 'mark-light', path: 'data:image/png;base64,AA' })).toBe('logos/mark-light.png');
+  });
+
+  it('tells agents the semantic roles, the type step each role uses, the typesetting rules and the no-eyebrow rule', () => {
+    const gt = hydrateBrandIdentities(null).find(({ id }) => id === 'gt')!;
+    const markdown = brandGuidelinesMarkdown({ ...gt, typeScale: { basePx: 16, ratio: 1.25, roleSteps: { Display: 'h1' } } });
+    expect(markdown).toContain('`--brand-background`');
+    expect(markdown).toContain('`--brand-primary-foreground`');
+    expect(markdown).toContain('`--brand-text-h1`');
+    expect(markdown).toContain('font-kerning: var(--brand-font-kerning)');
+    expect(markdown).toContain('Never add positive tracking to lowercase text.');
+    expect(markdown).toContain('No eyebrow text');
   });
 
   it('creates zip and single-file artifacts with matching names and MIME types', async () => {
@@ -153,6 +165,9 @@ describe('agent setup prompt', () => {
       expect(prompt).toContain(action);
     }
     expect(prompt).toContain('Never invent customers, metrics, claims or slogans');
+    for (const field of ['colorSystem.light', 'colorSystem.dark', 'roleSteps', 'opticalSize', 'never positive tracking on lowercase']) {
+      expect(prompt).toContain(field);
+    }
   });
 
   it('switches to improvement mode for an existing brand', () => {

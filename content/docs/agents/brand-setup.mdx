@@ -12,17 +12,17 @@ The Brand identity tool is the foundation every Glyphfield tool reads. A coding 
 
 Open **Brand identity → Set up with agent**. It shows a ready-to-run prompt for the active project with the project URL, the rules and every call. Choose **New brand** for a fresh project or **Improve this brand** for one that already has content, then **Copy prompt** and paste it into Claude Code, Codex or Cursor. The same text is available programmatically from `identity.setup.prompt`.
 
-For a new brand, create the project first: **Add brand project → Brand identity** (a scratch identity), or **Use a template → Starter** for a complete neutral example to replace.
+For a new brand, create the project first: **Add brand project → Brand identity** (a scratch identity), or **Use a template → Starter** for a complete neutral example to replace. An agent can do the same itself: `identity.project.create { from: 'starter', name }` copies the Starter template, `from: 'scratch'` starts empty, and a project id duplicates that project with its workspaces. The action opens the new project and returns `{ id, name, kind, from, url }`; read `window.glyphfield.studio` again before the next call, because the new project's workspace now owns the API.
 
 ## The workflow
 
 1. **Research.** Homepage, about page, README and docs; CSS custom properties, Tailwind config or token files; font files and their licenses; logo files; any brand guide. Use only sources the user authorized and record each one in `sourceNotes`. Never invent customers, metrics, claims or slogans.
-2. **Brief.** Draft a merge patch: essentials, strategy, voice with `voice.examples`, semantic colors with `proportion` and `colorPairings`, typography roles with `typeScale`, the graphic device and image direction, products, proof and applications.
+2. **Brief.** Draft a merge patch: essentials, strategy, voice with `voice.examples`, semantic colors with `proportion` and `colorPairings`, a `colorSystem` mapping the light and dark semantic roles (`background`, `surface`, `foreground`, `primary`, …) to color refs such as `ink` or `ink.700`, typography roles (a monospace Code face) with size-tuned `letterSpacing` and `typeScale` with `roleSteps`, the graphic device and image direction, products with one-line `productDetails`, proof statements, `customers` kept apart from proof, template `samples` and applications. The tagline, promise and phrases must be different lines.
 3. **Connect.** Open `/studio?tool=identity&project=<id>` in a browser the agent controls, wait for `window.glyphfield.studio`, call `describe()`, and confirm `activeTool()` is `identity`.
 4. **Validate.** `identity.validate { identity: patch }` returns `{ ok, issues }` without changing anything.
 5. **Apply.** `identity.apply { identity: patch }` merges the patch.
 6. **Files.** `identity.asset.add { file, slot }` for each logo and `identity.font.add { file, roles, license, sourceUrl }` for each font.
-7. **Audit and fix.** `identity.audit`, then `identity.fix { fixId }` or each finding's `agentPrompt`, until there are no errors.
+7. **Audit and fix.** `identity.audit`, then `identity.fix { fixId }` or each finding's `agentPrompt`, until there are no errors. `prune-fonts` removes template fonts no typography role uses, `separate-customers` moves customer names out of `proof`, and `distinct-phrases` drops phrases that repeat the tagline or promise.
 8. **Save and export.** `identity.save`, then `identity.export.kit { format: 'zip' }` and verify the Blob.
 
 ```js
@@ -55,6 +55,17 @@ await studio.invoke('identity.save');
 const kit = await studio.invoke('identity.export.kit', { format: 'zip' });
 if (kit.blob.type !== 'application/zip' || !kit.blob.size) throw new Error('The brand kit is empty.');
 ```
+
+## Colour and type systems
+
+- `colorSystem.light` and `colorSystem.dark` set semantic roles from the site's own themes; omitted roles are derived from the palette. Text roles need 4.5:1 and lines and status roles 3:1 in both modes. `colorSystem.scales` tunes a color's OKLCH tint ramp only when the brand publishes one.
+- `typeScale { basePx, ratio, roleSteps }` sets sizes as `basePx × ratio^step`, with a ratio of at least 1.25 for display work; `roleSteps` names the step each role uses (`display`, `h1` … `caption`).
+- Track by size: Display `letterSpacing` slightly negative (about -0.01 to -0.025 of its px size), Body and Code 0, never positive on lowercase. Kerning stays on and optical sizing stays automatic; set `opticalSize` or `slant` only when the brand fixes them.
+- The exported `brand.md` repeats these rules for coding agents, together with the layout rule that no eyebrow label sits above a headline.
+
+## What templates read
+
+Brand elements, moodboards, the brand book and the identity preview fill every layout from the identity: `products` with `productDetails` one-liners, `proof` statements, `customers`, the tagline, promise and phrases, and `samples` (a person and an event, the install command, a code sample, product actions, a dashboard metric, published plans and the latest update). A brand without one of these falls back to neutral copy built from what it has, never to Glyphfield's own product. Export a template to check: `brand-element.export.png { elementId: 'opengraph' }` returns a 1200 × 630 PNG and `brand-element.export.html { elementId: 'welcome-email' }` returns a send-ready email.
 
 ## The source contract
 
