@@ -29,8 +29,8 @@ import {
 
 describe('shader lab', () => {
   it('keeps every library shader discoverable while retaining a curated featured set', () => {
-    expect(SHADER_LAB_FEATURED_IDS).toHaveLength(16);
-    expect(SHADER_LAB_FEATURED_MATERIALS).toHaveLength(16);
+    expect(SHADER_LAB_FEATURED_IDS).toHaveLength(14);
+    expect(SHADER_LAB_FEATURED_MATERIALS).toHaveLength(14);
     expect(shaderLabMaterials('', 'all')).toHaveLength(SHADER_LIBRARY_MATERIAL_COUNT);
     expect(shaderLabMaterials('', 'all').slice(0, 8).map(({ id }) => id)).toEqual([
       'paper-gem-smoke',
@@ -40,10 +40,12 @@ describe('shader lab', () => {
       'study-chrome-glares',
       'paper-god-rays',
       'paper-warp',
-      'shadergradient-prismatic-sphere',
+      'glyphfield-dither-gradient',
     ]);
     const orderedIds = shaderLabMaterials('', 'all').map(({ id }) => id);
-    expect(orderedIds.indexOf('glyphfield-glyph-field')).toBe(orderedIds.indexOf('shadergradient-prismatic-sphere') + 1);
+    // Prismatic sphere and Glyph field sit directly after Water · Abstract.
+    expect(orderedIds.indexOf('shadergradient-prismatic-sphere')).toBe(orderedIds.indexOf('paper-water-abstract') + 1);
+    expect(orderedIds.indexOf('glyphfield-glyph-field')).toBe(orderedIds.indexOf('paper-water-abstract') + 2);
     const demotedIds = [
       'shaders-spectral-bloom',
       'study-radiant-void',
@@ -51,7 +53,7 @@ describe('shader lab', () => {
       'pavel-fluid-energy',
       'holo-cloth-silk',
     ] as const;
-    demotedIds.forEach((id) => expect(orderedIds.indexOf(id)).toBeGreaterThanOrEqual(11));
+    demotedIds.forEach((id) => expect(orderedIds.indexOf(id)).toBeGreaterThanOrEqual(9));
     expect(shaderLabMaterials('', 'light').map(({ id }) => id)).toContain('holo-cloth-silk');
     expect(shaderLabMaterials('liquid', 'all').length).toBeGreaterThan(2);
   });

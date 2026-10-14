@@ -30,8 +30,6 @@ export const SHADER_LAB_FEATURED_IDS: readonly LiveMaterialId[] = [
   'study-chrome-glares',
   'paper-god-rays',
   'paper-warp',
-  'shadergradient-prismatic-sphere',
-  'glyphfield-glyph-field',
   'glyphfield-dither-gradient',
   'glyphfield-mesh-gradient',
   'shaders-spectral-bloom',
@@ -158,6 +156,24 @@ function isRetiredMaterial(id: string): boolean {
 function isSimpleMaterial(id: string): boolean {
   const family = PAPER_DEFINITION_BY_ID.get(id as LiveMaterialId)?.family;
   return SIMPLE_MATERIAL_IDS.has(id) || (family !== undefined && SIMPLE_PAPER_FAMILIES.has(family));
+}
+
+/** Materials placed by hand: each follows its anchor whenever the anchor is listed. */
+const PLACED_AFTER: readonly { anchor: LiveMaterialId; ids: readonly LiveMaterialId[] }[] = [
+  { anchor: 'paper-water-abstract', ids: ['shadergradient-prismatic-sphere', 'glyphfield-glyph-field'] },
+];
+
+function placeAfterAnchors(order: readonly LiveMaterialOption[]): LiveMaterialOption[] {
+  let result = [...order];
+  for (const { anchor, ids } of PLACED_AFTER) {
+    const anchorIndex = result.findIndex(({ id }) => id === anchor);
+    if (anchorIndex < 0) continue;
+    const placed = ids.map((id) => result.find((material) => material.id === id)).filter((material): material is LiveMaterialOption => Boolean(material));
+    result = result.filter((material) => !placed.includes(material));
+    const at = result.findIndex(({ id }) => id === anchor) + 1;
+    result.splice(at, 0, ...placed);
+  }
+  return result;
 }
 
 /** Best first, but never two presets of one Paper family in a row while another material can go between. */
@@ -294,7 +310,7 @@ export function shaderLabMaterials(
   const rest = filtered.filter(({ id }) => !FEATURED_ID_SET.has(id));
   const rich = spreadFamilies(rest.filter(({ id }) => !isSimpleMaterial(id)).sort(byQuality));
   const simple = spreadFamilies(rest.filter(({ id }) => isSimpleMaterial(id)).sort(byQuality));
-  return [...featured, ...rich, ...simple];
+  return placeAfterAnchors([...featured, ...rich, ...simple]);
 }
 
 export function shaderLabCategoryCount(category: ShaderLabCategory, source: ShaderLabSource = 'all', kind: ShaderLabKind = 'all'): number {
