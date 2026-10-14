@@ -414,6 +414,10 @@ export const STUDIO_TOOL_ACTION_CONTRACTS = {
       description: 'Lock or unlock layers. Locked layers ignore canvas pointer and keyboard edits but stay editable in the inspector; source records element.locked.',
       input: '{ layerIds: string[], locked: boolean }', output: 'null',
     },
+    'design.layers.rotate': {
+      description: 'Turn unlocked layers clockwise about their own centers to an absolute angle. Locked layers are skipped; source records bounds.rotation.',
+      input: '{ layerIds: string[], rotation: number } (degrees; normalized to -180..180, 0 removes the rotation)', output: 'null',
+    },
     'design.layers.copyStyle': {
       description: 'Copy one layer\'s appearance (type, color, effects, opacity and material), never its content or geometry.',
       input: '{ layerId: string }', output: 'null',

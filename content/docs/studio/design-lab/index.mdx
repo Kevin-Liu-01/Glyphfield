@@ -113,7 +113,7 @@ The Browser API is `window.glyphfield.studio` while Design Lab is the active too
 | Group | Actions |
 | --- | --- |
 | Workspace | `design.workspace.describe`, `design.workspace.activate`, `design.workspace.move`, `design.workspace.frameSelection` |
-| Layers | `design.layers.arrange`, `design.layers.lock`, `design.layers.copyStyle`, `design.layers.pasteStyle`, `design.text.format` |
+| Layers | `design.layers.arrange`, `design.layers.lock`, `design.layers.rotate`, `design.layers.copyStyle`, `design.layers.pasteStyle`, `design.text.format` |
 | Effect layers | `design.effects.describe`, `design.effects.add`, `design.effects.configure` |
 | Shader time | `design.frame.pause`, `design.frame.play`, `design.frame.seek`, `design.frame.capture`, `design.motion.describe` |
 | Shader sequence | `design.sequence.describe`, `design.sequence.configure`, `design.sequence.preview`, `design.sequence.stop` |
@@ -140,4 +140,4 @@ Each subpage lists the inputs and outputs of its actions. The [Studio Browser AP
 | Image effects | WebGPU; exports stop with an error when it is unavailable |
 | MP4 | A browser video encoder; H.264 is preferred |
 
-Design Lab layers have no rotation control. Snapping while dragging aligns to the artboard edges and center and to the edges and centers of other layers within 6 screen pixels.
+Text, mark, image, and shader layers rotate about their centers from −180° to 180°; Effect layers cover the artboard and do not rotate. Snapping while dragging aligns to the artboard edges, center, and rule-of-thirds lines and to the edges and centers of other layers within 6 screen pixels.

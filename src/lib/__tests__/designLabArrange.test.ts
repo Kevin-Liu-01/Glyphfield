@@ -29,6 +29,12 @@ describe('Design Lab align and distribute', () => {
     expect(vertical[2]).toEqual({ x: 0, y: 110 });
   });
 
+  it('aligns a rotated layer by the area it covers', () => {
+    const turned: CanvasSelectionItem = { ...box(200, 0), transform: { rotation: 90, scale: 1, x: 200, y: 0 } };
+    // Turned 90°, the 100 x 50 box covers x 225..275, so it moves 225 to reach the other box's left edge at 0.
+    expect(arrangeCanvasUnits([[box(0, 0)], [turned]], 'left')).toEqual([{ x: 0, y: 0 }, { x: -225, y: 0 }]);
+  });
+
   it('moves a group as one rigid unit', () => {
     const group = [box(0, 0), box(120, 40)];
     const offsets = arrangeCanvasUnits([group, [box(500, 300)]], 'top');

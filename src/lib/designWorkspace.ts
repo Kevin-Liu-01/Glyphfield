@@ -1,4 +1,4 @@
-import { canvasLayerBounds, canvasLayerDimensions, type CanvasLayerTransform } from './canvasInteraction';
+import { canvasLayerDimensions, canvasLayerHullBounds, type CanvasLayerTransform } from './canvasInteraction';
 import { resolveDesignLabFontSize } from './designLabTypography';
 import { asCanvasJsonObject, type CanvasJsonObject } from './canvasDocument';
 import type { TextStyleRun } from './richText';
@@ -26,7 +26,7 @@ export function designLayerGeometry(id: string, canvas: Size) {
 
 export function designLayerWorldBounds(surface: Surface, layer: { id: string; transform: CanvasLayerTransform }) {
   const dimensions = surface.snapshot.dimensions;
-  const bounds = canvasLayerBounds(layer.transform, designLayerGeometry(layer.id, dimensions));
+  const bounds = canvasLayerHullBounds(layer.transform, designLayerGeometry(layer.id, dimensions));
   const scale = designSurfaceSize(dimensions, surface.displayScale).width / dimensions.width;
   return { x: surface.x + bounds.left * scale, y: surface.y + bounds.top * scale, width: bounds.width * scale, height: bounds.height * scale };
 }

@@ -27,10 +27,14 @@ describe('Design Lab export text geometry', () => {
   function paint(boxHeight: number, gradient = false, typography: {
     fontSize?: number;
     fontStyle?: 'normal' | 'italic';
+    shadowEnabled?: boolean;
+    shadowOffsetX?: number;
+    shadowOffsetY?: number;
     strikethrough?: boolean;
     underline?: boolean;
   } = {},
-    dimensions = { canvasHeight: 900, canvasWidth: 1600, width: 1600 }) {
+    dimensions = { canvasHeight: 900, canvasWidth: 1600, width: 1600 },
+    rotation = 0) {
     const context = {
       clearRect: vi.fn(),
       createLinearGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
@@ -63,6 +67,7 @@ describe('Design Lab export text geometry', () => {
         ...(gradient ? { textEffect: { ...DEFAULT_TEXT_EFFECT, kind: 'gradient', backgroundColor: '#FFFFFF' } } : {}),
       },
       paintShaderApplication: vi.fn(),
+      rotation,
       textEffectScratch: {
         fill: { getContext: () => context } as unknown as HTMLCanvasElement,
         mask: { getContext: () => context } as unknown as HTMLCanvasElement,
@@ -103,6 +108,15 @@ describe('Design Lab export text geometry', () => {
     const context = paint(1, true, { fontSize: 20, fontStyle: 'italic' }, { canvasHeight: 1920, canvasWidth: 1000, width: 500 });
     expect(context.font).toMatch(/^italic 500 6px /);
     expect(context.fillText).toHaveBeenCalled();
+  });
+
+  it('turns a solid text shadow with a rotated layer, since canvas shadow offsets ignore the context rotation', () => {
+    const shadow = { shadowEnabled: true, shadowOffsetX: 0, shadowOffsetY: 8 };
+    const upright = paint(400, false, shadow);
+    expect([upright.shadowOffsetX, upright.shadowOffsetY]).toEqual([0, 8]);
+    const turned = paint(400, false, shadow, undefined, 90);
+    expect(turned.shadowOffsetX).toBeCloseTo(-8, 10);
+    expect(turned.shadowOffsetY).toBeCloseTo(0, 10);
   });
 
   it('paints underline and strikethrough into every exported text line', () => {

@@ -56,10 +56,13 @@ import {
   alignCanvasSelection,
   canvasLayerDimensions,
   canvasSelectionBounds,
+  canvasThirdsSnapTargets,
   isCanvasTextEditingTarget,
   MIN_CANVAS_LAYER_SCALE,
   nextCanvasLayerSelection,
   normalizeCanvasLayerTransform,
+  rotateCanvasVector,
+  withCanvasLayerRotation,
   type CanvasLayerAlignment,
   type CanvasLayerBounds,
   type CanvasSelectionItem,
@@ -1326,18 +1329,31 @@ function resetTextEffectContext(canvas: HTMLCanvasElement, width: number, height
 type OutputLayerBox = { height: number; width: number; x: number; y: number };
 type PaintTextLines = (target: CanvasRenderingContext2D, mode: 'fill' | 'stroke') => void;
 
+/** Turns the context clockwise about the center of a layer's output box, as the canvas turns the layer. */
+export function rotateContextAboutBox(context: CanvasRenderingContext2D, box: OutputLayerBox, degrees: number) {
+  const centerX = box.x + box.width / 2;
+  const centerY = box.y + box.height / 2;
+  context.translate(centerX, centerY);
+  context.rotate(degrees * Math.PI / 180);
+  context.translate(-centerX, -centerY);
+}
+
 function paintSolidDesignLabText(
   context: CanvasRenderingContext2D,
   appearance: TextAppearanceSettings,
   pattern: CanvasPattern | null,
-  paintTextLines: PaintTextLines
+  paintTextLines: PaintTextLines,
+  rotation: number
 ) {
   context.fillStyle = pattern ?? appearance.color;
   if (appearance.shadowEnabled) {
+    // Canvas shadow offsets ignore the context's rotation; turn them so the
+    // shadow falls where the canvas shows it on the rotated layer.
+    const offset = rotateCanvasVector({ x: appearance.shadowOffsetX, y: appearance.shadowOffsetY }, rotation);
     context.shadowBlur = appearance.shadowBlur;
     context.shadowColor = colorWithOpacity(appearance.shadowColor, appearance.shadowOpacity / 100);
-    context.shadowOffsetX = appearance.shadowOffsetX;
-    context.shadowOffsetY = appearance.shadowOffsetY;
+    context.shadowOffsetX = offset.x;
+    context.shadowOffsetY = offset.y;
   }
   if (appearance.outlineEnabled) paintTextLines(context, 'stroke');
   paintTextLines(context, 'fill');
@@ -1433,6 +1449,7 @@ export function paintDesignLabTextLayer({
   identity,
   layer,
   paintShaderApplication,
+  rotation = 0,
   textEffectScratch,
   width,
 }: {
@@ -1451,6 +1468,8 @@ export function paintDesignLabTextLayer({
     instanceKey: string,
     application: ShaderApplication
   ) => void;
+  /** The layer's rotation; the caller has already turned the context by it. */
+  rotation?: number;
   textEffectScratch: TextEffectRenderScratch;
   width: number;
 }) {
@@ -1588,7 +1607,7 @@ export function paintDesignLabTextLayer({
   };
 
   if (appearance.textEffect.kind === 'solid') {
-    paintSolidDesignLabText(context, appearance, pattern, paintTextLines);
+    paintSolidDesignLabText(context, appearance, pattern, paintTextLines, rotation);
     context.restore();
     return;
   }
@@ -1677,12 +1696,14 @@ export function designLayerActionInput(action: string, input: unknown): {
   layerId?: string;
   layerIds?: string[];
   locked?: boolean;
+  rotation?: number;
 } {
   const allowed: Record<string, readonly string[]> = {
     'design.layers.arrange': ['arrangement', 'layerIds'],
     'design.layers.copyStyle': ['layerId'],
     'design.layers.lock': ['layerIds', 'locked'],
     'design.layers.pasteStyle': ['layerIds'],
+    'design.layers.rotate': ['layerIds', 'rotation'],
   };
   const keys = allowed[action];
   if (!keys) throw new RangeError(`Unknown Design Lab action: ${action}.`);
@@ -1698,7 +1719,10 @@ export function designLayerActionInput(action: string, input: unknown): {
   }
   if (action === 'design.layers.lock' && typeof request.locked !== 'boolean') throw new TypeError('locked must be true or false.');
   if (action === 'design.layers.copyStyle' && typeof request.layerId !== 'string') throw new TypeError('layerId must identify a layer.');
-  if ((action === 'design.layers.lock' || action === 'design.layers.pasteStyle') && !Array.isArray(request.layerIds)) {
+  if (action === 'design.layers.rotate' && (typeof request.rotation !== 'number' || !Number.isFinite(request.rotation))) {
+    throw new TypeError('rotation must be a finite number of degrees.');
+  }
+  if ((action === 'design.layers.lock' || action === 'design.layers.pasteStyle' || action === 'design.layers.rotate') && !Array.isArray(request.layerIds)) {
     throw new TypeError('layerIds must list at least one layer.');
   }
   return request as ReturnType<typeof designLayerActionInput>;
@@ -2360,6 +2384,16 @@ function useDesignLabCanvasSelection({
     updateCanvasLayerTransforms(updates);
   }
 
+  /** Turns each layer about its own center; position and size are unchanged. */
+  function rotateCanvasLayers(ids: readonly CanvasLayerId[], degrees: number) {
+    const updates = new Map<CanvasLayerId, CanvasLayerTransform>();
+    ids.forEach((layerId) => {
+      const transform = canvasLayerTransform(layerId);
+      if (transform) updates.set(layerId, withCanvasLayerRotation(transform, degrees));
+    });
+    updateCanvasLayerTransforms(updates);
+  }
+
   const selectedCanvasItems = selectedCanvasLayerIds.flatMap((layerId): CanvasSelectionItem[] => {
     const transform = canvasLayerTransform(layerId);
     return transform ? [{ geometry: layerGeometry(layerId, canvasDimensions), transform }] : [];
@@ -2540,6 +2574,7 @@ function useDesignLabCanvasSelection({
     moveCanvasSelectionToEdge,
     openCanvasSelectionMenu,
     removeCanvasSelection,
+    rotateCanvasLayers,
     selectCanvasAssembly,
     selectAllCanvasLayers,
     selectedCanvasBounds,
@@ -3241,6 +3276,11 @@ export default function ShaderLabStudio({
   const designHistorySignatureRef = useCommittedRef(designHistorySignature);
   const activeArtboard = resolveActiveDesignArtboard(workspaceArtboards, activeArtboardId);
   const editingCanvas = activeArtboardId === DESIGN_CANVAS_ID;
+  // Artboards add rule-of-thirds lines to edge and center snapping; the open canvas has no frame to divide.
+  const artboardThirdsSnapTargets = useMemo(
+    () => editingCanvas ? undefined : canvasThirdsSnapTargets(canvasDimensions.width, canvasDimensions.height),
+    [canvasDimensions.height, canvasDimensions.width, editingCanvas]
+  );
   const outputArtboards = workspaceArtboards.filter(({ id }) => id !== DESIGN_CANVAS_ID);
   const activeArtboardRawName = activeArtboard?.name ?? '';
   const workspaceSize = useMemo(
@@ -3478,6 +3518,7 @@ export default function ShaderLabStudio({
     moveCanvasSelectionToEdge,
     openCanvasSelectionMenu,
     removeCanvasSelection,
+    rotateCanvasLayers,
     selectAllCanvasLayers,
     selectCanvasAssembly,
     selectedCanvasBounds,
@@ -6038,17 +6079,14 @@ export default function ShaderLabStudio({
     const renderedShader = capturedSequence?.layerId === layerId
       ? capturedSequence.application
       : renderedShaderApplication(layerId, shaderLayer) ?? shaderLayer;
-    const box = outputLayerBox(
-      layerId,
-      normalizeCanvasLayerTransform(shaderLayer.transform, DEFAULT_LAYER_TRANSFORM),
-      width,
-      height
-    );
+    const transform = normalizeCanvasLayerTransform(shaderLayer.transform, DEFAULT_LAYER_TRANSFORM);
+    const box = outputLayerBox(layerId, transform, width, height);
     context.save();
     context.globalAlpha = renderedShader.opacity;
     context.globalCompositeOperation = renderedShader.blendMode === 'normal'
       ? 'source-over'
       : renderedShader.blendMode;
+    if (transform.rotation) rotateContextAboutBox(context, box, transform.rotation);
     context.translate(box.x, box.y);
     paintShaderApplication(context, box.width, box.height, `canvas-${layerId}`, renderedShader);
     context.restore();
@@ -6102,11 +6140,49 @@ export default function ShaderLabStudio({
     height: number,
     images: ReadonlyMap<string, HTMLImageElement>
   ) {
-    const isLogo = isLogoLayerId(layerId);
     const layer = renderedCompositionMediaLayer(layerId);
     const image = layer ? images.get(layer.id) : null;
     if (!layer || !image) return;
     const box = outputLayerBox(layer.id, layer.transform, width, height);
+    const rotation = layer.transform.rotation ?? 0;
+    if (!rotation) {
+      paintCompositionMedia(context, layer, image, box, true);
+      return;
+    }
+    // Paint unrotated on a canvas with room for the outline and shadow, then
+    // turn it: parts beyond the artboard and the shadow turn with the layer,
+    // as they do on the canvas.
+    const appearance = resolvedLogoAppearance(layer.appearance);
+    const pad = Math.ceil(2
+      + (appearance.borderEnabled ? appearance.borderWidth : 0)
+      + (appearance.shadowEnabled
+        ? appearance.shadowBlur * 2 + Math.max(Math.abs(appearance.shadowOffsetX), Math.abs(appearance.shadowOffsetY))
+        : 0));
+    const local = document.createElement('canvas');
+    local.width = Math.max(1, Math.ceil(box.width + pad * 2));
+    local.height = Math.max(1, Math.ceil(box.height + pad * 2));
+    const localContext = local.getContext('2d');
+    if (!localContext) return;
+    paintCompositionMedia(localContext, layer, image, { ...box, x: pad, y: pad }, false);
+    const blendMode = renderedShaderApplication(layer.id, layerShaders[layer.id])?.blendMode ?? 'normal';
+    context.save();
+    context.globalCompositeOperation = blendMode === 'normal' ? 'source-over' : blendMode;
+    rotateContextAboutBox(context, box, rotation);
+    context.drawImage(local, box.x - pad, box.y - pad);
+    context.restore();
+    local.width = 0;
+    local.height = 0;
+  }
+
+  /** One image or mark layer at `box`. `blend` applies its shader's blend mode here; a caller that composites later passes false. */
+  function paintCompositionMedia(
+    context: CanvasRenderingContext2D,
+    layer: CompositionLogoLayer | CompositionAsset,
+    image: HTMLImageElement,
+    box: OutputLayerBox,
+    blend: boolean
+  ) {
+    const isLogo = isLogoLayerId(layer.id);
     const application = renderedShaderApplication(layer.id, layerShaders[layer.id]);
     const appearance = resolvedLogoAppearance(layer.appearance);
     const layerOpacity = layer.opacity ?? 1;
@@ -6137,7 +6213,7 @@ export default function ShaderLabStudio({
       materialContext,
       materialLayer.width,
       materialLayer.height,
-      `content-${layerId}`,
+      `content-${layer.id}`,
       application
     );
     materialContext.globalCompositeOperation = 'destination-in';
@@ -6164,9 +6240,11 @@ export default function ShaderLabStudio({
     materialContext.restore();
     context.save();
     context.globalAlpha = application.opacity;
-    context.globalCompositeOperation = application.blendMode === 'normal'
-      ? 'source-over'
-      : application.blendMode;
+    if (blend) {
+      context.globalCompositeOperation = application.blendMode === 'normal'
+        ? 'source-over'
+        : application.blendMode;
+    }
     drawLogoAppearanceLayer(
       context,
       materialLayer,
@@ -6224,9 +6302,12 @@ export default function ShaderLabStudio({
           : committedTextLayer;
         if (!textLayer || !textLayer.value) return;
         const transform = resolvedTextTransform(textLayer.transform);
+        const box = outputLayerBox(layerId, transform, width, height);
+        // The renderer restores the context after each layer.
+        if (transform.rotation) rotateContextAboutBox(context, box, transform.rotation);
         return paintDesignLabTextLayer({
           application: renderedShaderApplication(layerId, layerShaders[layerId]),
-          box: outputLayerBox(layerId, transform, width, height),
+          box,
           canvasHeight: canvasDimensions.height,
           canvasWidth: canvasDimensions.width,
           context,
@@ -6234,6 +6315,7 @@ export default function ShaderLabStudio({
           identity,
           layer: textLayer,
           paintShaderApplication,
+          rotation: transform.rotation,
           textEffectScratch: textEffectScratchFor(layerId),
           width,
         });
@@ -6980,6 +7062,10 @@ export default function ShaderLabStudio({
       } else if (action === 'design.layers.lock') {
         if (ids.length === 0) throw new TypeError('layerIds must list at least one layer.');
         setLayersLocked(ids, request.locked!);
+      } else if (action === 'design.layers.rotate') {
+        const unlocked = ids.filter((id) => !layerLocked(id));
+        if (unlocked.length === 0) throw new Error('Choose at least one unlocked layer to rotate.');
+        rotateCanvasLayers(unlocked, request.rotation!);
       } else if (action === 'design.layers.copyStyle') {
         if (!surfaceIds.has(request.layerId!) || !copyLayerStyle(request.layerId as CompositionLayerId)) {
           throw new TypeError('layerId must identify a text, mark, image or shader layer on the active surface.');
@@ -7122,6 +7208,7 @@ export default function ShaderLabStudio({
 
   const stageActions = useStableHandlers<DesignLabStageActions>({
     deselectCanvasLayers,
+    rotateCanvasLayer: (layerId, rotation) => rotateCanvasLayers([layerId], rotation),
     finishLayerMove,
     formatSelectedTextShortcut,
     openCanvasSelectionMenu,
@@ -7341,6 +7428,7 @@ export default function ShaderLabStudio({
         movementBounds={isCanvasLayerId(layerId) ? movementBoundsFor(layerId) : null}
         selected={isCanvasLayerId(layerId) && selectedCanvasLayerIdSet.has(layerId)}
         showSelectionControls={selectedCanvasLayerIds.length <= 1}
+        snapTargets={artboardThirdsSnapTargets}
       />
     );
   }
@@ -7436,6 +7524,7 @@ export default function ShaderLabStudio({
     updateAssetLayer,
     updateCanvasBackground,
     updateCanvasLayerTransform,
+    rotateCanvasLayer: (id, rotation) => rotateCanvasLayers([id], rotation),
     updateEffectLayer,
     updateLogoLayer,
     updateSelectedShader,

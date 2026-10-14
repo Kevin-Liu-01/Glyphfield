@@ -1,5 +1,7 @@
 export type CanvasLayerTransform = {
   heightScale?: number;
+  /** Degrees clockwise about the layer's center, in (-180, 180]. Absent means 0. */
+  rotation?: number;
   scale: number;
   widthScale?: number;
   x: number;
@@ -69,6 +71,16 @@ export function normalizeCanvasLayerTransform(
   if (source.heightScale !== undefined) {
     next.heightScale = Math.max(0.01, finite(source.heightScale, fallback.heightScale ?? 1));
   }
+  // Documents saved before layers could rotate have no rotation: they load at 0.
+  return source.rotation === undefined ? next : withCanvasLayerRotation(next, source.rotation);
+}
+
+/** The transform turned to `degrees`. 0 removes the field, so an unrotated layer keeps its older saved shape. */
+export function withCanvasLayerRotation(transform: CanvasLayerTransform, degrees: number): CanvasLayerTransform {
+  const next = { ...transform };
+  delete next.rotation;
+  const rotation = normalizeCanvasRotation(degrees);
+  if (rotation) next.rotation = rotation;
   return next;
 }
 
@@ -175,9 +187,30 @@ export function canvasLayerBounds(
   };
 }
 
+/** The axis-aligned area a layer covers once its rotation is applied. */
+export function canvasLayerHullBounds(
+  transform: CanvasLayerTransform,
+  geometry: CanvasLayerGeometry
+): CanvasLayerBounds {
+  const bounds = canvasLayerBounds(transform, geometry);
+  if (!transform.rotation) return bounds;
+  const { height, width } = rotatedCanvasExtent(bounds.width, bounds.height, transform.rotation);
+  return {
+    bottom: bounds.centerY + height / 2,
+    centerX: bounds.centerX,
+    centerY: bounds.centerY,
+    height,
+    left: bounds.centerX - width / 2,
+    right: bounds.centerX + width / 2,
+    top: bounds.centerY - height / 2,
+    width,
+  };
+}
+
+/** Bounds of what the selection shows: rotated layers count by their hull, so align and distribute match the canvas. */
 export function canvasSelectionBounds(items: readonly CanvasSelectionItem[]): CanvasLayerBounds | null {
   if (items.length === 0) return null;
-  const bounds = items.map(({ geometry, transform }) => canvasLayerBounds(transform, geometry));
+  const bounds = items.map(({ geometry, transform }) => canvasLayerHullBounds(transform, geometry));
   const left = Math.min(...bounds.map((item) => item.left));
   const right = Math.max(...bounds.map((item) => item.right));
   const top = Math.min(...bounds.map((item) => item.top));

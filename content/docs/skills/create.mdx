@@ -33,7 +33,7 @@ Save the composition as “Launch signal”.
 - Keep shader layers behind authored content unless the composition intentionally masks or converts the result.
 - Give Bayer, ASCII, halftone, and posterize effects deliberate foreground and background colors.
 - For engraving, halftone, light leak, CRT, watercolor, chalk, and the other Shaders.com image effects, add an Effect layer with `design.effects.add { effectId }`. Check its `status` with `design.effects.describe`: image effects need WebGPU, and exports stop without it.
-- Use `design.layers.arrange` to align or distribute, `design.layers.lock` to protect finished layers, and `design.layers.copyStyle` / `design.layers.pasteStyle` to reuse an appearance. Design Lab layers have no rotation.
+- Use `design.layers.arrange` to align or distribute, `design.layers.lock` to protect finished layers, `design.layers.rotate` to turn layers about their centers, and `design.layers.copyStyle` / `design.layers.pasteStyle` to reuse an appearance.
 - Preserve contrast between white artwork and white sticker borders with a fill, outline, alpha-aware shadow, surface, or border color.
 - Treat shader size as material zoom from `0.1` to `10`, not as canvas zoom.
 - Save the selected frame history and timeline state with the design.

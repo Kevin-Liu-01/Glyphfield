@@ -120,6 +120,7 @@ design.export.shader-sequence.mp4
 design.export.project
 design.layers.arrange
 design.layers.lock
+design.layers.rotate
 design.layers.copyStyle
 design.layers.pasteStyle
 design.effects.describe
@@ -127,7 +128,7 @@ design.effects.add
 design.effects.configure
 ```
 
-Layer commands: `design.layers.arrange` takes `{ arrangement, layerIds? }` (left, horizontal-center, right, top, vertical-center, bottom, distribute-horizontal, distribute-vertical) and aligns to the selection bounds, not the artboard. `design.layers.lock` takes `{ layerIds, locked }` and writes `element.locked`; locked layers ignore canvas edits but keep inspector controls. `design.layers.copyStyle` `{ layerId }` then `design.layers.pasteStyle` `{ layerIds }` copies appearance only, never content or geometry.
+Layer commands: `design.layers.arrange` takes `{ arrangement, layerIds? }` (left, horizontal-center, right, top, vertical-center, bottom, distribute-horizontal, distribute-vertical) and aligns to the selection bounds, not the artboard. `design.layers.lock` takes `{ layerIds, locked }` and writes `element.locked`; locked layers ignore canvas edits but keep inspector controls. `design.layers.rotate` takes `{ layerIds, rotation }` and turns each unlocked layer clockwise about its center, stored from -180 to 180 in `bounds.rotation`. `design.layers.copyStyle` `{ layerId }` then `design.layers.pasteStyle` `{ layerIds }` copies appearance only, never content or geometry.
 
 Effect layers: `design.effects.add` takes `{ kind }` (bayer, ascii, halftone, posterize) or `{ effectId, effectProps? }` with an ID from `/api/materials` `imageEffects`, plus optional `opacity`, and returns `{ layerId }`. `design.effects.configure` takes `{ layerId }` with `kind`, `effectId`, `effectProps` (replaces explicit edits; `{}` resets) or `opacity`. An image effect processes the composited layers beneath it, needs WebGPU, and blocks export without it; read `design.effects.describe` for each layer's status.
 
@@ -190,7 +191,7 @@ A successful request is not sufficient evidence of a finished task.
 
 One active identity supplies name, marks, assets, color roles, type roles, strategy, voice, and defaults to every Studio tool. Studio projects, tabs, and tool drafts persist locally.
 
-Design Lab is the general layer compositor. It combines multiple text, mark, image, shader, sticker, and Effect layers on artboards and an open canvas; direct manipulation with snapping (no layer rotation); ordering, grouping, align and distribute, locks, and copy and paste style; non-destructive image crop, focal point, and zoom; per-layer opacity and blend; Bayer, ASCII, halftone, and posterize converters and the Shaders.com image effects (WebGPU) on Effect layers; text effects; independent shader fills; capability-aware time selection and persisted PNG frame captures; logarithmic shader zoom from 0.1× to 10×; an Auto/High/Draft live preview quality that never affects exports; sticker finishes; saved designs; recovery; and PNG/JPG/GIF/MP4 export at 320–3840 px wide.
+Design Lab is the general layer compositor. It combines multiple text, mark, image, shader, sticker, and Effect layers on artboards and an open canvas; direct manipulation with snapping to edges, centers, and the artboard's thirds; layer rotation about the center (a rotate handle with 15° Shift steps, the Layer rotation field, `design.layers.rotate`, and `bounds.rotation` in source); ordering, grouping, align and distribute, locks, and copy and paste style; non-destructive image crop, focal point, and zoom; per-layer opacity and blend; Bayer, ASCII, halftone, and posterize converters and the Shaders.com image effects (WebGPU) on Effect layers; text effects; independent shader fills; capability-aware time selection and persisted PNG frame captures; logarithmic shader zoom from 0.1× to 10×; an Auto/High/Draft live preview quality that never affects exports; sticker finishes; saved designs; recovery; and PNG/JPG/GIF/MP4 export at 320–3840 px wide.
 
 The shared Shader Library is quality-sorted and used by Design Lab, Animation, Lottie backgrounds, and the expression tools. Read `/api/materials` for the exact current material list, engine attribution, look `category`, `kind` (backgrounds, interactive), controls, palettes, and defaults. Never infer a material ID from its display name. Shape primitives, plain fills and raw noise (for example `shader-effects-circle`, `shader-effects-linear-gradient`, `shader-effects-perlin-noise`, `paper-waves`) are no longer listed; documents that use one still load. Shaders.com image effects (components that transform an image) are not materials: `/api/materials` lists them under `imageEffects`, and Design Lab applies them as Effect layers over the layers beneath. Older documents that used one as a shader layer still load and render as before.
 
