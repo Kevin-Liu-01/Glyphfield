@@ -489,7 +489,7 @@ export const DesignLabArtboardPreviewLayer = memo(function DesignLabArtboardPrev
         label={layer.name}
         layerId={layerId}
         resizeMode='box'
-        rotation={transform.rotation ?? 0}
+        rotation={transform.rotation}
         transform={transform}
       >
         <div className='shader-lab-v2-canvas-material' data-shader-instance={`canvas-${layerId}`} key='content' style={{ mixBlendMode: shaderBlendStyle(layer.blendMode), opacity: layer.opacity }}>
@@ -511,7 +511,7 @@ export const DesignLabArtboardPreviewLayer = memo(function DesignLabArtboardPrev
         label={layer.name}
         layerId={layerId}
         resizeMode='box'
-        rotation={transform.rotation ?? 0}
+        rotation={transform.rotation}
         transform={transform}
       >
         <CanvasTextLayerContent
@@ -539,7 +539,7 @@ export const DesignLabArtboardPreviewLayer = memo(function DesignLabArtboardPrev
       className='shader-lab-v2-composition-layer'
       label={layer.name}
       layerId={layerId}
-      rotation={layer.transform.rotation ?? 0}
+      rotation={layer.transform.rotation}
       transform={layer.transform}
     >
       <ShaderMaskedMediaContent

@@ -1343,7 +1343,7 @@ function paintSolidDesignLabText(
   appearance: TextAppearanceSettings,
   pattern: CanvasPattern | null,
   paintTextLines: PaintTextLines,
-  rotation: number
+  rotation = 0
 ) {
   context.fillStyle = pattern ?? appearance.color;
   if (appearance.shadowEnabled) {
@@ -1449,7 +1449,7 @@ export function paintDesignLabTextLayer({
   identity,
   layer,
   paintShaderApplication,
-  rotation = 0,
+  rotation,
   textEffectScratch,
   width,
 }: {
@@ -1714,6 +1714,11 @@ export function designLayerActionInput(action: string, input: unknown): {
   if (request.layerIds !== undefined && (!Array.isArray(request.layerIds) || request.layerIds.some((id) => typeof id !== 'string'))) {
     throw new TypeError('layerIds must be an array of layer ids.');
   }
+  assertDesignLayerActionValues(action, request);
+  return request as ReturnType<typeof designLayerActionInput>;
+}
+
+function assertDesignLayerActionValues(action: string, request: Record<string, unknown>) {
   if (action === 'design.layers.arrange' && !isDesignLabArrangement(request.arrangement)) {
     throw new TypeError('arrangement must be left, horizontal-center, right, top, vertical-center, bottom, distribute-horizontal or distribute-vertical.');
   }
@@ -1725,7 +1730,6 @@ export function designLayerActionInput(action: string, input: unknown): {
   if ((action === 'design.layers.lock' || action === 'design.layers.pasteStyle' || action === 'design.layers.rotate') && !Array.isArray(request.layerIds)) {
     throw new TypeError('layerIds must list at least one layer.');
   }
-  return request as ReturnType<typeof designLayerActionInput>;
 }
 
 const DESIGN_EFFECT_ACTION_FIELDS: Readonly<Record<string, readonly string[]>> = {
@@ -5346,6 +5350,22 @@ export default function ShaderLabStudio({
     }
   }
 
+  function addLayerFromShortcut(layer: Extract<DesignLabShortcutCommand, { kind: 'add' }>['layer']) {
+    if (layer === 'text') addTextLayer();
+    else if (layer === 'shader') addCanvasShader();
+    else if (layer === 'mark') addBrandMarkLayer();
+    else if (layer === 'image') openImageImport();
+    else if (layer === 'sticker') openImageImport([], 'sticker');
+    else if (editingCanvas) announceCanvasClipboard('Frame your selection to apply composition-wide effects');
+    else addEffectLayer();
+  }
+
+  function arrangeFromShortcut(arrangement: DesignLabArrangement) {
+    if (arrangeCanvasSelection(arrangement)) return;
+    announceCanvasClipboard(arrangement.startsWith('distribute-')
+      ? 'Select three or more layers to distribute' : 'Select two or more layers to align');
+  }
+
   function runEditorShortcut(command: DesignLabShortcutCommand) {
     if (command.kind === 'shortcuts') setShortcutsOpen((open) => !open);
     else if (command.kind === 'select-all') selectAllCanvasLayers();
@@ -5356,18 +5376,8 @@ export default function ShaderLabStudio({
     else if (command.kind === 'copy-style') copyLayerStyle();
     else if (command.kind === 'paste-style') pasteLayerStyle();
     else if (command.kind === 'toggle-lock') toggleSelectionLock();
-    else if (command.kind === 'arrange') {
-      if (!arrangeCanvasSelection(command.arrangement)) {
-        announceCanvasClipboard(command.arrangement.startsWith('distribute-')
-          ? 'Select three or more layers to distribute' : 'Select two or more layers to align');
-      }
-    } else if (command.layer === 'text') addTextLayer();
-    else if (command.layer === 'shader') addCanvasShader();
-    else if (command.layer === 'mark') addBrandMarkLayer();
-    else if (command.layer === 'image') openImageImport();
-    else if (command.layer === 'sticker') openImageImport([], 'sticker');
-    else if (editingCanvas) announceCanvasClipboard('Frame your selection to apply composition-wide effects');
-    else addEffectLayer();
+    else if (command.kind === 'arrange') arrangeFromShortcut(command.arrangement);
+    else addLayerFromShortcut(command.layer);
   }
 
   const handleEditorShortcut = useEffectEvent((event: KeyboardEvent) => {

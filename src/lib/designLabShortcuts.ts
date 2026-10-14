@@ -60,31 +60,44 @@ function lookup<T>(table: Record<string, T>, code: string): T | undefined {
   return Object.hasOwn(table, code) ? table[code] : undefined;
 }
 
+// ⌘ or Ctrl chords by physical key. Shift turns brackets into braces on most
+// layouts, and Option changes the typed character on macOS.
+const COMMAND_KEYS: Record<string, DesignLabShortcutCommand> = {
+  BracketLeft: { direction: 'backward', kind: 'order', toEdge: false },
+  BracketRight: { direction: 'forward', kind: 'order', toEdge: false },
+  KeyA: { kind: 'select-all' },
+  KeyD: { kind: 'duplicate' },
+  KeyG: { kind: 'group' },
+};
+
+const COMMAND_SHIFT_KEYS: Record<string, DesignLabShortcutCommand> = {
+  BracketLeft: { direction: 'backward', kind: 'order', toEdge: true },
+  BracketRight: { direction: 'forward', kind: 'order', toEdge: true },
+  KeyG: { kind: 'ungroup' },
+  KeyL: { kind: 'toggle-lock' },
+};
+
+const COMMAND_OPTION_KEYS: Record<string, DesignLabShortcutCommand> = {
+  KeyC: { kind: 'copy-style' },
+  KeyV: { kind: 'paste-style' },
+};
+
+function resolveCommandShortcut(event: DesignLabShortcutKey): DesignLabShortcutCommand | null {
+  if (event.altKey) return event.shiftKey ? null : lookup(COMMAND_OPTION_KEYS, event.code) ?? null;
+  return lookup(event.shiftKey ? COMMAND_SHIFT_KEYS : COMMAND_KEYS, event.code) ?? null;
+}
+
 /**
- * Maps a key press to a Design Lab command. Option shortcuts use physical key
- * codes because Option changes the typed character on macOS.
+ * Maps a key press to a Design Lab command. Chords and Option shortcuts use
+ * physical key codes because modifiers change the typed character.
  */
 export function resolveDesignLabShortcut(event: DesignLabShortcutKey): DesignLabShortcutCommand | null {
-  const command = event.metaKey || event.ctrlKey;
-  if (command && event.altKey && !event.shiftKey) {
-    if (event.code === 'KeyC') return { kind: 'copy-style' };
-    if (event.code === 'KeyV') return { kind: 'paste-style' };
-    return null;
-  }
-  if (command && event.shiftKey && !event.altKey && event.code === 'KeyL') return { kind: 'toggle-lock' };
-  // Brackets by physical key: Shift turns them into braces on most layouts.
-  if (command && !event.altKey && (event.code === 'BracketRight' || event.code === 'BracketLeft')) {
-    return { direction: event.code === 'BracketRight' ? 'forward' : 'backward', kind: 'order', toEdge: event.shiftKey };
-  }
-  if (command && !event.altKey && !event.shiftKey && event.code === 'KeyA') return { kind: 'select-all' };
-  if (command && !event.altKey && !event.shiftKey && event.code === 'KeyD') return { kind: 'duplicate' };
-  if (command && !event.altKey && event.code === 'KeyG') return { kind: event.shiftKey ? 'ungroup' : 'group' };
-  if (command) return null;
-  if (!event.altKey && (event.key === 'Backspace' || event.key === 'Delete')) return { kind: 'delete' };
+  if (event.metaKey || event.ctrlKey) return resolveCommandShortcut(event);
   if (event.altKey) {
     const arrangement = event.shiftKey ? lookup<DesignLabArrangement>(DISTRIBUTE_KEYS, event.code) : lookup<DesignLabArrangement>(ALIGN_KEYS, event.code);
     return arrangement ? { arrangement, kind: 'arrange' } : null;
   }
+  if (event.key === 'Backspace' || event.key === 'Delete') return { kind: 'delete' };
   if (event.key === '?') return { kind: 'shortcuts' };
   if (event.shiftKey) return null;
   const layer = lookup(ADD_KEYS, event.code);
