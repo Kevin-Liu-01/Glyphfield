@@ -6280,17 +6280,16 @@ export default function ShaderLabStudio({
   }
 
   /**
-   * Live preview and artboard snapshots: runs each image effect on the layers
-   * beneath it with the preview processors. A failure leaves that layer out
-   * and records why, so the canvas shows the source and the stage and
-   * inspector say what happened. Only the preview loop reuses the shared
-   * canvases; a snapshot runs beside it and brings its own.
+   * Live preview: runs each image effect on the layers beneath it with the
+   * preview processors and keeps the outputs, which snapshots reuse. A
+   * failure leaves that layer out and records why, so the canvas shows the
+   * source and the stage and inspector say what happened. Runs share
+   * canvases, so a restarted preview loop queues behind the previous run.
    */
-  async function resolvePreviewImageEffects({
+  function resolvePreviewImageEffects({
     composeBeneath,
     height,
     layerIds,
-    reuseCanvases = false,
     timeSeconds,
     width,
   }: {
@@ -6301,22 +6300,18 @@ export default function ShaderLabStudio({
     ) => unknown;
     height: number;
     layerIds: readonly CompositionLayerId[];
-    reuseCanvases?: boolean;
     timeSeconds: number;
     width: number;
   }) {
     const pool = imageEffectPreviewPoolRef.current ?? createImageEffectProcessorPool();
     imageEffectPreviewPoolRef.current = pool;
     pool.retain(new Map(effectLayers.flatMap(({ id, settings }) => settings.effectId ? [[id, settings.effectId] as const] : [])));
-    let source: HTMLCanvasElement | undefined;
-    if (reuseCanvases) {
-      source = imageEffectPreviewSourceRef.current ?? document.createElement('canvas');
-      imageEffectPreviewSourceRef.current = source;
-    }
+    const source = imageEffectPreviewSourceRef.current ?? document.createElement('canvas');
+    imageEffectPreviewSourceRef.current = source;
     const resolve = () => resolveImageEffectOutputs({
       composeBeneath,
       height,
-      outputs: reuseCanvases ? imageEffectPreviewOutputsRef.current : undefined,
+      outputs: imageEffectPreviewOutputsRef.current,
       passes: imageEffectPassesFor(layerIds),
       run: async (layerId, pixels) => {
         const layer = imageEffectLayer(layerId);
@@ -6334,7 +6329,6 @@ export default function ShaderLabStudio({
       source,
       width,
     });
-    if (!reuseCanvases) return resolve();
     const result = imageEffectPreviewQueueRef.current.then(resolve);
     imageEffectPreviewQueueRef.current = result.catch(() => undefined);
     return result;
@@ -6395,22 +6389,12 @@ export default function ShaderLabStudio({
     const context = buffer.getContext('2d', { willReadFrequently: true });
     if (!context) throw new Error('Converter capture is unavailable.');
     try {
-      const imageEffectOutputs = imageEffectPassesFor(prefix).length
-        ? await resolvePreviewImageEffects({
-            composeBeneath: (beneathContext, beneath, resolved) => withCapturedShaderImages(captures, (shaderImages) => {
-              effectCaptureShaderImagesRef.current = shaderImages;
-              try {
-                composeFrame(beneathContext, width, height, images, beneath, undefined, resolved);
-              } finally {
-                effectCaptureShaderImagesRef.current = null;
-              }
-            }),
-            height,
-            layerIds: prefix,
-            timeSeconds: imageEffectPreviewClockRef.current.seconds,
-            width,
-          })
-        : undefined;
+      // Snapshots record what the canvas shows: an image effect contributes
+      // its last preview output, so saving never waits on the GPU, and an
+      // effect that cannot render is left out here as it is on the canvas.
+      const statuses = imageEffectStatusStore.get();
+      const imageEffectOutputs = new Map([...imageEffectPreviewOutputsRef.current]
+        .filter(([layerId]) => statuses.get(layerId) === 'ready' && imageEffectLayer(layerId) !== null));
       let encoding!: Promise<Map<string, ShaderFrameSnapshot>>;
       await withCapturedShaderImages(captures, (shaderImages) => {
         effectCaptureShaderImagesRef.current = shaderImages;
@@ -6528,7 +6512,6 @@ export default function ShaderLabStudio({
         composeBeneath: (context, beneath, resolved) => composeFrameRef.current(context, width, height, images, beneath, undefined, resolved),
         height,
         layerIds: previewLayerIds,
-        reuseCanvases: true,
         timeSeconds: imageEffectPreviewClockRef.current.seconds,
         width,
       }).then((outputs) => {

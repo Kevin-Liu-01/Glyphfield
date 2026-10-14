@@ -593,7 +593,7 @@ export const DesignLabEffectInspector = memo(function DesignLabEffectInspector({
       />
     </LabInspectorSection>
   ) : null}
-  <LabInspectorSection className='shader-lab-v2-control-section' meta='Shaders.com · WebGPU' title='Image effects'>
+  <LabInspectorSection className='shader-lab-v2-control-section' meta='WebGPU' title='Image effects'>
     <DesignLabEffectPicker
       onSelect={(effectId) => selectImageEffect(selectedEffectLayer, effectId)}
       selectedEffectId={imageEffect?.id}
