@@ -77,16 +77,19 @@ The **Artboard map** is a minimap in a bottom corner of the canvas. Click or dra
 
 ## Keyboard shortcuts
 
-Press **?** or choose **Keyboard shortcuts** in the canvas toolbar to open the shortcut sheet. Escape or **Close keyboard shortcuts** closes it. Single-letter keys work while the Design Lab has focus or the pointer is over it, and never while a text field, menu, or dialog has focus.
+Press **?** or choose **Keyboard shortcuts** in the canvas toolbar to open the shortcut sheet. Escape or **Close keyboard shortcuts** closes it. Every key below works while the Design Lab has focus or the pointer is over it, and never while a text field, menu, or dialog has focus.
 
 | Keys | Action |
 | --- | --- |
 | T, S, M, I, K, E | Add a text layer, shader layer, brand mark, image, sticker, or effect layer |
 | ⌘/Ctrl + Z, Shift + ⌘/Ctrl + Z | Undo, redo |
-| ⌘/Ctrl + C, ⌘/Ctrl + V | Copy, paste layers |
+| ⌘/Ctrl + C, ⌘/Ctrl + X, ⌘/Ctrl + V | Copy, cut, paste layers |
+| ⌘/Ctrl + A | Select every unlocked layer on the active surface |
 | Option/Alt + ⌘/Ctrl + C, Option/Alt + ⌘/Ctrl + V | Copy style, paste style |
 | ⌘/Ctrl + D | Duplicate the selection |
 | Delete or Backspace | Delete the selection |
+| ⌘/Ctrl + ], ⌘/Ctrl + [ | Bring forward, send backward |
+| Shift + ⌘/Ctrl + ], Shift + ⌘/Ctrl + [ | Bring to front, send to back |
 | ⌘/Ctrl + G, Shift + ⌘/Ctrl + G | Group, ungroup |
 | Shift + ⌘/Ctrl + L | Lock or unlock |
 | Shift + F10 | Open the layer or canvas menu |
@@ -96,10 +99,12 @@ Press **?** or choose **Keyboard shortcuts** in the canvas toolbar to open the s
 | Option/Alt + Shift + H, V | Distribute horizontally, vertically |
 | Space + drag | Pan |
 | Scroll | Zoom around the pointer |
+| F | Fit canvas |
+| + or =, − | Zoom in, zoom out |
 | ⌘/Ctrl + B, I, U | Bold, italic, underline while editing text |
 | Escape | Finish editing text |
 
-Option/Alt shortcuts read the physical key, so they work on keyboard layouts where Option produces another character. ⌘/Ctrl + D, ⌘/Ctrl + G, and Delete apply only while focus is inside the canvas. **Cut** is available in the layer menu. I and K open the image picker. E on the loose canvas shows a message instead of adding an effect.
+Option/Alt shortcuts and the bracket chords read the physical key, so they work on keyboard layouts where Option or Shift produces another character. Duplicate, delete, cut, and the order chords act on the canvas selection, or on the layer chosen in the layer list when no canvas layer is selected. Delete and cut skip a locked layer. ⌘/Ctrl + X with no layer selected does nothing; ⌘/Ctrl + C with no layer selected copies the artboard. I and K open the image picker. E on the loose canvas shows a message instead of adding an effect.
 
 ## Browser API
 

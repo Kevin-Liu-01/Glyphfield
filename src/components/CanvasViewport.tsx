@@ -47,6 +47,7 @@ const OptionalCanvasMinimap = memo(function OptionalCanvasMinimap(props: Omit<Co
 });
 
 import {
+  canvasViewShortcut,
   clampCanvasZoom,
   resolveCanvasGridStep,
   resolveCanvasStageTransform,
@@ -298,6 +299,12 @@ export default function CanvasViewport({
   const historySurfaceRef = useRef<HTMLElement>(null);
   useCanvasHistoryDismiss(historyOpen, historyTriggerRef, historySurfaceRef, () => setHistoryOpen(false));
   const actionHistoryRef = useCommittedRef(actionHistory);
+  // The keys the view menu lists; read through a ref so the window listener stays attached.
+  const viewShortcutsRef = useCommittedRef({
+    fit: () => fitCanvas(),
+    'zoom-in': () => changeZoom(zoomRef.current + 10),
+    'zoom-out': () => changeZoom(zoomRef.current - 10),
+  });
   const [viewMenuPosition, setViewMenuPosition] = useState<StudioContextMenuPosition | null>(null);
   useCanvasSelectionDismiss(viewportRef, onDeselect);
 
@@ -539,6 +546,12 @@ export default function CanvasViewport({
       const canvasFocused = viewportRef.current?.contains(document.activeElement) ?? false;
       if (editing || (!canvasHoveredRef.current && !canvasFocused)) return;
       if (handleHistoryShortcut(event, actionHistoryRef.current)) return;
+      const view = canvasViewShortcut(event);
+      if (view && !(target instanceof Element && target.closest('[role="menu"], [role="dialog"], [role="listbox"]'))) {
+        event.preventDefault();
+        viewShortcutsRef.current[view]();
+        return;
+      }
       if (event.code !== 'Space' || event.repeat) return;
       event.preventDefault();
       setSpacePressed(true);

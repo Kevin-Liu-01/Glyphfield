@@ -2528,29 +2528,6 @@ function useDesignLabCanvasSelection({
     setSelectedLayerId(nextIds.at(-1) ?? null);
   }
 
-  function handleCanvasAssemblyKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
-    if (
-      event.target instanceof HTMLElement
-      && (event.target.isContentEditable || event.target.closest('input, textarea, select'))
-    ) return;
-    const command = event.metaKey || event.ctrlKey;
-    if (command && event.key.toLowerCase() === 'g') {
-      event.preventDefault();
-      if (event.shiftKey) ungroupCanvasSelection();
-      else groupCanvasSelection();
-      return;
-    }
-    if (command && event.key.toLowerCase() === 'd') {
-      event.preventDefault();
-      duplicateCanvasSelection();
-      return;
-    }
-    if ((event.key === 'Backspace' || event.key === 'Delete') && selectedCanvasLayerIds.length > 0) {
-      event.preventDefault();
-      removeCanvasSelection();
-    }
-  }
-
   return {
     alignCanvasAssembly,
     arrangeCanvasSelection,
@@ -2558,7 +2535,6 @@ function useDesignLabCanvasSelection({
     duplicateCanvasSelection,
     groupCanvasSelection,
     groupForLayer,
-    handleCanvasAssemblyKeyDown,
     movementBoundsFor,
     moveCanvasSelection,
     moveCanvasSelectionToEdge,
@@ -2631,7 +2607,7 @@ const DesignArtboardContextMenu = memo(function DesignArtboardContextMenu({
             },
             { icon: <Copy aria-hidden='true' />, id: 'copy-artboard', label: 'Copy artboard', onSelect: onCopy, shortcut: '⌘C' },
             { icon: <Files aria-hidden='true' />, id: 'paste-artboard', label: 'Paste', onSelect: onPaste, shortcut: '⌘V' },
-            { icon: <Files aria-hidden='true' />, id: 'duplicate-artboard', label: 'Duplicate artboard', onSelect: onDuplicate, shortcut: '⌘D' },
+            { icon: <Files aria-hidden='true' />, id: 'duplicate-artboard', label: 'Duplicate artboard', onSelect: onDuplicate },
             { icon: <Plus aria-hidden='true' />, id: 'new-artboard', label: 'New artboard', onSelect: onNew },
           ],
         },
@@ -3497,7 +3473,6 @@ export default function ShaderLabStudio({
     duplicateCanvasSelection,
     groupCanvasSelection,
     groupForLayer,
-    handleCanvasAssemblyKeyDown,
     movementBoundsFor,
     moveCanvasSelection,
     moveCanvasSelectionToEdge,
@@ -5139,13 +5114,27 @@ export default function ShaderLabStudio({
     return { label: layerIds.length > 0 ? `${layerIds.length} layer${layerIds.length === 1 ? '' : 's'}` : artboard.name, source };
   }
 
-  function copyDesignLabSelection(event: ClipboardEvent) {
-    if (!workspaceActiveRef.current || !projectWorkspaceActiveRef.current || isCanvasClipboardEditingTarget(event.target)) return;
+  /** Text fields, and text the user has selected, keep the browser's own clipboard behaviour. */
+  function ownsClipboardEvent(event: ClipboardEvent): boolean {
+    if (!workspaceActiveRef.current || !projectWorkspaceActiveRef.current || isCanvasClipboardEditingTarget(event.target)) return false;
     const browserSelection = window.getSelection();
-    if (browserSelection && !browserSelection.isCollapsed && browserSelection.toString()) return;
+    return !(browserSelection && !browserSelection.isCollapsed && browserSelection.toString());
+  }
 
+  function copyDesignLabSelection(event: ClipboardEvent) {
+    if (!ownsClipboardEvent(event)) return;
     event.preventDefault();
     void copyDesignLabSelectionFromMenu();
+  }
+
+  /** ⌘X copies the selected layers, then deletes them. Without a layer selection it does nothing. */
+  function cutDesignLabSelection(event: ClipboardEvent) {
+    if (!ownsClipboardEvent(event)) return;
+    const layerIds = canvasClipboardLayerIds();
+    if (layerIds.length === 0) return;
+    event.preventDefault();
+    const remove = selectedCanvasLayerIds.length > 0 ? removeCanvasSelection : () => removeLayer(layerIds[0]!);
+    void cutDesignLabSelectionFromMenu(remove, layerIds);
   }
 
   async function copyDesignLabSelectionFromMenu(
@@ -5294,8 +5283,35 @@ export default function ShaderLabStudio({
     }
   }
 
+  /** ⌘] / ⌘[ and their Shift forms: the canvas selection, or the one layer chosen in the layer list. */
+  function reorderSelection(direction: 'backward' | 'forward', toEdge: boolean) {
+    if (selectedCanvasLayerIds.length > 0) {
+      if (toEdge) moveCanvasSelectionToEdge(direction === 'forward' ? 'front' : 'back');
+      else moveCanvasSelection(direction === 'forward' ? 1 : -1);
+    } else if (selectedLayerId) {
+      if (toEdge) moveLayerToEdge(selectedLayerId, direction === 'forward' ? 'front' : 'back');
+      else moveLayer(selectedLayerId, direction === 'forward' ? 1 : -1);
+    }
+  }
+
+  /** ⌘D and Delete: the canvas selection, or the one unlocked layer chosen in the layer list. */
+  function duplicateOrDeleteSelection(kind: 'delete' | 'duplicate') {
+    if (selectedCanvasLayerIds.length > 0) {
+      if (kind === 'delete') removeCanvasSelection();
+      else void duplicateCanvasSelection();
+    } else if (selectedLayerId && !layerLocked(selectedLayerId)) {
+      if (kind === 'delete') removeLayer(selectedLayerId);
+      else void duplicateLayer(selectedLayerId);
+    }
+  }
+
   function runEditorShortcut(command: DesignLabShortcutCommand) {
     if (command.kind === 'shortcuts') setShortcutsOpen((open) => !open);
+    else if (command.kind === 'select-all') selectAllCanvasLayers();
+    else if (command.kind === 'order') reorderSelection(command.direction, command.toEdge);
+    else if (command.kind === 'delete' || command.kind === 'duplicate') duplicateOrDeleteSelection(command.kind);
+    else if (command.kind === 'group') groupCanvasSelection();
+    else if (command.kind === 'ungroup') ungroupCanvasSelection();
     else if (command.kind === 'copy-style') copyLayerStyle();
     else if (command.kind === 'paste-style') pasteLayerStyle();
     else if (command.kind === 'toggle-lock') toggleSelectionLock();
@@ -5335,6 +5351,7 @@ export default function ShaderLabStudio({
   }, [active]);
 
   const handleDesignLabCopy = useEffectEvent(copyDesignLabSelection);
+  const handleDesignLabCut = useEffectEvent(cutDesignLabSelection);
   const handleDesignLabPaste = useEffectEvent((event: ClipboardEvent) => {
     if (!workspaceActiveRef.current || !projectWorkspaceActiveRef.current || isCanvasClipboardEditingTarget(event.target)) return;
     const customSource = event.clipboardData?.getData(DESIGN_LAB_CLIPBOARD_MIME) ?? '';
@@ -5357,13 +5374,16 @@ export default function ShaderLabStudio({
   useEffect(() => {
     if (!active) return;
     const handleCopy = (event: ClipboardEvent) => handleDesignLabCopy(event);
+    const handleCut = (event: ClipboardEvent) => handleDesignLabCut(event);
     const handlePaste = (event: ClipboardEvent) => {
       handleDesignLabPaste(event);
     };
     document.addEventListener('copy', handleCopy);
+    document.addEventListener('cut', handleCut);
     document.addEventListener('paste', handlePaste);
     return () => {
       document.removeEventListener('copy', handleCopy);
+      document.removeEventListener('cut', handleCut);
       document.removeEventListener('paste', handlePaste);
     };
   }, [active]);
@@ -7125,7 +7145,6 @@ export default function ShaderLabStudio({
     activateArtboard,
     beginArtboardMove,
     deselectCanvasLayers,
-    handleCanvasAssemblyKeyDown,
     nudgeArtboard: (event, artboard) => void nudgeArtboard(event, artboard),
     openArtboardMenu: (artboardId, position) => setArtboardMenu({ artboardId, position }),
     queueArtboardLayer: (artboardId, layerId) => {
@@ -7277,7 +7296,7 @@ export default function ShaderLabStudio({
     ).timeMs;
     return <div className='design-loose-canvas' key={surface.id} style={{ left: surface.x, top: surface.y, ...size }}>
       <div className='shader-lab-v2-stage design-loose-stage' data-canvas-surface='canvas'
-        data-testid={ready ? 'shader-lab-live-stage' : undefined} onKeyDown={ready ? handleCanvasAssemblyKeyDown : undefined}
+        data-testid={ready ? 'shader-lab-live-stage' : undefined}
         ref={ready ? stageRef : undefined}>
         {ready ? visibleLayerIds.map(renderStageLayer) : snapshot.layerOrder.map((id, index) => {
           const layer = layers.find((layer) => layer.id === id);

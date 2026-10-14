@@ -553,7 +553,6 @@ export type DesignLabArtboardActions = {
   activateArtboard: (id: DesignArtboard['id'], focus?: boolean) => Promise<boolean>;
   beginArtboardMove: (event: ReactPointerEvent<HTMLElement>, artboard: DesignArtboard) => void;
   deselectCanvasLayers: () => void;
-  handleCanvasAssemblyKeyDown: (event: ReactKeyboardEvent<HTMLDivElement>) => void;
   nudgeArtboard: (event: ReactKeyboardEvent<HTMLButtonElement>, artboard: DesignArtboard) => void;
   openArtboardMenu: (artboardId: DesignArtboard['id'], position: StudioContextMenuPosition) => void;
   queueArtboardLayer: (artboardId: DesignArtboard['id'], layerId: CanvasLayerId | null) => void;
@@ -681,7 +680,6 @@ export const DesignLabArtboardFrame = memo(function DesignLabArtboardFrame({
         className={`shader-lab-v2-stage shader-lab-v2-stage-${snapshot.ratio}`}
         data-material-id={selectedReady ? materialId : undefined}
         data-testid={selectedReady ? 'shader-lab-live-stage' : undefined}
-        onKeyDown={selectedReady ? actions.handleCanvasAssemblyKeyDown : undefined}
         onPointerDown={selectedReady ? (event) => {
           if (event.button === 0) actions.deselectCanvasLayers();
         } : undefined}

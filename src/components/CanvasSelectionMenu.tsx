@@ -149,10 +149,10 @@ function organizeMenuSection(props: Pick<CanvasSelectionMenuProps, 'canGroup' | 
 
 function orderMenuSection(props: Pick<CanvasSelectionMenuProps, 'onBringForward' | 'onBringToFront' | 'onSendBackward' | 'onSendToBack'>): StudioContextMenuSection {
   const items: StudioContextMenuItem[] = [
-    { icon: <ArrowUp aria-hidden='true' />, id: 'forward', label: 'Bring forward', onSelect: props.onBringForward },
+    { icon: <ArrowUp aria-hidden='true' />, id: 'forward', label: 'Bring forward', onSelect: props.onBringForward, shortcut: '⌘]' },
   ];
   if (props.onBringToFront) items.push({ icon: <ArrowUp aria-hidden='true' />, id: 'front', label: 'Bring to front', onSelect: props.onBringToFront, shortcut: '⇧⌘]' });
-  items.push({ icon: <ArrowDown aria-hidden='true' />, id: 'backward', label: 'Send backward', onSelect: props.onSendBackward });
+  items.push({ icon: <ArrowDown aria-hidden='true' />, id: 'backward', label: 'Send backward', onSelect: props.onSendBackward, shortcut: '⌘[' });
   if (props.onSendToBack) items.push({ icon: <ArrowDown aria-hidden='true' />, id: 'back', label: 'Send to back', onSelect: props.onSendToBack, shortcut: '⇧⌘[' });
   return { items, label: 'Layer order' };
 }
