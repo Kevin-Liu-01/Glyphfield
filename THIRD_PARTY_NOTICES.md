@@ -198,6 +198,14 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+## Inter
+
+`public/fonts/inter-variable.ttf` is Inter Variable 4.1 (font version 4.001) by Rasmus Andersson, from
+[rsms/inter](https://github.com/rsms/inter), with its optical-size and weight axes and every OpenType
+feature. `public/fonts/inter-variable-latin.ttf` is a Latin subset of the same file, used only when a
+generated SVG embeds its fonts inline. Both are licensed under the SIL Open Font License 1.1; the license
+text is in [`public/fonts/inter-OFL.txt`](./public/fonts/inter-OFL.txt).
+
 ## General Translation brand assets
 
 The General Translation identity bundles GT's marks and brand-system artwork in

@@ -32,11 +32,21 @@ function assetMimeType(path: string): string {
   throw new AgentGenerationError('A bundled asset has an unsupported format.', 'asset');
 }
 
+/**
+ * Standalone SVG embeds fonts inline, so a font over the embed limit would be skipped. The full rsms
+ * Inter Variable stays the Studio's; generated files embed a Latin subset of the same build, with
+ * both axes and every OpenType feature.
+ */
+const EMBEDDED_FONT_SUBSETS: Readonly<Record<string, string>> = {
+  '/fonts/inter-variable.ttf': '/fonts/inter-variable-latin.ttf',
+};
+
 async function publicAssetDataUrl(path: string): Promise<string> {
   if (!path.startsWith('/') || path.includes('..')) {
     throw new AgentGenerationError('A bundled asset path is invalid.', 'asset');
   }
-  const contents = await readFile(join(process.cwd(), 'public', path.slice(1)));
+  const file = EMBEDDED_FONT_SUBSETS[path] ?? path;
+  const contents = await readFile(join(process.cwd(), 'public', file.slice(1)));
   return `data:${assetMimeType(path)};base64,${contents.toString('base64')}`;
 }
 
