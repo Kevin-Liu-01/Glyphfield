@@ -25,6 +25,9 @@
 }
 
 .toolbarTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -35,16 +38,12 @@
 }
 
 .toolbarTitle span {
-  display: block;
-  font-family: var(--font-mono), monospace;
-  font-size: 0.5rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  flex: none;
+  font-size: 0.66rem;
 }
 
 .toolbarTitle strong {
-  display: block;
-  margin-top: 2px;
+  min-width: 0;
   overflow: hidden;
   font-size: 0.7rem;
   font-weight: 580;
@@ -324,10 +323,11 @@
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  font-family: var(--font-mono), monospace;
-  font-size: 0.58rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  padding-top: 14px;
+  border-top: 1px solid currentColor;
+  border-top-color: color-mix(in srgb, currentColor 22%, transparent);
+  font-size: 0.66rem;
+  opacity: 0.8;
 }
 
 .proofLogo {
@@ -340,7 +340,7 @@
 .proofWordmark {
   font-size: 3rem;
   font-weight: 600;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.025em;
 }
 
 .proofTagline {
@@ -366,6 +366,9 @@
 }
 
 .values div {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 4px;
   min-width: 0;
   padding: 10px 14px;
   border-left: 1px solid hsl(var(--border));
@@ -378,12 +381,10 @@
 .values dt {
   color: hsl(var(--muted-foreground));
   font-family: var(--font-mono), monospace;
-  font-size: 0.52rem;
-  letter-spacing: 0.08em;
+  font-size: 0.6rem;
 }
 
 .values dd {
-  margin-top: 4px;
   overflow: hidden;
   font-family: var(--font-mono), monospace;
   font-size: 0.66rem;
@@ -407,7 +408,7 @@
   align-items: flex-end;
   padding: 7px;
   font-family: var(--font-mono), monospace;
-  font-size: 0.55rem;
+  font-size: 0.6rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -452,7 +453,7 @@
 
 .tokenMap code {
   font-family: var(--font-mono), monospace;
-  font-size: 0.56rem;
+  font-size: 0.6rem;
   opacity: 0.8;
 }
 
@@ -478,11 +479,9 @@
 
 .popover header span {
   display: block;
+  margin-top: 2px;
   color: hsl(var(--muted-foreground));
-  font-family: var(--font-mono), monospace;
-  font-size: 0.52rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 0.62rem;
 }
 
 .popover header strong {
@@ -518,7 +517,7 @@
   gap: 8px;
   color: hsl(var(--muted-foreground));
   font-family: var(--font-mono), monospace;
-  font-size: 0.58rem;
+  font-size: 0.6rem;
 }
 
 /* UI proof (brand colors) ------------------------------------------------ */
@@ -542,19 +541,11 @@
 }
 
 .proofCaption {
-  font-size: 0.55rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  margin-top: 2px;
+  font-size: 0.6rem;
   color: var(--proof-muted);
 }
 
-.proofEyebrow {
-  margin-top: 6px;
-  color: var(--proof-muted);
-  font-size: 0.58rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
 
 .proofTitle {
   display: -webkit-box;
@@ -681,7 +672,7 @@
   padding: 0 7px;
   border: 1px solid var(--proof-border);
   border-radius: 5px;
-  font-size: 0.58rem;
+  font-size: 0.6rem;
 }
 
 .proofBadges i {
@@ -705,11 +696,9 @@
   border-bottom: 1px solid hsl(var(--border));
   color: hsl(var(--muted-foreground));
   font-family: var(--font-mono), monospace;
-  font-size: 0.52rem;
+  font-size: 0.6rem;
   font-weight: 400;
-  letter-spacing: 0.08em;
   text-align: left;
-  text-transform: uppercase;
 }
 
 .rolesTable tbody th,
@@ -770,7 +759,7 @@
 
 .roleCell em {
   color: hsl(var(--emphasis));
-  font-size: 0.5rem;
+  font-size: 0.6rem;
   font-style: normal;
 }
 
@@ -781,7 +770,7 @@
   background: hsl(var(--status-error) / 0.12);
   color: hsl(var(--status-error));
   font-family: var(--font-mono), monospace;
-  font-size: 0.55rem;
+  font-size: 0.6rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -804,7 +793,7 @@
 .scaleSteps span {
   color: hsl(var(--muted-foreground));
   font-family: var(--font-mono), monospace;
-  font-size: 0.5rem;
+  font-size: 0.6rem;
   text-align: center;
 }
 
@@ -828,7 +817,7 @@
 .scaleRow button code {
   color: hsl(var(--muted-foreground));
   font-family: var(--font-mono), monospace;
-  font-size: 0.52rem;
+  font-size: 0.6rem;
 }
 
 .scaleRow[data-selected='true'] button {
@@ -929,7 +918,7 @@
 }
 
 .matrix th {
-  font-size: 0.58rem;
+  font-size: 0.6rem;
   font-weight: 500;
   text-align: left;
 }
@@ -1009,7 +998,7 @@
 
 .matrixCell small {
   font-family: var(--font-mono), monospace;
-  font-size: 0.5rem;
+  font-size: 0.6rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1018,9 +1007,8 @@
   top: 3px;
   left: 4px;
   font-family: var(--font-mono), monospace;
-  font-size: 0.42rem;
+  font-size: 0.6rem;
   font-style: normal;
-  letter-spacing: 0.04em;
   opacity: 0.75;
 }
 
@@ -1141,7 +1129,7 @@
 
 .pairRatio small {
   color: hsl(var(--muted-foreground));
-  font-size: 0.55rem;
+  font-size: 0.6rem;
 }
 
 /* Vision view ------------------------------------------------------------ */
@@ -1182,7 +1170,7 @@
 
 .visionLabel small {
   color: hsl(var(--muted-foreground));
-  font-size: 0.58rem;
+  font-size: 0.6rem;
 }
 
 .visionSwatches {
@@ -1328,4 +1316,13 @@
   .matrixCell:hover:not(:disabled) {
     transform: none;
   }
+}
+
+/* Kerning stays on for brand type (Kevin, 2026-10-13). */
+.proof,
+.proofCardLarge,
+.pairSample,
+.matrixCell {
+  font-kerning: normal;
+  font-feature-settings: 'kern' 1;
 }

@@ -25,21 +25,20 @@
 }
 
 .toolbarTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
   min-width: 0;
 }
 
 .toolbarTitle span {
-  display: block;
+  flex: none;
   color: hsl(var(--muted-foreground));
-  font-family: var(--font-mono), monospace;
-  font-size: 0.5rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 0.66rem;
 }
 
 .toolbarTitle strong {
-  display: block;
-  margin-top: 2px;
+  min-width: 0;
   overflow: hidden;
   font-size: 0.7rem;
   font-weight: 580;
@@ -145,11 +144,6 @@
 
 .patternHead dt {
   color: hsl(var(--muted-foreground));
-  font-family: var(--font-mono), monospace;
-  font-size: 0.52rem;
-  letter-spacing: 0.08em;
-  line-height: 1.6;
-  text-transform: uppercase;
 }
 
 .panes {
@@ -189,13 +183,11 @@
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 20px;
-  border-bottom: 1px solid color-mix(in oklab, var(--brand-border) 70%, transparent);
+  margin: 0;
+  padding: 10px 20px;
+  border-top: 1px solid color-mix(in oklab, var(--brand-border) 70%, transparent);
   color: var(--brand-foreground-muted);
-  font-family: var(--font-mono), monospace;
-  font-size: 0.52rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 0.62rem;
 }
 
 .paneLive {
@@ -216,7 +208,7 @@
 .paneStates figure {
   position: relative;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
   gap: 10px;
   min-width: 0;
   padding: 14px 16px 18px;
@@ -227,10 +219,7 @@
 
 .paneStates figcaption {
   color: var(--brand-foreground-muted);
-  font-family: var(--font-mono), monospace;
-  font-size: 0.5rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 0.6rem;
 }
 
 .paneReplica {

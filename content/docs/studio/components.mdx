@@ -54,7 +54,7 @@ The code panel generates two files from the same settings:
 | React + Tailwind | `<Brand><Component>.tsx` with Tailwind CSS v4 utilities (`bg-primary`, `text-foreground`, `rounded-brand`, state variants such as `hover:`, `focus-visible:`, `aria-invalid:`, `peer-checked:`) and `theme.css` with the semantic roles for light and dark, the fonts and the radius |
 | HTML + CSS | `<component>.html` with `gf-*` classes and `components.css` with the same tokens as CSS custom properties and the component rules for every state |
 
-The tokens come from the brand token serializers, the same ones the brand kit uses. **Copy code** in the header copies both files; each file also has its own copy button.
+The tokens come from the brand token serializers, the same ones the brand kit uses. The component root sets `font-kerning: normal` and automatic optical sizing, and no component stacks a small label above its heading. **Copy code** in the header copies both files; each file also has its own copy button.
 
 ## Accessibility
 

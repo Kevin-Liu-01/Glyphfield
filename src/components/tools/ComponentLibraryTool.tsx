@@ -252,8 +252,8 @@ function ComponentCanvas({ identity, onCopy, store }: { identity: BrandIdentity;
       <ComponentPreviewStyle css={css} />
       <div className={styles.toolbar}>
         <div className={styles.toolbarTitle}>
-          <span><T>Component library</T></span>
           <strong>{gt(config.label)}</strong>
+          <span><T>Component library</T></span>
         </div>
         <div aria-label={gt('Component theme')} className={styles.segmented} role='group'>
           {(['light', 'dark', 'both'] as const).map((value) => (

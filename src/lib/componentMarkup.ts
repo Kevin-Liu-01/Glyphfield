@@ -102,7 +102,7 @@ const SR_ONLY: Decls = { 'sr-only': '1' };
 
 /** Declaration order matters: later classes override earlier ones with the same property. */
 export const COMPONENT_RULES: Readonly<Record<string, Rule>> = {
-  'gf-root': { base: { color: '$foreground', 'font-family': '@font', 'font-size': '@text', 'font-weight': '@weight', 'letter-spacing': '@tracking', 'line-height': '1.5' } },
+  'gf-root': { base: { color: '$foreground', 'font-family': '@font', 'font-kerning': 'normal', 'font-optical-sizing': 'auto', 'font-size': '@text', 'font-weight': '@weight', 'letter-spacing': '@tracking', 'line-height': '1.5' } },
   'gf-stack': { base: { display: 'flex', 'flex-direction': 'column', gap: '@gap' } },
   'gf-stack-lg': { base: { display: 'flex', 'flex-direction': 'column', gap: '@space' } },
   'gf-row': { base: { 'align-items': 'center', display: 'flex', 'flex-wrap': 'wrap', gap: '@gap' } },
@@ -116,7 +116,6 @@ export const COMPONENT_RULES: Readonly<Record<string, Rule>> = {
   'gf-heading': { base: { color: '$foreground', 'font-size': '@textLg', 'font-weight': '@weightStrong', 'line-height': '1.3', margin: '0px' } },
   'gf-text': { base: { color: '$foreground', margin: '0px' } },
   'gf-muted': { base: { color: '$foreground-muted', 'font-size': '@textSm', margin: '0px' } },
-  'gf-eyebrow': { base: { color: '$foreground-muted', 'font-family': '@fontCode', 'font-size': '@textXs', 'letter-spacing': '0.08em', margin: '0px', 'text-transform': 'uppercase' } },
   'gf-num': { base: { 'font-variant-numeric': 'tabular-nums' } },
   'gf-label': { base: { color: '$foreground', 'font-size': '@textSm', 'font-weight': '@weightStrong' } },
   'gf-hint': { base: { color: '$foreground-muted', 'font-size': '@textXs', margin: '0px' } },
@@ -227,7 +226,7 @@ export const COMPONENT_RULES: Readonly<Record<string, Rule>> = {
     hover: { color: '$foreground' },
   },
   'gf-sidebar': { base: { 'background-color': '$surface-muted', 'border-right-color': '$border', 'border-right-style': 'solid', 'border-right-width': '1px', display: 'flex', 'flex-direction': 'column', gap: '2px', padding: '@gap', width: '232px' } },
-  'gf-sidebar-heading': { base: { color: '$foreground-muted', 'font-family': '@fontCode', 'font-size': '@textXs', 'letter-spacing': '0.08em', margin: '0px', 'padding-bottom': '4px', 'padding-inline': '10px', 'padding-top': '10px', 'text-transform': 'uppercase' } },
+  'gf-sidebar-heading': { base: { color: '$foreground-muted', 'font-size': '@textXs', 'font-weight': '@weightStrong', margin: '0px', 'padding-bottom': '4px', 'padding-inline': '10px', 'padding-top': '12px' } },
   'gf-sidebar-item': {
     base: { 'align-items': 'center', 'background-color': 'transparent', 'border-color': 'transparent', 'border-radius': '@radiusSm', 'border-style': 'solid', 'border-width': '1px', color: '$foreground-muted', cursor: 'pointer', display: 'flex', 'font-size': '@textSm', gap: '@gapSm', height: '@hSm', 'padding-inline': '10px', 'text-align': 'left', 'text-decoration-line': 'none', transition: 'colors', width: '100%' },
     current: { 'background-color': '$surface', 'border-color': '$border', color: '$foreground' },
@@ -344,7 +343,7 @@ export const COMPONENT_RULES: Readonly<Record<string, Rule>> = {
   'gf-axis-label': { base: { flex: '1 1 0%', 'text-align': 'center' } },
 
   // Commerce and content
-  'gf-price': { base: { color: '$foreground', 'font-family': '@fontDisplay', 'font-size': '@textDisplay', 'font-variant-numeric': 'tabular-nums', 'font-weight': '@weightStrong', 'letter-spacing': '-0.03em', 'line-height': '1', margin: '0px' } },
+  'gf-price': { base: { color: '$foreground', 'font-family': '@fontDisplay', 'font-size': '@textDisplay', 'font-variant-numeric': 'tabular-nums', 'font-weight': '@weightStrong', 'letter-spacing': '-0.025em', 'line-height': '1', margin: '0px' } },
   'gf-list': { base: { display: 'flex', 'flex-direction': 'column', gap: '@gapSm', 'list-style': 'none', margin: '0px', padding: '0px' } },
   'gf-list-item': { base: { 'align-items': 'flex-start', display: 'flex', 'font-size': '@textSm', gap: '@gapSm' } },
   'gf-split': { base: { display: 'grid', 'grid-template-columns': 'minmax(0, 1.4fr) minmax(0, 1fr)' } },
@@ -366,7 +365,7 @@ export const COMPONENT_RULES: Readonly<Record<string, Rule>> = {
   'gf-prose': { base: { color: '$foreground', 'line-height': '1.7', margin: '0px' } },
   'gf-blockquote': { base: { 'border-left-color': '$focus', 'border-left-style': 'solid', 'border-left-width': '2px', color: '$foreground', 'font-family': '@fontDisplay', 'font-size': '@textLg', 'line-height': '1.4', margin: '0px', 'padding-left': '@pad' } },
   'gf-dl': { base: { ...BORDERED, 'border-radius': '@radiusLg', display: 'grid', 'font-size': '@textSm', 'grid-template-columns': '140px minmax(0, 1fr)', margin: '0px', overflow: 'hidden' } },
-  'gf-dt': { base: { ...HAIRLINE_BOTTOM, 'background-color': '$surface-muted', color: '$foreground-muted', 'font-family': '@fontCode', 'font-size': '@textXs', 'padding-block': '@cellY', 'padding-inline': '@px' } },
+  'gf-dt': { base: { ...HAIRLINE_BOTTOM, 'background-color': '$surface-muted', color: '$foreground-muted', 'font-size': '@textXs', 'padding-block': '@cellY', 'padding-inline': '@px' } },
   'gf-dd': { base: { ...HAIRLINE_BOTTOM, color: '$foreground', margin: '0px', 'overflow-wrap': 'anywhere', 'padding-block': '@cellY', 'padding-inline': '@px' } },
 };
 

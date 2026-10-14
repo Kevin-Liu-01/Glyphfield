@@ -178,21 +178,21 @@ const ComponentPane = memo(function ComponentPane({ assetPath, content, demo, id
       ref={ref}
     >
       {assetPath ? <img alt='' aria-hidden='true' className={styles.paneAsset} src={assetPath} /> : null}
-      <header className={styles.paneHead}>
-        <span>{mode === 'light' ? gt('Light') : gt('Dark')}</span>
-        <span>{gt('Live, keyboard operable')}</span>
-      </header>
       <div className={styles.paneLive} onClick={onClick} onKeyDown={rovingKeyDown} style={{ minHeight: PANE_MIN_HEIGHT[pattern] }}>
         {renderUiNode(live)}
       </div>
+      <p className={styles.paneHead}>
+        <span>{mode === 'light' ? gt('Light theme') : gt('Dark theme')}</span>
+        <span>{gt('Live and keyboard operable')}</span>
+      </p>
       {replicas.length ? (
         <div aria-hidden='true' className={styles.paneStates} inert>
           {replicas.map((state) => (
             <figure key={state} style={{ minHeight: PANE_MIN_HEIGHT[pattern] ? Math.round(PANE_MIN_HEIGHT[pattern]! * 0.62) : undefined }}>
-              <figcaption>{gt(COMPONENT_STATES.find(({ id }) => id === state)?.label ?? state)}</figcaption>
               <div className={styles.paneReplica}>
                 {renderUiNode(componentTree(pattern, { ...base, live: false, state, uid: `${uid}-${state}` }))}
               </div>
+              <figcaption>{gt(COMPONENT_STATES.find(({ id }) => id === state)?.label ?? state)}</figcaption>
             </figure>
           ))}
         </div>

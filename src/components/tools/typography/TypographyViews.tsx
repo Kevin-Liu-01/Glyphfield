@@ -59,6 +59,9 @@ export function roleStyle(identity: BrandIdentity, role: Role, sizePx?: number):
   const font = brandFontAssets(identity).find(({ id }) => id === typography.fontId);
   return {
     fontFamily: brandTypographyFamily(identity, role),
+    fontFeatureSettings: '"kern" 1',
+    fontKerning: 'normal',
+    fontOpticalSizing: variation ? 'none' : 'auto',
     fontStyle: fontStyle ?? font?.style ?? 'normal',
     fontVariationSettings: variation ?? undefined,
     fontWeight: capVisibleFontWeight(typography.weight ?? 400),
@@ -111,16 +114,23 @@ export function SpecimenView({
   useEffect(() => {
     const element = textareaRef.current;
     if (!element) return;
-    element.style.height = '0px';
-    element.style.height = `${element.scrollHeight}px`;
+    const fit = () => {
+      element.style.height = '0px';
+      element.style.height = `${element.scrollHeight}px`;
+    };
+    fit();
+    // Re-fit when the brand font finishes loading or the canvas width changes.
+    const resize = new ResizeObserver(fit);
+    resize.observe(element.parentElement ?? element);
+    document.fonts?.addEventListener('loadingdone', fit);
+    return () => {
+      resize.disconnect();
+      document.fonts?.removeEventListener('loadingdone', fit);
+    };
   }, [sampleText, size, style.fontFamily, style.letterSpacing, style.lineHeight, style.fontWeight]);
 
   return (
     <article className={styles.specimen} data-align={align}>
-      <header className={styles.specimenHead}>
-        <span>{selectedRole}</span>
-        <code>{family} · {typography.weight ?? 400} / {typography.lineHeight ?? 1.2} · {size}px</code>
-      </header>
       <textarea
         aria-label={gt('{role} live type specimen', { role: selectedRole })}
         className={styles.liveInput}
@@ -130,6 +140,10 @@ export function SpecimenView({
         style={style}
         value={sampleText}
       />
+      <p className={styles.specimenHead}>
+        <span>{selectedRole} · {family}</span>
+        <code>{typography.weight ?? 400} / {typography.lineHeight ?? 1.2} · {size}px</code>
+      </p>
       <section aria-label={gt('Typography role specimens')} className={styles.roleLines}>
         {TYPE_ROLES.map((role) => (
           <label data-active={selectedRole === role} key={role}>
@@ -261,19 +275,19 @@ export function PairingView({ identity, onUseFont }: { identity: BrandIdentity; 
       <ViewHeader description={<T>The roles together on one surface, then every display face from this brand paired with the body face.</T>} title={<T>Pairing</T>} />
       <article className={styles.system}>
         <section className={styles.systemBand} style={{ backgroundColor: primary, color: primaryText }}>
-          <p className={styles.systemMeta}><span>Display / {displayFamily}</span><span>Wt {capVisibleFontWeight(display.weight ?? 400)} · Lh {(display.lineHeight ?? 1).toFixed(2)} · Tr {display.letterSpacing ?? 0}</span></p>
           <h4 className={styles.systemDisplay} style={{ ...roleStyle(working, 'Display'), lineHeight: Math.min(display.lineHeight ?? 1, 1.04) }}>{working.tagline}</h4>
           <p className={styles.systemAccent} style={roleStyle(working, 'Accent')}>{working.greetings.slice(0, 4).join('  ·  ')}</p>
+          <p className={styles.systemMeta}><span>Display · {displayFamily}</span><span>Wt {capVisibleFontWeight(display.weight ?? 400)} · Lh {(display.lineHeight ?? 1).toFixed(2)} · Tr {display.letterSpacing ?? 0}</span></p>
         </section>
         <div className={styles.systemGrid}>
           <section className={styles.systemBody}>
-            <p className={styles.systemMeta}><span>Body / {bodyFamily}</span><span>Wt {capVisibleFontWeight(body.weight ?? 400)} · Lh {(body.lineHeight ?? 1.5).toFixed(2)}</span></p>
             <p className={styles.systemParagraph} style={roleStyle(working, 'Body')}>{working.positioning}</p>
             <p className={styles.systemAlphabet} style={{ ...roleStyle(working, 'Body'), lineHeight: 1.4 }}><span>Aa Bb Cc Dd Ee Ff Gg Hh Ii Jj Kk Ll Mm</span><span>0123456789</span></p>
+            <p className={styles.systemMeta}><span>Body · {bodyFamily}</span><span>Wt {capVisibleFontWeight(body.weight ?? 400)} · Lh {(body.lineHeight ?? 1.5).toFixed(2)}</span></p>
           </section>
           <section className={styles.systemCode}>
-            <p className={styles.systemMeta}><span>Code / {brandTypographyFamily(working, 'Code')}</span><span>Wt {capVisibleFontWeight(code.weight ?? 400)}</span></p>
             <pre style={roleStyle(working, 'Code')}>{codeSample}</pre>
+            <p className={styles.systemMeta}><span>Code · {brandTypographyFamily(working, 'Code')}</span><span>Wt {capVisibleFontWeight(code.weight ?? 400)}</span></p>
           </section>
         </div>
       </article>
@@ -323,11 +337,11 @@ export function WrapView({ identity, mode, onModeChange }: { identity: BrandIden
       <div className={styles.wrapList}>
         {WRAP_WIDTHS.map((width) => (
           <section className={styles.wrapCase} key={width}>
-            <p className={styles.wrapMeta}><span>{width}px</span><span>{gt('about {count} characters per line', { count: Math.round(width / (bodySize * 0.5)) })}</span></p>
             <div className={styles.wrapFrame} style={{ width: `min(100%, ${width}px)` }}>
               <h4 style={{ ...roleStyle(working, 'Display', headlineSize), textWrap: mode }}>{working.tagline}</h4>
               <p style={{ ...roleStyle(working, 'Body', bodySize), textWrap: mode === 'wrap' ? 'wrap' : 'pretty' }}>{working.positioning}</p>
             </div>
+            <p className={styles.wrapMeta}><span>{width}px</span><span>{gt('about {count} characters per line', { count: Math.round(width / (bodySize * 0.5)) })}</span></p>
           </section>
         ))}
       </div>
@@ -336,6 +350,12 @@ export function WrapView({ identity, mode, onModeChange }: { identity: BrandIden
 }
 
 // ── Fonts ───────────────────────────────────────────────────────────────────
+
+function axesLabel(axes: ReturnType<typeof useFontAxes>, gt: ReturnType<typeof useGT>): ReactNode {
+  if (axes === undefined) return <span className={styles.muted}>{gt('Reading…')}</span>;
+  if (axes === null) return <span className={styles.muted}>{gt('Not readable in this browser')}</span>;
+  return axes.length ? axes.map((axis) => `${axis.tag} ${axis.min}–${axis.max}`).join(' · ') : gt('Static');
+}
 
 function FontRow({ font, roles }: { font: BrandFontAsset; roles: readonly Role[] }) {
   const gt = useGT();
@@ -349,7 +369,7 @@ function FontRow({ font, roles }: { font: BrandFontAsset; roles: readonly Role[]
       </th>
       <td>{roles.length ? roles.join(', ') : '—'}</td>
       <td className={styles.num}>{weight}{font.style === 'italic' ? ' italic' : ''}</td>
-      <td>{axes === null ? <span className={styles.muted}>{gt('Not readable here')}</span> : axes.length ? axes.map((axis) => `${axis.tag} ${axis.min}–${axis.max}`).join(' · ') : gt('Static')}</td>
+      <td>{axesLabel(axes, gt)}</td>
       <td>
         {font.license ? <span>{font.license}</span> : <span className={styles.warn}><T>No licence recorded</T></span>}
         {font.sourceUrl ? <a className={styles.source} href={font.sourceUrl} rel='noreferrer' target='_blank'><T>Source</T></a> : null}

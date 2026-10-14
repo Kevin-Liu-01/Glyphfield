@@ -114,8 +114,6 @@ export const ColorUiProof = memo(function ColorUiProof({
   } as CSSProperties;
   return (
     <figure aria-label={label} className={styles.proof} style={style}>
-      <figcaption className={styles.proofCaption} style={{ fontFamily: code }}>{label}</figcaption>
-      <p className={styles.proofEyebrow} style={{ fontFamily: code }}>{product}</p>
       <p className={styles.proofTitle} style={{ fontFamily: display }}>{identity.tagline}</p>
       <p className={styles.proofBody}>{identity.positioning}</p>
       <div className={styles.proofActions} aria-hidden='true'>
@@ -137,6 +135,7 @@ export const ColorUiProof = memo(function ColorUiProof({
           <span><i style={{ background: colors.negative }} />Failed</span>
         </div>
       </div>
+      <figcaption className={styles.proofCaption} style={{ fontFamily: code }}>{label}</figcaption>
     </figure>
   );
 });
@@ -195,10 +194,10 @@ export function PaletteView({
         style={{ backgroundColor: background, color: resolution.color }}
         type='button'
       >
-        <span className={styles.proofMeta}><span>{selected.role || gt('Semantic brand color')}{resolution.fallbackApplied ? ` · ${gt('Auto contrast')}` : ''}</span><code>{normalizeHexOrFallback(selected.hex)}</code></span>
         {logo ? <img alt={`${identity.name} ${logo.kind}`} className={styles.proofLogo} data-logo-kind={logo.kind} src={logo.path} /> : <span className={styles.proofWordmark}>{identity.shortName}</span>}
         <span className={styles.proofTagline} style={{ fontFamily: brandTypographyFamily(identity, 'Display') }}>{identity.tagline}</span>
         <span className={styles.proofAction} style={{ backgroundColor: resolution.color, color: action }}><T>Primary action</T></span>
+        <span className={styles.proofMeta}><span>{selected.role || gt('Semantic brand color')}{resolution.fallbackApplied ? ` · ${gt('Auto contrast')}` : ''}</span><code>{normalizeHexOrFallback(selected.hex)}</code></span>
       </button>
       <dl className={styles.values}>
         <div><dt>HEX</dt><dd>{normalizeHexOrFallback(selected.hex)}</dd></div>

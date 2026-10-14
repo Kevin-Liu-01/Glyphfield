@@ -768,8 +768,8 @@ function ColorToolbar({ identity, onViewChange, view }: { identity: BrandIdentit
   return (
     <div className={styles.toolbar}>
       <div className={styles.toolbarTitle}>
-        <span><T>Color system</T></span>
         <strong>{identity.name}</strong>
+        <span><T>Color system</T></span>
       </div>
       <div aria-label={gt('Color view')} className={styles.segmented} role='group'>
         {COLOR_VIEWS.map((entry) => (
@@ -826,7 +826,7 @@ function CanvasPopover({ actions, onClose, popover }: { actions: ColorInspectorA
   return (
     <aside aria-label={gt('Edit {name}', { name })} className={styles.popover} onClick={(event) => event.stopPropagation()} role='region' style={{ left: popover.left, top: popover.top }}>
       <header>
-        <div><span><T>Canvas color</T></span><strong>{name}</strong></div>
+        <div><strong>{name}</strong><span><T>On the canvas</T></span></div>
         <button aria-label={gt('Close color editor')} onClick={onClose} type='button'><X aria-hidden='true' /></button>
       </header>
       <PopoverColor actions={actions} id={popover.id} />

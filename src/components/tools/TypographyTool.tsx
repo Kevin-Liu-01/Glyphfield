@@ -59,8 +59,10 @@ import {
   applyTypographySource,
   clampTypeScale,
   MEASURE_LIMITS,
+  recommendedLetterSpacing,
   resolvedTypeScale,
   roleFonts,
+  rolesOffTracking,
   TYPE_ROLES,
   TYPE_SCALE_LIMITS,
   TYPE_SCALE_RATIOS,
@@ -186,6 +188,7 @@ function RoleLibrary({ identity, onFile, onSelect, selectedRole }: { identity: B
 // ── Inspector ───────────────────────────────────────────────────────────────
 
 type TypeActions = {
+  applyRecommendedTracking: () => void;
   begin: () => void;
   commit: () => void;
   previewRole: (role: Role, patch: Partial<BrandTypography>) => void;
@@ -213,19 +216,33 @@ function TypefaceSection({ actions, identity, role }: { actions: TypeActions; id
   );
 }
 
+/** The role's axes: read from the file, or the recorded weight range when this browser cannot read it. */
+function useRoleAxes(identity: BrandIdentity, role: Role) {
+  const font = roleFonts(identity).find((entry) => entry.role === role)?.asset;
+  const read = useFontAxes(font?.path);
+  const recorded = font?.weightMin !== undefined && font.weightMax !== undefined ? [{ default: font.weight, max: font.weightMax, min: font.weightMin, tag: 'wght' }] : [];
+  return { axes: read === null ? recorded : read, font, unreadable: read === null };
+}
+
+function AxisNotes({ family, hasAxes, unreadable }: { family: string; hasAxes: boolean; unreadable: boolean }) {
+  const gt = useGT();
+  if (unreadable) return <p className='lab-section-description'><T>This browser cannot read the axes of this file, so only the recorded weight range is shown.</T></p>;
+  return hasAxes ? null : <p className='lab-section-description'>{gt('{family} has no optical size or slant axis.', { family })}</p>;
+}
+
 function AxesSection({ actions, identity, role }: { actions: TypeActions; identity: BrandIdentity; role: Role }) {
   const gt = useGT();
   const working = useWorkingTypeIdentity(identity);
   const typography = roleTypography(working, role);
-  const font = roleFonts(working).find((entry) => entry.role === role)?.asset;
-  const axes = useFontAxes(font?.path);
+  const { axes, font, unreadable } = useRoleAxes(working, role);
   const opsz = fontAxis(axes, 'opsz');
   const slnt = fontAxis(axes, 'slnt');
   const wght = fontAxis(axes, 'wght');
   const automatic = typeof typography.opticalSize !== 'number';
   const maxSlant = slnt ? Math.round(Math.abs(Math.min(slnt.min, -slnt.max))) : 0;
+  const meta = axes === undefined ? gt('Reading…') : axes.length ? axes.map(({ tag }) => tag).join(' · ') : gt('Static');
   return (
-    <LabInspectorSection meta={axes === null ? gt('Reading…') : axes.length ? axes.map(({ tag }) => tag).join(' · ') : gt('Static')} title={<T>Variable axes</T>}>
+    <LabInspectorSection meta={meta} title={<T>Variable axes</T>}>
       {wght ? <p className='lab-section-description'>{gt('Weight axis {min}–{max}; Studio previews cap at {cap}.', { cap: MAX_VISIBLE_FONT_WEIGHT, max: wght.max, min: wght.min })}</p> : null}
       {opsz ? (
         <>
@@ -239,8 +256,7 @@ function AxesSection({ actions, identity, role }: { actions: TypeActions; identi
       {slnt && maxSlant > 0 ? (
         <RangeField label={<T>Slant</T>} max={maxSlant} min={0} onChange={(slant) => actions.previewRole(role, { slant })} onChangeEnd={actions.commit} onChangeStart={actions.begin} suffix='°' value={typography.slant ?? 0} />
       ) : null}
-      {axes !== null && !opsz && !slnt ? <p className='lab-section-description'>{gt('{family} has no optical size or slant axis.', { family: font?.family ?? brandTypographyFamily(working, role) })}</p> : null}
-      {axes === null && font ? <p className='lab-section-description'><T>Axes could not be read from this file in this browser.</T></p> : null}
+      {axes === undefined ? null : <AxisNotes family={font?.family ?? brandTypographyFamily(working, role)} hasAxes={Boolean(opsz || slnt)} unreadable={unreadable} />}
     </LabInspectorSection>
   );
 }
@@ -284,8 +300,9 @@ function SpecimenSection() {
   );
 }
 
-function GuidanceSection({ identity, role }: { identity: BrandIdentity; role: Role }) {
+function GuidanceSection({ actions, identity, role }: { actions: TypeActions; identity: BrandIdentity; role: Role }) {
   const working = useWorkingTypeIdentity(identity);
+  const offTracking = rolesOffTracking(working);
   const measure = useSpecimen((state) => state.measure);
   const guidance = useMemo(() => typographyGuidance(working, { measureCh: measure }), [measure, working]);
   const typography = roleTypography(working, role);
@@ -302,6 +319,11 @@ function GuidanceSection({ identity, role }: { identity: BrandIdentity; role: Ro
           ))}
         </ul>
       ) : <p className={styles.guidanceOk}><Check aria-hidden='true' /><T>Leading, tracking, measure and scale are within the usual ranges.</T></p>}
+      {offTracking.length ? (
+        <Button onClick={actions.applyRecommendedTracking} size='sm' title={offTracking.join(', ')} type='button' variant='outline'>
+          <T>Apply recommended tracking</T>
+        </Button>
+      ) : null}
     </LabInspectorSection>
   );
 }
@@ -399,7 +421,19 @@ function TypographyTool({ identity, onIdentityChange, tool }: { identity: BrandI
     idleTimer.current = window.setTimeout(commit, 450);
   }
 
+  /** −0.02em on large display roles, 0 on text roles, for every role off the spacing rule. */
+  function applyRecommendedTracking() {
+    const working = withState(store.get());
+    const roles = new Set(rolesOffTracking(working));
+    store.set((current) => ({
+      ...current,
+      typography: current.typography.map((entry) => (roles.has(entry.role) ? { ...entry, letterSpacing: recommendedLetterSpacing(working, entry.role) } : entry)),
+    }));
+    commit();
+  }
+
   const actions: TypeActions = {
+    applyRecommendedTracking,
     begin: () => { gesture.current = true; },
     commit,
     commitRole: (role, patch, clear) => { patchRole(role, patch, clear); commit(); },
@@ -501,7 +535,7 @@ function TypographyTool({ identity, onIdentityChange, tool }: { identity: BrandI
       <AxesSection actions={actions} identity={identity} role={selectedRole} />
       <ScaleSection actions={actions} identity={identity} role={selectedRole} />
       <SpecimenSection />
-      <GuidanceSection identity={identity} role={selectedRole} />
+      <GuidanceSection actions={actions} identity={identity} role={selectedRole} />
       <TokensSection format={tokenFormat} identity={identity} onCopy={() => void copyTokens()} onFormatChange={setTokenFormat} />
     </>
   );
@@ -528,7 +562,7 @@ function TypographyTool({ identity, onIdentityChange, tool }: { identity: BrandI
         >
           <div className={styles.stage}>
             <div className={styles.toolbar}>
-              <div className={styles.toolbarTitle}><span><T>Type system</T></span><strong>{selectedRole} / {brandTypographyFamily(identity, selectedRole)}</strong></div>
+              <div className={styles.toolbarTitle}><strong>{selectedRole} · {brandTypographyFamily(identity, selectedRole)}</strong><span><T>Type system</T></span></div>
               <div aria-label={gt('Typography view')} className={styles.segmented} role='group'>
                 {TYPOGRAPHY_VIEWS.map((entry) => (
                   <button aria-label={gt('Show {view} view', { view: gt(entry.label) })} aria-pressed={view === entry.id} key={entry.id} onClick={() => setView(entry.id)} type='button'>{gt(entry.label)}</button>

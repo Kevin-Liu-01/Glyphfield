@@ -338,7 +338,6 @@ function sidebars(context: TemplateContext): UiElement {
       row(items[3] ?? 'Settings', 3),
     ),
     el('section', 'gf-grow gf-stack', { 'aria-live': 'polite' },
-      el('p', 'gf-eyebrow', null, 'Now viewing'),
       el('h3', 'gf-title', null, items[Math.min(current, items.length - 1)] ?? items[0]),
       el('p', 'gf-muted', null, sentence(context.content.positioning, 120)),
     ),
@@ -633,7 +632,7 @@ function charts(context: TemplateContext): UiElement {
 function pricing(context: TemplateContext): UiElement {
   return el('article', 'gf-card', null,
     el('div', 'gf-card-body', null,
-      el('div', 'gf-row-between', null, el('p', 'gf-eyebrow', null, 'Team'), badge('primary', 'Popular')),
+      el('div', 'gf-row-between', null, el('h3', 'gf-heading', null, 'Team'), badge('primary', 'Popular')),
       el('p', 'gf-price', null, context.state === 'loading' ? '—' : '$49', el('span', 'gf-muted', null, ' / month')),
       el('p', 'gf-muted', null, sentence(context.settings.supportingCopy || context.content.description, 110)),
       el('ul', 'gf-list', null, ...context.content.values.slice(0, 3).map((value) => el('li', 'gf-list-item', null, icon('check', 'gf-icon gf-tone-positive'), value))),
@@ -655,10 +654,11 @@ function checkout(context: TemplateContext): UiElement {
       ),
     ),
     el('aside', 'gf-aside', { 'aria-label': 'Order summary' },
-      el('p', 'gf-eyebrow', null, 'Due today'),
+      el('h3', 'gf-heading', null, 'Order summary'),
       el('ul', 'gf-list', null, ...items.map((item, index) => el('li', 'gf-row-between', null, el('span', 'gf-muted', null, item), el('span', 'gf-num', null, index === 0 ? '$39.00' : '$10.00')))),
       el('p', 'gf-price', null, '$49'),
-      button('gf-btn-primary gf-btn-block', loading ? { 'aria-busy': 'true', disabled: true } : {}, loading ? icon('spinner', 'gf-spinner') : null, loading ? 'Processing…' : `Pay ${context.content.short}`),
+      el('p', 'gf-hint', null, 'Due today, then monthly'),
+      button('gf-btn-primary gf-btn-block', loading ? { 'aria-busy': 'true', disabled: true } : {}, loading ? icon('spinner', 'gf-spinner') : null, loading ? 'Processing…' : 'Pay $49'),
     ),
   );
 }
@@ -672,11 +672,10 @@ function cards(context: TemplateContext): UiElement {
     },
     el('div', 'gf-media', { 'aria-hidden': 'true' }, loading ? skeleton('40%') : product),
     el('div', 'gf-card-body', null,
-      el('p', 'gf-eyebrow', null, index === 0 ? 'Product' : 'Guide'),
       el('h3', 'gf-heading', null, loading ? skeleton('70%') : index === 0 ? `${product} for ${context.content.audiences[0]}` : `Ship ${product} in a day`),
       el('p', 'gf-muted', null, loading ? skeleton('90%') : sentence(index === 0 ? context.content.positioning : context.content.description, 100)),
     ),
-    el('div', 'gf-card-footer', null, el('span', 'gf-hint', null, index === 0 ? context.content.domain : '6 min read'), icon('arrow-right', 'gf-icon gf-tone-muted')),
+    el('div', 'gf-card-footer', null, el('span', 'gf-hint', null, index === 0 ? `Product · ${context.content.domain}` : 'Guide · 6 min read'), icon('arrow-right', 'gf-icon gf-tone-muted')),
     )),
   );
 }
@@ -712,8 +711,8 @@ function inbox(context: TemplateContext): UiElement {
       }, el('span', 'gf-label gf-truncate', null, subject), el('span', 'gf-hint gf-truncate', null, context.state === 'loading' ? '' : preview))),
     ),
     el('article', 'gf-card-body', { 'aria-live': 'polite' },
-      el('p', 'gf-eyebrow', null, context.content.handle),
       el('h3', 'gf-heading', null, messages[current]![0]),
+      el('p', 'gf-hint', null, `From ${context.content.handle}`),
       context.state === 'loading' ? el('div', 'gf-stack', null, skeleton('92%'), skeleton('80%'), skeleton('64%')) : el('p', 'gf-prose', null, `${messages[current]![1]} ${sentence(context.content.description, 160)}`),
       el('div', 'gf-row', null, button('gf-btn-primary', {}, 'Reply'), button('gf-btn-ghost', {}, 'Archive')),
     ),
@@ -741,7 +740,6 @@ function comments(context: TemplateContext): UiElement {
 
 function articleBody(context: TemplateContext): UiElement {
   return el('article', 'gf-article', null,
-    el('p', 'gf-eyebrow', null, `${context.content.name} / Field notes`),
     el('h2', 'gf-title', null, context.settings.label === 'Get started' ? context.content.tagline : context.settings.label),
     el('p', 'gf-lead', null, sentence(context.settings.supportingCopy || context.content.description, 200)),
     el('p', 'gf-prose', null, context.content.positioning),

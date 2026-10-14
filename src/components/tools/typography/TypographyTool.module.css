@@ -25,21 +25,20 @@
 }
 
 .toolbarTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
   min-width: 0;
 }
 
 .toolbarTitle span {
-  display: block;
+  flex: none;
   color: hsl(var(--muted-foreground));
-  font-family: var(--font-mono), monospace;
-  font-size: 0.5rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 0.66rem;
 }
 
 .toolbarTitle strong {
-  display: block;
-  margin-top: 2px;
+  min-width: 0;
   overflow: hidden;
   font-size: 0.7rem;
   font-weight: 580;
@@ -168,11 +167,8 @@
 
 .libraryRole {
   grid-area: role;
-  color: hsl(var(--muted-foreground));
-  font-family: var(--font-mono), monospace;
-  font-size: 0.52rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 0.74rem;
+  font-weight: 560;
 }
 
 .libraryRow strong {
@@ -185,7 +181,8 @@
 .libraryRow small {
   grid-area: family;
   overflow: hidden;
-  font-size: 0.72rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.66rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -194,7 +191,7 @@
   grid-area: meta;
   color: hsl(var(--muted-foreground));
   font-family: var(--font-mono), monospace;
-  font-size: 0.55rem;
+  font-size: 0.6rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -278,18 +275,15 @@
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 8px;
-  padding: 16px 24px 0;
+  padding: 0 24px 18px;
   color: hsl(var(--muted-foreground));
   font-family: var(--font-mono), monospace;
-  font-size: 0.55rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 0.6rem;
 }
 
 .specimenHead code {
   font-family: inherit;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
   text-transform: none;
 }
 
@@ -297,7 +291,7 @@
   display: block;
   width: 100%;
   min-height: 1.4em;
-  padding: 20px 24px 28px;
+  padding: 28px 24px 14px;
   overflow: hidden;
   border: 0;
   background: transparent;
@@ -349,7 +343,7 @@
 .weightLines small {
   color: hsl(var(--muted-foreground));
   font-family: var(--font-mono), monospace;
-  font-size: 0.55rem;
+  font-size: 0.6rem;
 }
 
 .roleLines input,
@@ -461,7 +455,7 @@
 .ladderMeta code {
   color: hsl(var(--muted-foreground));
   font-family: var(--font-mono), monospace;
-  font-size: 0.55rem;
+  font-size: 0.6rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -477,7 +471,7 @@
   border-radius: 999px;
   background: hsl(var(--foreground));
   color: hsl(var(--background));
-  font-size: 0.5rem;
+  font-size: 0.6rem;
   font-style: normal;
 }
 
@@ -509,11 +503,9 @@
   justify-content: space-between;
   gap: 6px 16px;
   font-family: var(--font-mono), monospace;
-  font-size: 0.55rem;
+  font-size: 0.6rem;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.08em;
   opacity: 0.7;
-  text-transform: uppercase;
 }
 
 .systemDisplay {
@@ -566,7 +558,6 @@
   border-top: 1px solid hsl(var(--border));
   color: hsl(var(--muted-foreground));
   font-size: 0.75rem;
-  letter-spacing: 0.06em;
 }
 
 .systemCode pre {
@@ -653,7 +644,7 @@
   gap: 12px;
   color: hsl(var(--muted-foreground));
   font-family: var(--font-mono), monospace;
-  font-size: 0.55rem;
+  font-size: 0.6rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -699,10 +690,8 @@
 .fontsTable thead th {
   color: hsl(var(--muted-foreground));
   font-family: var(--font-mono), monospace;
-  font-size: 0.52rem;
+  font-size: 0.6rem;
   font-weight: 400;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .fontsTable tbody tr:last-child th,
@@ -741,7 +730,7 @@
 
 .fontName small {
   font-family: var(--font-mono), monospace;
-  font-size: 0.55rem;
+  font-size: 0.6rem;
 }
 
 .num {
@@ -788,4 +777,15 @@
   .ladder button {
     transition: none;
   }
+}
+
+/* Kerning stays on for every brand specimen (Kevin, 2026-10-13). */
+.specimen,
+.ladder,
+.system,
+.pairGrid,
+.wrapList,
+.library {
+  font-kerning: normal;
+  font-feature-settings: 'kern' 1;
 }

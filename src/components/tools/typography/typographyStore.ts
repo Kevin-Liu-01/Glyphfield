@@ -55,8 +55,8 @@ export function typeIntoSpecimen(store: LiveStore<SpecimenState>, value: string)
   }));
 }
 
-/** Variation axes of a font file, read once per URL. Null while loading or when unreadable. */
-export function useFontAxes(path: string | undefined): FontAxis[] | null {
+/** Variation axes of a font file, read once per URL: undefined while loading, null when unreadable. */
+export function useFontAxes(path: string | undefined): FontAxis[] | null | undefined {
   const [axes, setAxes] = useState<{ axes: FontAxis[] | null; path: string } | null>(null);
   useEffect(() => {
     if (!path) return;
@@ -68,5 +68,6 @@ export function useFontAxes(path: string | undefined): FontAxis[] | null {
       active = false;
     };
   }, [path]);
-  return axes && axes.path === path ? axes.axes : null;
+  if (!path) return null;
+  return axes && axes.path === path ? axes.axes : undefined;
 }
