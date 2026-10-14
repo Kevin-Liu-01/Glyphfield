@@ -41,6 +41,18 @@ describe('documented catalog facts', () => {
     for (const preset of BUILT_IN_BRAND_IDENTITIES) expect(identity).toContain(`| \`${preset.id}\` | ${preset.name} |`);
   });
 
+  // MDX evaluates {…} in prose as JavaScript, so a placeholder such as {name} breaks the page at runtime.
+  it('keeps braces in prose inside code', () => {
+    for (const page of globSync('content/docs/**/*.mdx')) {
+      const prose = readFileSync(page, 'utf8')
+        .replace(/^---[\s\S]*?---/, '')
+        .replace(/```[\s\S]*?```/g, '')
+        .replace(/`[^`\n]*`/g, '')
+        .replace(/<Docs[A-Za-z]+[^>]*>/g, '');
+      expect(prose, page).not.toMatch(/[{}]/);
+    }
+  });
+
   it('links only to documentation pages that exist', () => {
     const pages = globSync('content/docs/**/*.mdx');
     for (const page of pages) {
