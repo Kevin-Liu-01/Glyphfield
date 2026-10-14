@@ -6,6 +6,7 @@
 import { getNaturalSize, getWebGPUSupport } from 'shaders/core';
 import { DEFAULT_LIVE_MATERIAL_SETTINGS } from './liveMaterials';
 import { SHADER_EFFECTS, getShaderEffect, type ShaderEffect, type ShaderEffectProps } from './shaderEffects';
+import type { ShaderEffectPalette } from './shaderEffectsProps';
 import { createShaderEffectsRenderer } from './shaderEffectsRenderer';
 
 /** Effects that transform an image; these belong in Effect layers, not the material library. */
@@ -16,8 +17,12 @@ export function isShaderImageEffect(id: string): boolean {
 }
 
 export type ShaderEffectProcessor = {
-  /** Renders the effect over `source` at its pixel size. Returns the processor's own canvas: copy it before the next call. */
-  process: (source: HTMLCanvasElement, effectProps: ShaderEffectProps, timeSeconds?: number) => Promise<HTMLCanvasElement>;
+  /**
+   * Renders the effect over `source` at its pixel size. `palette` seeds the
+   * effect's colour props, as a shader layer's colours do. Returns the
+   * processor's own canvas: copy it before the next call.
+   */
+  process: (source: HTMLCanvasElement, effectProps: ShaderEffectProps, timeSeconds?: number, palette?: ShaderEffectPalette) => Promise<HTMLCanvasElement>;
   dispose: () => void;
 };
 
@@ -49,11 +54,11 @@ export async function createShaderEffectProcessor(effectId: string): Promise<Sha
   let queue: Promise<unknown> = Promise.resolve();
   let disposed = false;
 
-  async function render(source: HTMLCanvasElement, effectProps: ShaderEffectProps, timeSeconds: number) {
+  async function render(source: HTMLCanvasElement, effectProps: ShaderEffectProps, timeSeconds: number, palette?: ShaderEffectPalette) {
     if (disposed) throw new Error('The effect processor was disposed.');
     const width = Math.max(1, source.width);
     const height = Math.max(1, source.height);
-    const settings = { ...DEFAULT_LIVE_MATERIAL_SETTINGS, effectProps };
+    const settings = { ...DEFAULT_LIVE_MATERIAL_SETTINGS, ...palette, effectProps };
     const nextUrl = await canvasBlobUrl(source);
     if (!adapter) {
       adapter = await createShaderEffectsRenderer(gpu, effectId, settings, nextUrl, width / height);
@@ -89,8 +94,8 @@ export async function createShaderEffectProcessor(effectId: string): Promise<Sha
 
   return {
     // Calls are serialised: one upstream renderer, one source texture.
-    process: (source, effectProps, timeSeconds = 0) => {
-      const result = queue.then(() => render(source, effectProps, timeSeconds));
+    process: (source, effectProps, timeSeconds = 0, palette) => {
+      const result = queue.then(() => render(source, effectProps, timeSeconds, palette));
       queue = result.catch(() => undefined);
       return result;
     },

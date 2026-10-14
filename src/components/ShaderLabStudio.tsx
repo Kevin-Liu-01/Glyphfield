@@ -337,6 +337,7 @@ import {
   assertDesignLabEffectProps,
   assertDesignLabEffectSettings,
   designLabImageEffect,
+  designLabImageEffectPalette,
   planImageEffectPasses,
   resolveImageEffectOutputs,
   type DesignLabImageEffectId,
@@ -2792,6 +2793,7 @@ export default function ShaderLabStudio({
     ? canvasRevisionFromSignature(immutableJsonSignature(projectTypography)) : null, [projectTypography]);
   const studioExport = useStudioExportProgress(`${identity.id}:${tool.id}:design-lab`);
   const brandPalette = useMemo(() => brandMaterialPalette(identity), [identity]);
+  const imageEffectPalette = useMemo(() => designLabImageEffectPalette(brandPalette.colors), [brandPalette.colors]);
   const initialSettings = useMemo(() => shaderLabSettingsFor(DEFAULT_SHADER_MATERIAL_ID, {
     ...DEFAULT_LIVE_MATERIAL_SETTINGS,
     colorA: brandPalette.colors[0],
@@ -6321,7 +6323,7 @@ export default function ShaderLabStudio({
         if (!layer) return null;
         if (imageEffectStatusStore.get().get(layer.id) !== 'ready') setImageEffectStatus(layer.id, 'loading');
         try {
-          const output = await pool.process(layer.id, layer.settings.effectId, pixels, layer.settings.effectProps ?? {}, timeSeconds);
+          const output = await pool.process(layer.id, layer.settings.effectId, pixels, layer.settings.effectProps ?? {}, timeSeconds, imageEffectPalette);
           setImageEffectStatus(layer.id, 'ready');
           return output;
         } catch (error) {
@@ -6364,7 +6366,7 @@ export default function ShaderLabStudio({
         const layer = imageEffectLayer(layerId);
         if (!layer) return null;
         try {
-          return await pool.process(layer.id, layer.settings.effectId, pixels, layer.settings.effectProps ?? {}, timeSeconds);
+          return await pool.process(layer.id, layer.settings.effectId, pixels, layer.settings.effectProps ?? {}, timeSeconds, imageEffectPalette);
         } catch (error) {
           const reason = error instanceof Error ? error.message : 'The image effect could not render.';
           throw new Error(`${layer.name}: ${reason} Hide this layer to export without it.`);

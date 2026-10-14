@@ -5,7 +5,7 @@
 // commit that does not touch the selected layer skips the inspector.
 import ShaderEffectsControls from './ShaderEffectsControls';
 import { DesignLabEffectPicker, DesignLabImageEffectNotice, type DesignLabImageEffectStatusStore } from './DesignLabEffectPicker';
-import { designLabImageEffect, type DesignLabImageEffectId } from '@/lib/designLabImageEffects';
+import { designLabImageEffect, designLabImageEffectPalette, type DesignLabImageEffectId } from '@/lib/designLabImageEffects';
 import { getShaderEffect } from '@/lib/shaderEffects';
 import {
   AlignCenter,
@@ -83,7 +83,6 @@ import {
 } from '@/lib/brandIdentity';
 import { COMPOSITION_EFFECT_PRESETS, type CompositionEffectKind, type CompositionEffectSettings } from '@/lib/compositionEffects';
 import {
-  DEFAULT_LIVE_MATERIAL_SETTINGS,
   LIVE_MATERIAL_PALETTES,
   brandMaterialPalette,
   isPaperLiveMaterialId,
@@ -533,6 +532,7 @@ function ConverterControls({
 }
 
 export const DesignLabEffectInspector = memo(function DesignLabEffectInspector({
+  brandColors,
   imageEffectStatusStore,
   previewEffectLayer,
   selectEffectPreset,
@@ -540,6 +540,8 @@ export const DesignLabEffectInspector = memo(function DesignLabEffectInspector({
   selectedEffectLayer,
   updateEffectLayer,
 }: {
+  /** The brand palette image effects resolve their colours from, as rendered. */
+  brandColors: readonly [string, string, string];
   imageEffectStatusStore: DesignLabImageEffectStatusStore;
   previewEffectLayer: (id: EffectLayerId, update: EffectPreviewUpdate) => void;
   selectEffectPreset: (layer: CompositionEffectLayer, kind: CompositionEffectKind) => void;
@@ -588,7 +590,7 @@ export const DesignLabEffectInspector = memo(function DesignLabEffectInspector({
         onChange={(effectProps) => updateEffectLayer(selectedEffectLayer.id, {
           settings: { ...selectedEffectLayer.settings, effectProps },
         })}
-        palette={DEFAULT_LIVE_MATERIAL_SETTINGS}
+        palette={designLabImageEffectPalette(brandColors)}
         value={selectedEffectLayer.settings.effectProps}
       />
     </LabInspectorSection>
@@ -1627,6 +1629,7 @@ export const DesignLabInspectorPanel = memo(function DesignLabInspectorPanel({
 
       <OptionalRender value={selectedEffectLayer}>{(selectedEffectLayer) => (
         <DesignLabEffectInspector
+          brandColors={brandPalette.colors}
           imageEffectStatusStore={imageEffectStatusStore}
           previewEffectLayer={previewEffectLayer}
           selectEffectPreset={selectEffectPreset}
