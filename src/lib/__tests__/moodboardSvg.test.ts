@@ -203,6 +203,23 @@ describe('buildMoodboardSvg', () => {
     }
   );
 
+  it.each(BUILT_IN_BRAND_IDENTITIES.map((identity) => [identity.name, identity] as const))(
+    'never tracks %s board text positively and keeps display tracking within -0.025em',
+    (_name, identity) => {
+      for (const composition of MOODBOARD_COMPOSITIONS) {
+        const svg = buildMoodboardSvg(identity, moodboardPreviewAssets(identity, moodboardAssets(identity)), composition);
+        for (const [tag] of svg.matchAll(/<text\b[^>]*>/g)) {
+          const size = Number(tag.match(/font-size="([\d.]+)"/)?.[1] ?? 0);
+          const spacing = Number(tag.match(/letter-spacing="(-?[\d.]+)"/)?.[1] ?? 0);
+          if (!size) continue;
+          // Attributes are rounded to 0.1px, so allow half of that.
+          expect(spacing).toBeLessThanOrEqual(0);
+          expect(spacing).toBeGreaterThanOrEqual(-0.025 * size - 0.05);
+        }
+      }
+    }
+  );
+
   it('keeps product shots and authored diagrams whole rather than cropping them', () => {
     const identity = BUILT_IN_BRAND_IDENTITIES.find(({ id }) => id === 'stripe')!;
     const svg = buildMoodboardSvg(identity, moodboardPreviewAssets(identity, moodboardAssets(identity)), 'catalog');
