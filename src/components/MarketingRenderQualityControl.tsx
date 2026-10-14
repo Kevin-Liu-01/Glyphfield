@@ -19,7 +19,7 @@ export default function MarketingRenderQualityControl({ className = '' }: { clas
         ariaLabel='Landing demo render quality'
         onValueChange={(value) => landingRenderQualityStore.setMode(parseLandingRenderQualityMode(value))}
         options={QUALITY_OPTIONS}
-        title='Landing demos only. Auto lowers resolution after sustained slow frames. High and Low override it; Studio artwork and exports are unchanged.'
+        title='Landing demos only. Auto lowers resolution after sustained slow frames and restores it when they recover. High and Low override it; Studio artwork and exports are unchanged.'
         value={mode}
       />
       <output aria-live='polite'>{quality === 'high' ? 'High resolution' : 'Lower GPU use'}</output>

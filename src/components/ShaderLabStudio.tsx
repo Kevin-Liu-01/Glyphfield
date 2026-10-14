@@ -804,7 +804,8 @@ const DESIGN_LAB_INITIAL_PAN = { x: 0, y: -40 };
 /** Image effects re-run on the GPU per preview frame; 10 fps keeps motion beneath them readable. */
 const IMAGE_EFFECT_PREVIEW_FRAME_RATE = 10;
 // High renders live shaders near device resolution; Auto drops to the draft
-// budget after sustained slow frames. Exports always use output resolution.
+// budget after sustained slow frames and returns when they recover. Exports
+// always use output resolution.
 const DESIGN_LAB_PREVIEW_PIXEL_BUDGETS = {
   high: { maxPerInstance: 2_400_000, minPerInstance: 240_000, totalBudget: 4_800_000 },
   low: { maxPerInstance: DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT, minPerInstance: 48_000, totalBudget: 300_000 },

@@ -27,7 +27,7 @@ Do not clear site data, delete a project, or rebuild the document from an exampl
 | --- | --- | --- |
 | Shader canvas is blank, grey, or static | WebGL2 unavailable (grey "Shader preview unavailable" placeholder), a lost context, or the preview is offscreen | Bring the preview onscreen, stop duplicate live canvases, reload once, and test another material; do not claim motion from a static fallback |
 | A Shaders.com material shows a labelled still, or an Effect layer passes its layers through | No WebGPU | Use a browser with WebGPU; exports that include these layers stop with an error naming the layer. Hide the layer to export without it |
-| Live shaders look soft | Preview quality is Draft, or Auto lowered it after slow frames | Choose **High** with **Live shader preview quality**; exports always render at output size |
+| Live shaders look soft | Preview quality is Draft, or Auto lowered it after slow frames and frames have not recovered yet | Choose **High** with **Live shader preview quality**; exports always render at output size |
 | Canvas looks clipped or too small | View zoom/pan differs from output geometry | Use Fit/Reset and verify declared output dimensions; changing zoom must not change export size |
 | Logo, text, or layers shift after restore | Stale/reconstructed source, changed IDs, missing assets/fonts, or wrong tool | Reapply the exact current document, preserve IDs/order, restore dependencies, and re-read after apply |
 | Save state remains “preparing” or reports error | IndexedDB blocked, storage quota/transaction failure, or page closing during write | Copy Code source immediately, remain on the same origin, and retry in a persistent browser profile |

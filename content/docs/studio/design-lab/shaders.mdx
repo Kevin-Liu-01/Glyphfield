@@ -34,9 +34,9 @@ Shaders.com materials show **Shader speed** and their native controls; Frequency
 | --- | --- | --- |
 | High | 240,000–2,400,000 | 4,800,000 |
 | Draft | 48,000–120,000 | 300,000 |
-| Auto | Starts at High and switches to Draft after sustained slow frames | |
+| Auto | Starts at High, switches to Draft after sustained slow frames, and returns to High when frames recover | |
 
-Auto measures frame times only while Design Lab is active, the composition is moving, the page is visible, and reduced motion is off. After a 2-second warm-up it samples 2.5-second windows; two slow windows in a row switch it to Draft. The button's tooltip says when Auto has lowered the resolution. The choice is stored in this browser.
+Auto measures frame times only while Design Lab is active, the composition is moving, the page is visible, and reduced motion is off. After a 2-second warm-up it sorts frames into 2.5-second windows. A window is slow when the average frame takes more than 1.15 times a 60 Hz frame and at least 20% of frames are late. A window is smooth when the average frame takes at most 1.05 times a 60 Hz frame and at most 5% of frames are late. Two slow windows in a row switch Auto to Draft. Four smooth windows in a row (10 seconds) switch it back to High. Each later drop doubles the number of smooth windows the next return needs, up to 24 (one minute), so the resolution does not switch back and forth. Every switch restarts the warm-up. The button's tooltip says when Auto has lowered the resolution. The choice is stored in this browser.
 
 Captured shader frames, saved designs, and project files copy the live preview canvas. Choose **High** before **Capture shader frame** when the saved frame must be sharp at large sizes.
 
