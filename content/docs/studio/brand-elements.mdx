@@ -26,7 +26,7 @@ Every template is filled from the identity: products and their one-line summarie
 
 ## Catalog
 
-`GET /api/elements` returns the catalog with each element's `id`, `name`, `category`, `dimensions`, `format`, `symbol`, `keywords`, and `preview` family. The catalog size is the intended production size. The PNG export uses the element's artboard size, which can differ.
+`GET /api/elements` returns the catalog with each element's `id`, `name`, `category`, `dimensions`, `format`, `symbol`, `keywords`, and `preview` family. The catalog size is the intended production size. When it is a pixel size with the artboard's proportions, such as the 3000 × 3000 podcast cover, the PNG export renders at that size. Component sizes (a 420 × 560 pricing card) and print sizes in millimetres or inches describe the subject, and those elements export at their artboard size.
 
 ### Digital (35)
 
@@ -201,6 +201,6 @@ The browser brief is `{ element, settings, identity: { colors, id, name, shortNa
 
 ## Limits
 
-- PNG export at 1× or 2× of the artboard size; HTML export for email elements only.
+- PNG export at 1× or 2× of the deliverable size (the catalog pixel size when it matches the artboard's proportions, otherwise the artboard size); HTML export for email elements only.
 - Font weights display up to 550.
 - The catalog size and the PNG size differ for elements whose artboard is a presentation frame, such as Pricing card (420 × 560 catalog, 1200 × 760 PNG).

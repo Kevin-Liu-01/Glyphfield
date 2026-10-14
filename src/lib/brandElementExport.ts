@@ -53,19 +53,34 @@ export async function waitForArtboard(root: HTMLElement | null, elementId: strin
   }
 }
 
-/** The rendered artboard as PNG at its real width and height (or twice that). */
-export async function renderElementPng(root: HTMLElement | null, identity: BrandIdentity, element: Pick<BrandElement, 'id'>, scale: 1 | 2 = 1): Promise<BrandElementArtifact> {
+/**
+ * How much larger than its artboard an element's deliverable is. A catalog size in pixels with the
+ * artboard's proportions (a 3000 × 3000 podcast cover drawn on a 1200 × 1200 artboard) is the real
+ * output; component sizes and print sizes in mm or inches describe the subject, not the file.
+ */
+export function elementDeliverableScale(dimensions: string | undefined, width: number, height: number): number {
+  const match = /^(\d+)\s*[×x]\s*(\d+)(?:\s*px)?$/.exec(dimensions?.trim() ?? '');
+  if (!match || width <= 0 || height <= 0) return 1;
+  const targetWidth = Number(match[1]);
+  const targetHeight = Number(match[2]);
+  const sameShape = Math.abs(targetWidth / targetHeight - width / height) < 0.01;
+  return sameShape && targetWidth > width ? targetWidth / width : 1;
+}
+
+/** The rendered artboard as PNG at its deliverable size (or twice that). */
+export async function renderElementPng(root: HTMLElement | null, identity: BrandIdentity, element: Pick<BrandElement, 'dimensions' | 'id'>, scale: 1 | 2 = 1): Promise<BrandElementArtifact> {
   const surface = await waitForArtboard(root, element.id);
   const width = surface.offsetWidth;
   const height = surface.offsetHeight;
+  const pixelRatio = elementDeliverableScale(element.dimensions, width, height) * scale;
   const fontFaceCss = await embedFontFaceCss(brandFontFaceCss(identity));
-  const blob = await domToPngBlob(surface, { fontFaceCss, height, pixelRatio: scale, width });
+  const blob = await domToPngBlob(surface, { fontFaceCss, height, pixelRatio, width });
   return {
     blob,
     fileName: `${identity.id}-${element.id}${scale === 2 ? '@2x' : ''}.png`,
     format: 'PNG',
-    height: height * scale,
-    width: width * scale,
+    height: Math.round(height * pixelRatio),
+    width: Math.round(width * pixelRatio),
   };
 }
 

@@ -7,6 +7,7 @@ import {
   parseBrandElementSource,
 } from '../brandElements';
 import { BUILT_IN_BRAND_IDENTITIES, GT_BRAND_IDENTITY } from '../brandIdentity';
+import { elementDeliverableScale } from '../brandElementExport';
 
 describe('BRAND_ELEMENTS', () => {
   it('covers digital, developer, social, editorial, event, and physical identity applications', () => {
@@ -126,5 +127,15 @@ describe('parseBrandElementSource', () => {
     expect(() => parseBrandElementSource({ showLogo: 'yes' }, BRAND_ELEMENTS, 'web-card', GT_BRAND_IDENTITY)).toThrow(/showLogo/);
     expect(() => parseBrandElementSource({ elementId: 'nope' }, BRAND_ELEMENTS, 'web-card', GT_BRAND_IDENTITY)).toThrow(/elementId/);
     expect(() => parseBrandElementSource({ version: 3 }, BRAND_ELEMENTS, 'web-card', GT_BRAND_IDENTITY)).toThrow(/version 3/);
+  });
+});
+
+describe('element deliverable size', () => {
+  it('renders a catalog pixel size with the artboard proportions, and nothing else', () => {
+    expect(elementDeliverableScale('3000 × 3000', 1200, 1200)).toBe(2.5);
+    expect(elementDeliverableScale('1440 × 720', 1280, 640)).toBe(1.125);
+    expect(elementDeliverableScale('420 × 560', 1200, 760)).toBe(1);
+    expect(elementDeliverableScale('90 × 140 mm', 1000, 1400)).toBe(1);
+    expect(elementDeliverableScale('640 px / responsive', 640, 800)).toBe(1);
   });
 });
