@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useGT } from 'gt-next';
 import { StudioSidebar } from '@/components/LabWorkspace';
-import SourceCodeDrawer from '@/components/SourceCodeDrawer';
+import SourceCodeDrawer from '@/components/LazySourceCodeDrawer';
 import StudioFileMenu from '@/components/StudioFileMenu';
 import StudioToolHeader from '@/components/StudioToolHeader';
 import { useCommittedRef } from '@/hooks/useCommittedRef';

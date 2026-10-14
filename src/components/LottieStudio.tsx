@@ -32,7 +32,7 @@ import {
   type BrandToken,
 } from '@/components/LottieEditorPanels';
 import { LabInspectorSection, LabPanelHeading, StudioSidebar } from '@/components/LabWorkspace';
-import SourceCodeDrawer from '@/components/SourceCodeDrawer';
+import SourceCodeDrawer from '@/components/LazySourceCodeDrawer';
 import StudioFileMenu from '@/components/StudioFileMenu';
 import { useStudioExportProgress } from '@/components/StudioExportProgress';
 import StudioRangeLabel from '@/components/StudioRangeLabel';

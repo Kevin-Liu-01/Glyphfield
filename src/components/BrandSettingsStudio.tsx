@@ -32,7 +32,7 @@ import BrandIdentityHealthPanel from '@/components/BrandIdentityHealthPanel';
 import BrandIdentityKitPanel from '@/components/BrandIdentityKitPanel';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
 import { StudioSidebar } from '@/components/LabWorkspace';
-import SourceCodeDrawer from '@/components/SourceCodeDrawer';
+import SourceCodeDrawer from '@/components/LazySourceCodeDrawer';
 import StudioFileMenu from '@/components/StudioFileMenu';
 import StudioToolHeader from '@/components/StudioToolHeader';
 import ThemeAwareBrandMark from '@/components/ThemeAwareBrandMark';

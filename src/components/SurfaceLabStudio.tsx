@@ -41,7 +41,7 @@ import { ConditionalRender, OptionalRender } from '@/components/RenderControl';
 import PlaygroundEditableText from '@/components/PlaygroundEditableText';
 import LazyLiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import { LiveMaterialSourceTag } from '@/components/LiveMaterialSourceLabel';
-import SourceCodeDrawer from '@/components/SourceCodeDrawer';
+import SourceCodeDrawer from '@/components/LazySourceCodeDrawer';
 import StudioFileMenu from '@/components/StudioFileMenu';
 import { parseSourceObject } from '@/lib/sourceCode';
 import { useStudioExportProgress } from '@/components/StudioExportProgress';
