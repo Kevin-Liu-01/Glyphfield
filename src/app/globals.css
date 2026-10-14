@@ -11237,10 +11237,27 @@ html.dark .studio-app .studio-app-header > a img {
   .studio-workspace-view {
     --studio-layer-fade: 0ms;
   }
+
+  :is(.studio-project-workspace-layer, .studio-workspace-layer) {
+    transition: none;
+  }
+
+  .studio-workspace-layer[data-active='true'] {
+    animation: none;
+  }
 }
 
+/* Reduced motion swaps layers in the same frame. */
 .studio-app[data-studio-motion='reduced'] .studio-workspace-view {
   --studio-layer-fade: 0ms;
+}
+
+.studio-app[data-studio-motion='reduced'] :is(.studio-project-workspace-layer, .studio-workspace-layer) {
+  transition: none;
+}
+
+.studio-app[data-studio-motion='reduced'] .studio-workspace-layer[data-active='true'] {
+  animation: none;
 }
 
 .tool-shell {
