@@ -60,6 +60,25 @@ function hexToRgb(value: string): Rgb {
   };
 }
 
+/** HSL channels as CSS custom properties expect them: "H S% L%". */
+export function hexToHslChannels(value: string): string {
+  const { blue, green, red } = hexToRgb(value);
+  const maximum = Math.max(red, green, blue);
+  const minimum = Math.min(red, green, blue);
+  const lightness = (maximum + minimum) / 2;
+  const delta = maximum - minimum;
+  let hue = 0;
+  let saturation = 0;
+  if (delta > 0) {
+    saturation = delta / (1 - Math.abs(2 * lightness - 1));
+    if (maximum === red) hue = ((green - blue) / delta) % 6;
+    else if (maximum === green) hue = (blue - red) / delta + 2;
+    else hue = (red - green) / delta + 4;
+    hue = (hue * 60 + 360) % 360;
+  }
+  return `${Math.round(hue)} ${Math.round(saturation * 100)}% ${Math.round(lightness * 100)}%`;
+}
+
 export function hexToHsv(value: string): Hsv {
   const rgb = hexToRgb(value);
   const maximum = Math.max(rgb.red, rgb.green, rgb.blue);

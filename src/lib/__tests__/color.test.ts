@@ -10,6 +10,7 @@ import {
   oklchToHex,
   parseOklch,
   resolveReadableColor,
+  hexToHslChannels,
 } from '../color';
 
 describe('normalizeHex', () => {
@@ -69,3 +70,12 @@ describe('automatic contrast', () => {
     expect(resolution.ratio).toBeGreaterThan(4.5);
   });
 });
+
+describe('hexToHslChannels', () => {
+  it('writes HSL channels in the form CSS custom properties expect', () => {
+    expect(hexToHslChannels('#E0457B')).toBe('339 71% 57%');
+    expect(hexToHslChannels('#FFFFFF')).toBe('0 0% 100%');
+    expect(hexToHslChannels('#000000')).toBe('0 0% 0%');
+  });
+});
+

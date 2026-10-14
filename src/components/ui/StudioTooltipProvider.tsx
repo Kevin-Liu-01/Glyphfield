@@ -13,7 +13,8 @@ type ControlHint = { anchor: HTMLElement; keyboard: boolean; text: string };
 type ActiveHint = ControlHint & { originalTitle: string | null };
 
 function hintFromTarget(target: EventTarget | null): Omit<ControlHint, 'keyboard'> | null {
-  if (!(target instanceof Element) || target.closest('[data-studio-preview-trigger], [role="tooltip"]')) return null;
+  // The Studio's Tooltips setting turns hover hints off for everything inside it.
+  if (!(target instanceof Element) || target.closest('[data-studio-preview-trigger], [role="tooltip"], [data-studio-tooltips="off"]')) return null;
   const anchor = target.closest<HTMLElement>(CONTROL_SELECTOR);
   // Rendering is checked when the hint reveals, after the hover delay.
   if (!anchor || !tooltipAnchorIsEligible(anchor)) return null;

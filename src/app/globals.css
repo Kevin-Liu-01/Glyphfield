@@ -4539,7 +4539,7 @@ input.studio-range.color-hue-range[data-studio-range='true']::-webkit-slider-thu
 
 .appearance-swatches {
   display: grid;
-  grid-template-columns: repeat(4, 30px);
+  grid-template-columns: repeat(5, 30px);
   justify-content: end;
   gap: 0.45rem;
 }
@@ -4581,6 +4581,18 @@ input.studio-range.color-hue-range[data-studio-range='true']::-webkit-slider-thu
 .appearance-swatch--lime {
   color: #17200e;
   background: #9ce85f;
+}
+
+.appearance-custom-accent {
+  grid-column: 1 / -1;
+}
+
+.appearance-custom-accent > * {
+  width: 100%;
+}
+
+.appearance-swatch--custom {
+  background: conic-gradient(from 90deg, #ff5f6d, #ffc371, #9ce85f, #2bd2ff, #7656ff, #ff5f6d);
 }
 
 .appearance-section--split {
@@ -4657,6 +4669,10 @@ html.dark .studio-app .studio-app-header > a img {
   --primary-foreground: 0 0% 100%;
   --ring: 171 82% 34%;
   --emphasis: 171 82% 34%;
+}
+
+.studio-app[data-studio-accent='custom'] {
+  --studio-highlight-color: hsl(var(--primary));
 }
 
 .studio-app[data-studio-accent='lime'] {

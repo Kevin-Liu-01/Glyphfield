@@ -13,6 +13,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from 'react';
 import { T, useGT } from 'gt-next';
@@ -60,6 +61,7 @@ import { Button } from '@/components/ui/Button';
 import StudioErrorNotice from '@/components/ui/StudioErrorNotice';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
 import StudioCheckbox from '@/components/ui/StudioCheckbox';
+import ColorControl from '@/components/ui/ColorControl';
 import StudioContextMenu, {
   contextMenuPositionFromElement,
   contextMenuPositionFromEvent,
@@ -78,6 +80,7 @@ import {
   STARTER_BRAND_IDENTITY,
   type BrandIdentity,
 } from '@/lib/brandIdentity';
+import { colorContrastRatio, hexToHslChannels, normalizeHexOrFallback } from '@/lib/color';
 import { PRODUCT_BRAND } from '@/lib/productBrand';
 import { registerBrandProjectHost } from '@/lib/brandProjectHost';
 import {
@@ -223,25 +226,38 @@ type ProjectTabMenuState = {
 };
 
 type StudioAppearance = {
-  accent: 'neutral' | 'violet' | 'teal' | 'lime';
+  accent: 'neutral' | 'violet' | 'teal' | 'lime' | 'custom';
+  /** The custom accent, used when `accent` is `custom`. */
+  accentColor: string;
   canvas: 'dots' | 'grid' | 'plain';
   corners: 'rounded' | 'square';
   density: 'compact' | 'comfortable';
   font: 'helvetica' | 'be-vietnam-pro' | 'schibsted-grotesk' | 'rethink-sans';
   motion: 'full' | 'reduced';
   theme: 'light' | 'dark' | 'system';
+  tooltips: 'on' | 'off';
 };
 
 type StoredStudioAppearance = Omit<StudioAppearance, 'theme'>;
 
 const DEFAULT_APPEARANCE: StoredStudioAppearance = {
   accent: 'neutral',
+  accentColor: '#6B45EE',
   canvas: 'dots',
   corners: 'rounded',
   density: 'comfortable',
   font: 'helvetica',
   motion: 'full',
+  tooltips: 'on',
 };
+
+/** A custom accent sets the same channels the preset accents do, with readable text on top. */
+function customAccentStyle(appearance: StudioAppearance): CSSProperties | undefined {
+  if (appearance.accent !== 'custom') return undefined;
+  const channels = hexToHslChannels(appearance.accentColor);
+  const foreground = colorContrastRatio(appearance.accentColor, '#FFFFFF') >= colorContrastRatio(appearance.accentColor, '#111111') ? '0 0% 100%' : '0 0% 7%';
+  return { '--emphasis': channels, '--primary': channels, '--primary-foreground': foreground, '--ring': channels } as CSSProperties;
+}
 
 type ResolvedTheme = 'light' | 'dark';
 
@@ -556,7 +572,28 @@ function AppearanceMenu({
                   {appearance.accent === accent ? <Check aria-hidden='true' /> : null}
                 </button>
               ))}
+              <button
+                aria-label={gt('Custom accent')}
+                aria-pressed={appearance.accent === 'custom'}
+                className='appearance-swatch appearance-swatch--custom'
+                onClick={() => onChange({ accent: 'custom' })}
+                style={appearance.accent === 'custom' ? { background: appearance.accentColor } : undefined}
+                type='button'
+              >
+                {appearance.accent === 'custom' ? <Check aria-hidden='true' /> : null}
+              </button>
             </div>
+            {appearance.accent === 'custom' ? (
+              <div className='appearance-custom-accent'>
+                <ColorControl
+                  ariaLabel={gt('Custom accent color')}
+                  compact
+                  label={<T>Custom accent</T>}
+                  onChange={(accentColor) => onChange({ accent: 'custom', accentColor })}
+                  value={appearance.accentColor}
+                />
+              </div>
+            ) : null}
           </section>
 
           <section className='appearance-section'>
@@ -637,6 +674,17 @@ function AppearanceMenu({
               <StudioCheckbox
                 checked={appearance.motion === 'reduced'}
                 onChange={(event) => onChange({ motion: event.target.checked ? 'reduced' : 'full' })}
+                variant='switch'
+              />
+            </label>
+            <label>
+              <span>
+                <strong><T>Tooltips</T></strong>
+                <small><T>Name controls on hover and focus</T></small>
+              </span>
+              <StudioCheckbox
+                checked={appearance.tooltips !== 'off'}
+                onChange={(event) => onChange({ tooltips: event.target.checked ? 'on' : 'off' })}
                 variant='switch'
               />
             </label>
@@ -1277,6 +1325,7 @@ export default function StudioApp() {
   const resolvedAppearance = useMemo<StudioAppearance>(() => ({
     ...DEFAULT_APPEARANCE,
     ...appearance,
+    accentColor: normalizeHexOrFallback(appearance.accentColor, DEFAULT_APPEARANCE.accentColor),
     font: normalizeStudioFont(appearance.font),
     theme,
   }), [appearance, theme]);
@@ -1925,6 +1974,7 @@ export default function StudioApp() {
     <main
       className='studio-app h-dvh overflow-hidden bg-background text-foreground'
       data-studio-accent={resolvedAppearance.accent}
+      data-studio-tooltips={resolvedAppearance.tooltips}
       data-studio-canvas={resolvedAppearance.canvas}
       data-studio-corners={resolvedAppearance.corners}
       data-studio-density={resolvedAppearance.density}
@@ -1932,6 +1982,7 @@ export default function StudioApp() {
       data-studio-motion={resolvedAppearance.motion}
       data-theme={resolvedAppearance.theme}
       data-resolved-theme={resolvedTheme}
+      style={customAccentStyle(resolvedAppearance)}
     >
       {retainedWorkspaceIdentities.map((identity) => (
         <BrandFontFaces identity={identity} key={identity.id} />
