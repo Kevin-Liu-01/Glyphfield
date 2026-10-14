@@ -209,6 +209,22 @@ export function brandBackgroundPattern(identity: BrandIdentity) {
   return BACKGROUND_PATTERNS[identity.graphicSystem.pattern] ?? 'dots';
 }
 
+/**
+ * Pattern backgrounds that read: the brand pattern drawn in whichever brand
+ * colour stands out most from the deep field, at a spacing and weight scaled
+ * to the canvas (about fourteen repeats across the short side).
+ */
+export function brandPatternSettings(identity: BrandIdentity, width: number, height: number) {
+  const [deep, signal, highlight] = brandBackgroundPalette(identity);
+  const stroke = colorContrastRatio(highlight, deep) >= colorContrastRatio(signal, deep) ? highlight : signal;
+  return {
+    colorB: stroke,
+    pattern: brandBackgroundPattern(identity),
+    patternOpacity: 56,
+    spacing: Math.max(16, Math.round(Math.min(width, height) / 14)),
+  };
+}
+
 export function expressionRecipe(identity: BrandIdentity): ExpressionRecipe {
   return RECIPES[identity.id] ?? RECIPES[RECIPE_BY_PREVIEW[identity.artDirection.preview]] ?? RECIPES.starter!;
 }
