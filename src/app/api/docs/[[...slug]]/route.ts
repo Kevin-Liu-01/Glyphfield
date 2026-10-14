@@ -5,6 +5,13 @@ type MarkdownRouteProps = {
   params: Promise<{ slug?: string[] }>;
 };
 
+// Every page's Markdown is built with the site; an unknown slug still reaches the handler for its text 404.
+export const dynamic = 'force-static';
+
+export function generateStaticParams() {
+  return docsSource.generateParams();
+}
+
 export async function GET(_request: Request, { params }: MarkdownRouteProps) {
   const { slug } = await params;
   const page = docsSource.getPage(slug);

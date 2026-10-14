@@ -1,235 +1,142 @@
-# Glyphfield agent operating guide
+# Glyphfield
 
-Glyphfield is a local-first brand system, visual Studio, deterministic generation API, and authentic browser-rendering surface. This file is the concise router. Load `/llms-full.txt` when the task needs the complete documentation corpus.
+> Glyphfield is a free, open-source brand design studio that runs in a web browser at https://www.glyphfield.com/studio. A user defines one brand identity with its logos, colors, typography, and voice, and every Studio tool uses that identity to make brand books, moodboards, motion graphics, social images, slide decks, and UI components. Kevin Liu develops Glyphfield in public at https://github.com/Kevin-Liu-01/Glyphfield under the MIT License.
 
-## Start here
+## What Glyphfield does
 
-1. Read `GET /api/agent` for the current manifest, policies, interfaces, execution rules, and generation schema.
-2. Read `GET /api/labs` for the live Studio tool list. Never hard-code its count.
-3. Read the task-specific catalog: `/api/materials`, `/api/identities`, `/api/elements`, or `/api/catalog`.
-4. Read `GET /api/generate` immediately before constructing a generation request.
-5. Choose HTTP or the Browser API according to the artifact, then verify the terminal result.
+Glyphfield keeps a brand identity and every file made from it in one system. A change to a color, font, or logo in the identity reaches the boards, the brand book, the templates, the components, and the motion tools. The ID in parentheses after each Studio tool is the value of its `tool` query parameter, as in https://www.glyphfield.com/studio?tool=identity.
 
-Machine-readable resources:
+- Brand identity (`identity`): Edit the shared identity, asset library, font files, colors, voice, strategy, and system defaults used everywhere.
+- Brand elements (`brand-elements`): Apply the active identity across digital, developer, social, editorial, event, and physical touchpoints.
+- Moodboard (`design-board`): Compose the identity as an application showcase or complete system board, then export a high-resolution PNG.
+- Brand book (`brand-book`): Read, review, and export a complete editorial brand book generated from the active identity system.
+- Animation (`animation`): Animate text and images with deterministic packages and cubic Bézier timing.
+- Lottie (`lottie`): Import, recolor, trim, preview, and export Lottie JSON or .lottie vector animation.
+- Design Lab (`material`): Explore with loose layers on an open canvas, then frame type, images, stickers, effects, and shaders into export-ready artboards.
+- OpenGraph (`opengraph`): Compose repeatable social previews with fonts, logos, and background assets.
+- Color tokens (`colors`): Inspect semantic colors in HEX and OKLCH across light and dark surfaces.
+- Typography (`typography`): Compare primary, secondary, accent, and code faces or load a local font file.
+- Terminal card (`terminal`): Render Prism-tokenized TypeScript, Python, and Bash cards with matching PNG output.
+- Partnership lockup (`partnership`): Build an optically balanced active-brand and partner logo lockup.
+- Blog cover (`blog`): Create reusable editorial covers with controlled type and texture.
+- Slide templates (`slides`): Build a complete 16:9 presentation system from multiple reusable slide layouts.
+- Component library (`buttons`): Review core interface controls, navigation, forms, feedback, data, and commerce patterns.
 
-- Complete docs: `/llms-full.txt`
-- One processed Markdown page: `/api/docs/{slug}`
-- Human docs: `/docs`
-- Search: `/api/search`
-- OpenAPI: `/openapi.json`
-- Agent manifest: `/api/agent`
-- Studio catalog: `/api/labs`
-- Full combined catalog: `/api/catalog`
-- Shader catalog: `/api/materials`
-- Allowlisted surface maps: `/api/surface-textures/:assetId/:map`
-- Identity catalog: `/api/identities`
-- Brand-element catalog: `/api/elements`
-- Brand identity schema and validation: `/api/brand/validate`
-- Brand kit files (DTCG tokens, CSS, Tailwind v4, brand.md): `/api/brand/kit`
-- Generation contract: `/api/generate`
-- Interactive workspace: `/studio`
-- Installable skill guide: `/docs/skills.md`
+The Studio includes a Starter identity and reference identities for Basement, General Translation, Ramp, Mintlify, Tailwind CSS, Vite+, Cloudflare, and Stripe. Users can copy any of them into a new project or start from an empty identity.
 
-Repository Agent Skills:
+Design Lab is the general layer compositor. It places text, marks, images, stickers, shader layers, and effect layers on artboards and exports PNG, JPG, GIF, and MP4 files from 320 to 3840 pixels wide.
 
-- `skills/glyphfield-create`: layered Design Lab composition and saved-design work.
-- `skills/glyphfield-api`: deterministic HTTP discovery and generation.
-- `skills/glyphfield-studio`: live Studio controls, source round trips, files, and browser rendering.
-- `skills/glyphfield-export`: artifact export and still/motion verification.
-- `skills/glyphfield-brand`: set up or improve a brand identity end to end from the brand's own sources, then audit and export its brand kit.
+The Shader Library is shared by Design Lab, Animation, Lottie backgrounds, and the expression tools. It combines Paper Shaders (Apache-2.0), the Shaders.com WebGPU components (MIT), ShaderGradient (MIT), and original Glyphfield shaders. It also includes a fluid simulation adapted from Pavel Dobryakov's WebGL Fluid Simulation (MIT) and a cloth material adapted from HoloCloth (MIT). The catalog at https://www.glyphfield.com/api/materials lists every current material with its engine, controls, and defaults.
 
-Load only the skill whose description matches the current task. Combine them when a workflow actually crosses generation, browser operation, and export boundaries.
+Glyphfield exports PNG, JPG, SVG, GIF, MP4, PDF, HTML email, JSON, `.lottie`, and ZIP files. The brand kit is a ZIP with W3C DTCG design tokens, CSS custom properties, a Tailwind CSS v4 theme, a brand.md guide for coding agents, the identity JSON, logos, and redistributable fonts. The component library produces React with Tailwind or HTML with CSS.
 
-## Choose the interface
+## Who it is for
 
-Use `POST /api/generate` for deterministic SVG, structured element briefs, and apply-ready Design Lab source documents. It is appropriate for repeatable batch generation and source-controlled outputs.
+Glyphfield is for designers, developers, and brand teams who want one brand identity to drive every asset they make. It is also built for AI coding agents such as Claude Code, Codex, and Cursor. Agents can set up an identity from a brand's own website or repository and then produce assets through the same contracts as the visual Studio.
 
-Use `window.glyphfield.studio` inside `/studio` for anything that depends on the real browser workspace: Canvas, WebGL shaders, local files, local fonts, Lottie, direct visual placement, saved composition state, PNG, JPG, GIF, or MP4. This is not a fallback API; it is the programmatic interface to the authentic UI renderer.
+## Accounts, storage, and privacy
 
-Use both for a Design Lab sequence: create the versioned source with `kind: "design-sequence"`, apply `response.document` in the browser, then export through `design.export`.
+Glyphfield has no accounts or sign-in. The Studio stores projects, open tabs, most tool drafts, and appearance settings in browser localStorage. It stores named designs, autosaves, and converted assets in IndexedDB. Uploaded images, logos, fonts, and Lottie files stay in the browser until the user exports them. `POST /api/generate` processes each request in memory, does not persist it, and does not fetch remote URLs.
 
-Do not imitate a browser-rendered result with server SVG when the user requested the authentic live material, motion, font, or layout.
+## How agents connect
 
-## HTTP generation
+### HTTP API
 
-`POST /api/generate` accepts `Content-Type: application/json` and one of these `kind` values:
+The HTTP API is public and needs no key. The OpenAPI 3.1 document at https://www.glyphfield.com/openapi.json describes every route, and https://www.glyphfield.com/api/agent returns the agent manifest with policies, interfaces, and the generation schema.
 
-- `background`: deterministic SVG gradient, pattern, dither, or tactile surface; output `json` or `raw`.
-- `template`: deterministic OpenGraph, terminal, slide, blog-cover, or partnership SVG from the Studio brand templates, brand fonts embedded; optional `layout`, `format`, `language`; output `json` or `raw`. `identity` takes `{ preset }`, `{ id }`, or the full object from /api/identities.
-- `element-brief`: one brand-element brief resolved against a built-in or custom identity.
-- `design-sequence`: a response-schema-1 envelope containing an apply-ready Design Lab version-3 compatibility document, resolved shader timeline, and browser commands. Applying it normalizes the active Studio source to CanvasDocument schema 2 with Design Lab source 4.
+`POST /api/generate` returns deterministic SVG templates and backgrounds, resolved brand-element briefs, and Design Lab `design-sequence` documents. A design-sequence response uses response-schema-1 and carries a version-3 compatibility `document`. Apply that document in the Studio first, then re-read the normalized CanvasDocument before further edits. The route rejects unknown top-level fields and request bodies over 5 MB. Read `GET /api/generate` for the current request schema before building a request.
 
-Unknown top-level fields are rejected. Treat structured `400`, `413`, `415`, and `429` responses as actionable errors. Do not retry unchanged invalid input.
+### Studio Browser API
 
-Remote URL fetching is not supported. Provide authorized local data through allowed data-URL fields or a real browser `File` object.
-
-## Brand setup
-
-To set up or improve a brand, follow `/docs/agents/brand-setup.md` or `skills/glyphfield-brand`. Open `/studio?tool=identity&project=<id>`, then call `identity.validate`, `identity.apply` (merge patch: records merge by id, typography by role, string lists are replaced, unknown fields are kept), `identity.asset.add` and `identity.font.add` with `File` objects, `identity.audit`, `identity.fix`, `identity.save`, and `identity.export.kit`. `GET /api/brand/validate` returns the BrandIdentity JSON Schema; `POST /api/brand/validate` validates without storing anything. Use only facts from the brand's own website, repository, or design files.
-
-## Studio Browser API
-
-The active Studio tool registers `window.glyphfield.studio` and dispatches `glyphfield:studio-api-ready`. Re-read the global after changing tools because each tool installs its own adapter.
-
-Core methods:
-
-- `activeTool()` returns the public Studio tool ID. Design Lab is `material`; `logo-shader` is an internal legacy draft scope and must not be expected by integrations.
-- `describe()` returns version, tool ID, source support, the tool capability record, exact action names, and per-action input/output contracts.
-- `controls()` lists accessible control labels, control kinds, and current values.
-- `activate(label)` clicks a control by its exact accessible label.
-- `set(label, value)` changes a supported input, select, checkbox, contenteditable, or file input.
-- `readSource()` returns the active tool's complete source string.
-- `applySource(source)` validates and applies an object or JSON string, then waits for the React commit boundary.
-- `invoke(action, input?)` runs a standard or tool-specific action.
-- `download({ blob, fileName })` saves a previously returned artifact.
-
-Standard `invoke` actions are `source.read`, `source.apply`, `controls.list`, `control.activate`, `control.set`, and `artifact.download`.
-
-Always call `describe()` before a tool-specific action. Never invent accessible labels or action names.
-
-Control discovery and activation are scoped to the active adapter workspace. Identical labels in another retained project or tool cannot receive the operation.
-
-UI hierarchy: the Project menu manages the whole project; Projects reopens saved projects. Tool headers keep checkpoint saving, saved-design browsing, File, and Export together. File contains portable open/download actions where supported and Edit source code. Activate File, then re-read controls() to discover its owned menu actions. Inspector sections can collapse; expand their named heading before operating a hidden control. Color rows open the shared picker for HEX, OKLCH, hue, and opacity. Direct source/export actions are unchanged and do not require opening menus.
-
-Persistent source is available for every navigable tool, including Brand book section, page, and copy edits, regardless of whether its Code drawer is open. Direct actions include `identity.export.json`, `identity.project.create`, `brand-element.export.png`, `brand-element.export.html`, `brand-element.export.brief`, `moodboard.export.svg`, `moodboard.export.png`, `moodboard.export.identity`, `brand-book.print`, `colors.tokens.read`, `colors.tokens.copy` (with `{ format }`), `colors.contrast.read`, `colors.pairing.toggle`, `colors.semantic.read`, `colors.scale.read`, `colors.vision.read`, `colors.proportion.balance`, `typography.tokens.read`, `typography.scale.read`, `typography.guidance.read`, `typography.axes.read`, `components.list`, `components.code.read`, `components.code.copy`, Animation GIF/MP4/poster/project exports and scene, keyframe, starter, and seek actions, Lottie frame/GIF/MP4/source exports and layer, colour, text, and marker edits, `opengraph.export.png`, `terminal.export.png`, `blog.export.png`, `partnership.export.png`, `slides.export.png`, `slides.export.pdf`, the shared expression-tool layer actions (`{tool}.document.describe`, `{tool}.layer.add`, `{tool}.layer.update`, `{tool}.format.set`, `{tool}.layout.apply`, …; read `{tool}.document.describe` first), and the Design Lab actions below. Read the exact current names and contracts from `describe()` or `/api/agent`.
-
-### Design Lab actions
-
-Design Lab exposes:
-
-Inline text formatting: `design.text.format` accepts `{ layerId, start, end, style }` for a text layer on the active surface. Use UTF-16 character offsets, end exclusive. Style supports color, fontRole, fontSize (authored px before layer scale), weight, fontStyle, underline, strikethrough, and tracking. Source preserves plain `value` plus ordered `runs` in element.data. Alignment, wrapping, opacity and effects remain layer-wide.
-
-```text
-design.frame.pause
-design.frame.capture
-design.frame.play
-design.frame.seek
-design.text.format
-design.motion.describe
-design.sequence.describe
-design.sequence.configure
-design.sequence.preview
-design.sequence.stop
-design.export
-design.export.png
-design.export.jpg
-design.export.gif
-design.export.mp4
-design.export.shader-sequence.gif
-design.export.shader-sequence.mp4
-design.export.project
-design.layers.arrange
-design.layers.lock
-design.layers.rotate
-design.layers.copyStyle
-design.layers.pasteStyle
-design.effects.describe
-design.effects.add
-design.effects.configure
-```
-
-Layer commands: `design.layers.arrange` takes `{ arrangement, layerIds? }` (left, horizontal-center, right, top, vertical-center, bottom, distribute-horizontal, distribute-vertical) and aligns to the selection bounds, not the artboard. `design.layers.lock` takes `{ layerIds, locked }` and writes `element.locked`; locked layers ignore canvas edits but keep inspector controls. `design.layers.rotate` takes `{ layerIds, rotation }` and turns each unlocked layer clockwise about its center, stored from -180 to 180 in `bounds.rotation`. `design.layers.copyStyle` `{ layerId }` then `design.layers.pasteStyle` `{ layerIds }` copies appearance only, never content or geometry.
-
-Effect layers: `design.effects.add` takes `{ kind }` (bayer, ascii, halftone, posterize) or `{ effectId, effectProps? }` with an ID from `/api/materials` `imageEffects`, plus optional `opacity`, and returns `{ layerId }`. `design.effects.configure` takes `{ layerId }` with `kind`, `effectId`, `effectProps` (replaces explicit edits; `{}` resets) or `opacity`. An image effect processes the composited layers beneath it, needs WebGPU, and blocks export without it; read `design.effects.describe` for each layer's status.
-
-Use `studio.invoke('design.frame.pause')` for an ordinary synchronous pause: it returns null without encoding PNGs or writing captured-frame assets. For a durable exact shader still, `await studio.invoke('design.frame.capture')` freezes ready pixels, persists lossless PNG checkpoints, and returns a complete portable CanvasDocument JSON string. Keep its embedded asset records and editable native frame state together. `design.frame.seek` accepts a non-negative finite `timeMs` in `{ timeMs }`; `design.frame.play` resumes native motion. Call `design.motion.describe` before seeking. Fluid Energy is stateful: ordinary pause retains its mounted simulation, but time-only history replay is unsupported and playing from a saved PNG starts a new simulation. Continuous animation is not proof of a finite seamless loop; `/api/materials` publishes motion/seek/loop capability metadata. The explorer range extends only on request; playback does not automatically grow that range or create stored frames.
-
-Preferred export call:
+Inside https://www.glyphfield.com/studio, the active tool registers `window.glyphfield.studio` and dispatches the `glyphfield:studio-api-ready` event. Call `describe()` for the tool's actions and their input and output contracts. Call `readSource()` for the tool's complete JSON source and `applySource(source)` to apply a change. Call `invoke(action, input)` for actions such as `design.export`. Use the Browser API for work the browser renders: Canvas, WebGL shaders, local files and fonts, Lottie, PNG, JPG, GIF, and MP4.
 
 ```js
 const studio = window.glyphfield.studio;
 if (studio.activeTool() !== 'material') throw new Error('Open Design Lab first.');
-
-const artifact = await studio.invoke('design.export', {
-  format: 'mp4',
-  mode: 'shader-sequence',
-  download: false,
-});
-
-if (!(artifact.blob instanceof Blob) || artifact.blob.size === 0) {
-  throw new Error('The export is empty.');
-}
-
+const artifact = await studio.invoke('design.export', { format: 'mp4', mode: 'shader-sequence', download: false });
+if (!(artifact.blob instanceof Blob) || artifact.blob.size === 0) throw new Error('The export is empty.');
 studio.download(artifact);
 ```
 
-`format` accepts `png`, `jpg`, `gif`, and `mp4`. `mode: "shader-sequence"` is valid for GIF and MP4. Run exports serially because browser canvases and encoders are shared resources.
+### Rules for agents
 
-PNG/JPG freezes the current visible frame before rendering the chosen output dimensions. GIF/MP4 explicitly samples motion from the current frame anchor and restores that paused pose afterward. Exports do not add captured-frame assets to IndexedDB and do not automatically resume playback. Stateful Fluid supports exact still export, not timestamp-sampled motion export. Missing saved PNGs must remain visibly unavailable instead of becoming a new animated approximation.
+- Read the live catalogs at /api/labs and /api/materials. Tool and material counts change between releases.
+- Call `describe()` before a tool-specific action. Use only the action names and control labels it returns.
+- Preserve every unknown field when editing source. Make the smallest change, apply it with `applySource`, and re-read the source to confirm it.
+- Pass files to the Browser API as `File` objects built from bytes the user authorized. A filesystem path string does not work.
+- Run exports one at a time. Confirm that the returned Blob is non-empty and that its MIME type, extension, and dimensions match the request.
+- For GIF and MP4, inspect multiple frames. GIF has no audio. If the browser cannot encode MP4, report that limit and keep the source.
 
-## Source mutation protocol
+### Agent Skills
 
-1. Call `describe()` and confirm source read/apply support.
-2. Call `readSource()` and parse the current document.
-3. Preserve every unknown field. Make the smallest targeted change.
-4. Call `applySource(document)`; never write React state, IndexedDB, or localStorage directly.
-5. Re-read source and confirm the intended value round-tripped.
-6. Inspect the rendered canvas when the requested result is visual.
-7. Export only after the preview is ready.
+The repository's `skills/` directory contains one Agent Skill package per workflow. Each package has a `SKILL.md` file that Codex and other Agent Skills clients can install, and https://www.glyphfield.com/docs/skills.md explains installation.
 
-Design Lab's active source is a versioned CanvasDocument. It contains assets, capabilities, elements, pages, layer order, transforms, styles, opacity, blend modes, text and converter effects, shaders, saved sequence settings, and export settings. Do not rebuild this envelope from memory. For an existing design, start from `readSource()`. For a new generated sequence, apply the version-3 compatibility document from `response.document`, then re-read the normalized CanvasDocument before further edits.
+- [skills/glyphfield-create](https://github.com/Kevin-Liu-01/Glyphfield/tree/main/skills/glyphfield-create): Layered Design Lab compositions and saved designs.
+- [skills/glyphfield-api](https://github.com/Kevin-Liu-01/Glyphfield/tree/main/skills/glyphfield-api): Catalog discovery and deterministic HTTP generation.
+- [skills/glyphfield-studio](https://github.com/Kevin-Liu-01/Glyphfield/tree/main/skills/glyphfield-studio): Live Studio operation, source round trips, and local files.
+- [skills/glyphfield-export](https://github.com/Kevin-Liu-01/Glyphfield/tree/main/skills/glyphfield-export): Still and motion export and their verification.
+- [skills/glyphfield-brand](https://github.com/Kevin-Liu-01/Glyphfield/tree/main/skills/glyphfield-brand): Brand identity setup from a brand's own sources, the health audit, and the brand kit.
 
-## Files, fonts, and privacy
+## Machine-readable resources
 
-Browser file controls accept `File` or `File[]`, never a filesystem path string. Construct the `File` only from bytes the user authorized. Local images, converted assets, fonts, Lottie files, saved designs, and recovery drafts remain in the browser unless the user explicitly exports or sends them elsewhere.
+- [Complete documentation](https://www.glyphfield.com/llms-full.txt): Every docs page as plain text in one file.
+- [Agent manifest](https://www.glyphfield.com/api/agent): Policies, interfaces, execution rules, and the generation schema.
+- [OpenAPI 3.1 document](https://www.glyphfield.com/openapi.json): Every public HTTP route.
+- [Studio tool catalog](https://www.glyphfield.com/api/labs): Current Studio tools, IDs, and categories.
+- [Shader and material catalog](https://www.glyphfield.com/api/materials): Current materials, engines, controls, palettes, and image effects.
+- [Identity catalog](https://www.glyphfield.com/api/identities): Built-in brand identities.
+- [Brand element catalog](https://www.glyphfield.com/api/elements): Brand element templates.
+- [Combined catalog](https://www.glyphfield.com/api/catalog): Studio tools, the shader library, the Browser API, and Agent Skills in one response.
+- [Generation contract](https://www.glyphfield.com/api/generate): Request schema for `POST /api/generate`.
+- [Brand identity validation](https://www.glyphfield.com/api/brand/validate): BrandIdentity JSON Schema and stateless validation.
+- [Brand kit files](https://www.glyphfield.com/api/brand/kit): DTCG tokens, CSS, Tailwind CSS v4, and brand.md from an identity.
+- [Docs search](https://www.glyphfield.com/api/search?query=export): Full-text search over the documentation as JSON.
+- [Sitemap](https://www.glyphfield.com/sitemap.xml): Every public page.
+- [Source code](https://github.com/Kevin-Liu-01/Glyphfield): The MIT-licensed repository.
+- [Third-party notices](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/THIRD_PARTY_NOTICES.md): Licenses for adapted code and bundled packages.
 
-Generation requests are processed in memory and are not persisted by Glyphfield. Bundled third-party marks and upstream shader/material sources retain their own attribution and ownership.
+## Docs
 
-## Completion rules
+Every docs page is available as Markdown by adding `.md` to its URL.
 
-A successful request is not sufficient evidence of a finished task.
+- [Documentation overview](https://www.glyphfield.com/docs.md): What Glyphfield connects and where to start.
+- [Getting started](https://www.glyphfield.com/docs/getting-started.md): Open the Studio, choose a project, set the identity, compose an artifact, and export it.
+- [Studio overview](https://www.glyphfield.com/docs/studio.md): Projects, tabs, tools, tool search, persistence, and the Browser API.
+- [Brand identity](https://www.glyphfield.com/docs/studio/brand-settings.md): The identity every tool reads, the brand health score, and the brand kit.
+- [Brand elements](https://www.glyphfield.com/docs/studio/brand-elements.md): Identity templates for email, product UI, social, editorial, event, and print.
+- [Moodboards](https://www.glyphfield.com/docs/studio/moodboards.md): Editable tile boards exported as PNG, SVG, or identity JSON.
+- [Brand book](https://www.glyphfield.com/docs/studio/brand-book.md): The identity as an editorial standards document with PDF export.
+- [Motion overview](https://www.glyphfield.com/docs/studio/motion.md): When to use Animation, Lottie, or Design Lab for motion.
+- [Animation](https://www.glyphfield.com/docs/studio/animation.md): Scenes, keyframes, captions, audio, and GIF or MP4 export.
+- [Lottie](https://www.glyphfield.com/docs/studio/lottie.md): Import, edit, recolor, trim, and export Lottie JSON or .lottie files.
+- [Design Lab](https://www.glyphfield.com/docs/studio/design-lab.md): The layer compositor, its artboards, shortcuts, and limits.
+- [Shader Library](https://www.glyphfield.com/docs/studio/shader-library.md): The shared catalog of live materials.
+- [Color tokens](https://www.glyphfield.com/docs/studio/colors.md): OKLCH scales, light and dark roles, contrast, and token output.
+- [Typography](https://www.glyphfield.com/docs/studio/typography.md): Type roles, the modular scale, variable font axes, and type tokens.
+- [Expression tools](https://www.glyphfield.com/docs/studio/templates.md): OpenGraph, Terminal card, Partnership lockup, Blog cover, and Slide templates.
+- [Component library](https://www.glyphfield.com/docs/studio/components.md): Brand-token components with React and HTML code.
+- [Formats and portability](https://www.glyphfield.com/docs/artifacts/formats-and-portability.md): Every output format and its limits.
+- [Storage and privacy](https://www.glyphfield.com/docs/artifacts/storage-and-privacy.md): Browser persistence, API request handling, and licensing.
+- [Agent integration](https://www.glyphfield.com/docs/agents.md): How LLMs and coding agents use Glyphfield.
+- [Choose the right interface](https://www.glyphfield.com/docs/agents/choose-interface.md): HTTP generation, the Browser API, or Markdown docs.
+- [Connect an agent](https://www.glyphfield.com/docs/agents/connect.md): Discovery, generation, and saving the returned artifact.
+- [Generation API](https://www.glyphfield.com/docs/agents/generate.md): Templates, backgrounds, element briefs, and Design Lab sequences.
+- [Brand setup with an agent](https://www.glyphfield.com/docs/agents/brand-setup.md): Set up a complete identity from a brand's own sources.
+- [Agent recipes](https://www.glyphfield.com/docs/agents/recipes.md): Complete programmatic workflows.
+- [Skills overview](https://www.glyphfield.com/docs/skills.md): Install and combine the Glyphfield Agent Skills.
+- [Endpoint reference](https://www.glyphfield.com/docs/reference/endpoints.md): Every public route.
+- [Studio Browser API](https://www.glyphfield.com/docs/reference/browser-api.md): Methods, actions, and source round trips.
+- [Capability matrix](https://www.glyphfield.com/docs/reference/capability-matrix.md): Every tool with its source, actions, exports, and HTTP routes.
+- [Licensing](https://www.glyphfield.com/docs/reference/licensing.md): What the MIT License covers and which assets keep their own terms.
 
-- After a mutation, re-read source or controls and confirm the new state.
-- For a visual task, inspect the authentic canvas.
-- For an artifact, confirm the Blob or response body is non-empty and that MIME type, extension, dimensions, and requested format agree.
-- For GIF or MP4, inspect multiple frames. For a seamless GIF, verify closure rather than assuming the encoder loop flag creates a visual loop.
-- For MP4 with audio, confirm the expected audio track is present. GIF never contains audio.
-- If the browser cannot encode MP4, report that limitation and preserve the source. Do not silently substitute GIF.
-- If WebGL is unavailable, use a deterministic fallback only when it still satisfies the request.
+## Optional
 
-## Current product model
-
-One active identity supplies name, marks, assets, color roles, type roles, strategy, voice, and defaults to every Studio tool. Studio projects, tabs, and tool drafts persist locally.
-
-Design Lab is the general layer compositor. It combines multiple text, mark, image, shader, sticker, and Effect layers on artboards and an open canvas; direct manipulation with snapping to edges, centers, and the artboard's thirds; layer rotation about the center (a rotate handle with 15° Shift steps, the Layer rotation field, `design.layers.rotate`, and `bounds.rotation` in source); ordering, grouping, align and distribute, locks, and copy and paste style; non-destructive image crop, focal point, and zoom; per-layer opacity and blend; Bayer, ASCII, halftone, and posterize converters and the Shaders.com image effects (WebGPU) on Effect layers; text effects; independent shader fills; capability-aware time selection and persisted PNG frame captures; logarithmic shader zoom from 0.1× to 10×; an Auto/High/Draft live preview quality that never affects exports; sticker finishes; saved designs; recovery; and PNG/JPG/GIF/MP4 export at 320–3840 px wide.
-
-The shared Shader Library is quality-sorted and used by Design Lab, Animation, Lottie backgrounds, and the expression tools. Read `/api/materials` for the exact current material list, engine attribution, look `category`, `kind` (backgrounds, interactive), controls, palettes, and defaults. Never infer a material ID from its display name. Shape primitives, plain fills and raw noise (for example `shader-effects-circle`, `shader-effects-linear-gradient`, `shader-effects-perlin-noise`, `paper-waves`) are no longer listed; documents that use one still load. Shaders.com image effects (components that transform an image) are not materials: `/api/materials` lists them under `imageEffects`, and Design Lab applies them as Effect layers over the layers beneath. Older documents that used one as a shader layer still load and render as before.
-
-Native Shaders.com effects (`shader-effects-*`, engine `Shaders.com WebGPU`) take `settings.effectProps` holding only the values to change; each material's `nativeControls` lists keys, defaults, and ranges. Their colours default to the shared `colorA`/`colorB`/`colorC` palette (a control's `palette` field names its stop), and motion speed is `settings.speed`. They render only with WebGPU; without it Studio shows a labelled still and refuses export.
-
-New Design Lab compositions default to Gem Smoke. Saved documents remain authoritative, and authored legacy materials must not be replaced merely because defaults changed.
-
-Animation builds text, mark, and image sequences with brand starters per identity, per-scene timing, layer keyframes, text entrances, captions, material backgrounds, frame overrides, audio clips, GIF, MP4, and a PNG poster frame. Lottie imports JSON or `.lottie`, supports layer show/hide, text edits, brand-token recoloring, an optional brand logo layer (on for built-in studies, off for imports), named markers, trim/playback, live-material backgrounds, frame PNG, GIF, MP4, and source download.
-
-Brand identity, Brand elements, Moodboard, Brand book, OpenGraph, Color tokens, Typography, Terminal card, Partnership, Blog, Slides, and Components share the same identity and reusable Studio editor systems. Read `/api/labs` and the relevant docs page for current availability and exact behavior.
-
-## High-value docs
-
-- `/docs/agents/choose-interface.md`
-- `/docs/agents/brand-setup.md`
-- `/docs/agents/recipes.md`
-- `/docs/reference/browser-api.md`
-- `/docs/reference/endpoints.md`
-- `/docs/reference/source-formats.md`
-- `/docs/reference/version-compatibility.md`
-- `/docs/reference/capability-matrix.md`
-- `/docs/reference/troubleshooting.md`
-- `/docs/reference/browser-support.md`
-- `/docs/reference/api-security.md`
-- `/docs/studio.md` (all fifteen tools, projects, tabs, persistence)
-- `/docs/studio/brand-settings.md` (Brand identity: health score, fix IDs, brand kit, built-in identities)
-- `/docs/studio/design-lab.md` (layout, artboards, shortcuts, limits)
-- `/docs/studio/design-lab/layers.md` (layer kinds, text runs, crop, align, lock, copy style)
-- `/docs/studio/design-lab/effects.md` (converters and WebGPU image effects)
-- `/docs/studio/design-lab/shaders.md` (shader layers, preview quality, time, capture, sequences)
-- `/docs/studio/design-lab/export.md` (export settings, saved designs, source fields, export actions)
-- `/docs/studio/shader-library.md`
-- `/docs/studio/templates.md` (expression tools: formats, layouts, type scale, shared actions)
-- `/docs/studio/animation.md`
-- `/docs/studio/lottie.md`
-- `/docs/artifacts/formats-and-portability.md`
-- `/docs/artifacts/backup-and-restore.md`
-- `/docs/reference/shortcuts.md`
-- `/docs/reference/licensing.md`
-
-When exact behavior matters, prefer the live catalogs, manifest, current source document, and processed Markdown endpoints over remembered examples.
+- [Browser-agent workflow](https://www.glyphfield.com/docs/agents/browser-workflow.md): Studio operation for WebGL, Canvas, local files, and motion capture.
+- [Identities and custom assets](https://www.glyphfield.com/docs/agents/identity-assets.md): Built-in identities, overrides, and local asset data.
+- [Errors and limits](https://www.glyphfield.com/docs/agents/errors.md): Validation responses, request limits, and retries.
+- [Source format reference](https://www.glyphfield.com/docs/reference/source-formats.md): CanvasDocument and tool source documents.
+- [Version compatibility](https://www.glyphfield.com/docs/reference/version-compatibility.md): Schema versions and migrations.
+- [Browser support](https://www.glyphfield.com/docs/reference/browser-support.md): Browser capabilities the Studio needs.
+- [Self-hosting](https://www.glyphfield.com/docs/reference/self-hosting.md): Run Glyphfield locally or in production.
+- [Troubleshooting](https://www.glyphfield.com/docs/reference/troubleshooting.md): Diagnose loading, storage, WebGL, and export failures.
+- [Backup and restore](https://www.glyphfield.com/docs/artifacts/backup-and-restore.md): Preserve identities, source, assets, and rendered files.

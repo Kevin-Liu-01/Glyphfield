@@ -12,6 +12,9 @@ export const SOCIAL_PREVIEW_CRAWLERS = [
   'Pinterestbot',
 ] as const;
 
+// Every group below allows the whole site. The owner wants search, answer-engine, and
+// model-training crawlers to read everything; the named groups document which agents were
+// considered, and `*` covers every other crawler.
 export const ANSWER_ENGINE_CRAWLERS = [
   'OAI-SearchBot',
   'ChatGPT-User',
@@ -19,6 +22,10 @@ export const ANSWER_ENGINE_CRAWLERS = [
   'Claude-User',
   'PerplexityBot',
   'Perplexity-User',
+  'Applebot',
+  'Amazonbot',
+  'DuckAssistBot',
+  'MistralAI-User',
 ] as const;
 
 export const MODEL_DEVELOPMENT_CRAWLERS = [
@@ -27,6 +34,7 @@ export const MODEL_DEVELOPMENT_CRAWLERS = [
   'Google-Extended',
   'Applebot-Extended',
   'CCBot',
+  'Meta-ExternalAgent',
 ] as const;
 
 export default function robots(): MetadataRoute.Robots {

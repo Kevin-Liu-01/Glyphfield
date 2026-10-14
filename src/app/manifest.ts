@@ -23,7 +23,7 @@ export default function manifest(): MetadataRoute.Manifest {
       },
     ],
     id: '/',
-    name: 'Glyphfield — Brand Studio',
+    name: 'Glyphfield Brand Studio',
     orientation: 'any',
     short_name: 'Glyphfield',
     start_url: '/studio',

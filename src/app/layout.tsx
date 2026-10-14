@@ -69,16 +69,13 @@ export const metadata: Metadata = {
     default: HOME_TITLE,
     template: `%s | ${PRODUCT_BRAND.name}`,
   },
-  alternates: {
-    canonical: '/',
-  },
+  // No canonical or og:url here: each page names its own, and a 404 must not claim to be the home page.
   openGraph: {
     description: HOME_DESCRIPTION,
     locale: 'en_US',
     siteName: PRODUCT_BRAND.name,
     title: HOME_TITLE,
     type: 'website',
-    url: '/',
   },
   referrer: 'origin-when-cross-origin',
   robots: {

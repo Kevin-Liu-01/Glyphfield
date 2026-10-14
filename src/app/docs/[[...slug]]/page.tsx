@@ -11,9 +11,15 @@ import type { Metadata } from 'next';
 import { getDocsMdxComponents } from '@/components/DocsMdx';
 import DocsPageActions from '@/components/DocsPageActions';
 import { AlertCircle, ArrowUpRight, FilePenLine } from '@/components/ui/SolidIcons';
+import { docsPageLastModified, docsSections } from '@/lib/docsSeo';
 import { docsSource, getDocumentationImage } from '@/lib/docsSource';
 import { PRODUCT_BRAND } from '@/lib/productBrand';
-import { SITE_URL, absoluteUrl, serializeJsonLd } from '@/lib/seo';
+import {
+  docsPageJsonLd,
+  docsPageMetadata,
+  serializeJsonLd,
+  type DocsPageSeoInput,
+} from '@/lib/seo';
 
 type DocumentationPageProps = {
   params: Promise<{ slug?: string[] }>;
@@ -25,7 +31,6 @@ export default async function DocumentationPage({ params }: DocumentationPagePro
   if (!page) notFound();
 
   const Content = page.data.body;
-  const canonicalUrl = absoluteUrl(page.url);
   const markdownUrl = `${page.url}.md`;
   const sourcePath = page.data.info.path.replaceAll('\\', '/');
   const sourceUrl = `${PRODUCT_BRAND.repository.url}/blob/main/content/docs/${sourcePath}`;
@@ -46,57 +51,7 @@ export default async function DocumentationPage({ params }: DocumentationPagePro
       year: 'numeric',
     }).format(lastModified)
     : null;
-  const image = getDocumentationImage(page);
-  const breadcrumbItems = [
-    {
-      '@type': 'ListItem',
-      item: absoluteUrl('/'),
-      name: 'Glyphfield',
-      position: 1,
-    },
-    ...(page.url === '/docs'
-      ? []
-      : [
-          {
-            '@type': 'ListItem',
-            item: absoluteUrl('/docs'),
-            name: 'Documentation',
-            position: 2,
-          },
-        ]),
-    {
-      '@type': 'ListItem',
-      item: canonicalUrl,
-      name: page.data.title,
-      position: page.url === '/docs' ? 2 : 3,
-    },
-  ];
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@graph': [
-      {
-        '@type': 'TechArticle',
-        author: { '@id': `${SITE_URL}/#creator` },
-        description: page.data.description,
-        headline: page.data.title,
-        image: absoluteUrl(image.url),
-        inLanguage: 'en-US',
-        isPartOf: {
-          '@id': `${SITE_URL}/docs#documentation`,
-          '@type': 'CreativeWorkSeries',
-          name: 'Glyphfield documentation',
-          url: absoluteUrl('/docs'),
-        },
-        mainEntityOfPage: canonicalUrl,
-        publisher: { '@id': `${SITE_URL}/#creator` },
-        url: canonicalUrl,
-      },
-      {
-        '@type': 'BreadcrumbList',
-        itemListElement: breadcrumbItems,
-      },
-    ],
-  };
+  const jsonLd = docsPageJsonLd(docsPageSeoInput(page));
 
   return (
     <>
@@ -147,36 +102,21 @@ export function generateStaticParams() {
   return docsSource.generateParams();
 }
 
+function docsPageSeoInput(page: NonNullable<ReturnType<typeof docsSource.getPage>>): DocsPageSeoInput {
+  return {
+    dateModified: docsPageLastModified(page),
+    description: page.data.description ?? '',
+    imageUrl: getDocumentationImage(page).url,
+    sections: docsSections(page.url),
+    title: page.data.title,
+    url: page.url,
+  };
+}
+
 export async function generateMetadata({ params }: DocumentationPageProps): Promise<Metadata> {
   const { slug } = await params;
   const page = docsSource.getPage(slug);
   if (!page) notFound();
 
-  const image = getDocumentationImage(page);
-  const title = `${page.data.title} · ${PRODUCT_BRAND.name} Docs`;
-
-  return {
-    alternates: {
-      canonical: page.url,
-      types: {
-        'text/markdown': `${page.url}.md`,
-      },
-    },
-    category: 'documentation',
-    description: page.data.description,
-    openGraph: {
-      description: page.data.description,
-      images: [{ ...image, alt: `${page.data.title} — ${PRODUCT_BRAND.name} documentation` }],
-      title,
-      type: 'article',
-      url: page.url,
-    },
-    title: { absolute: title },
-    twitter: {
-      card: 'summary_large_image',
-      description: page.data.description,
-      images: [image.url],
-      title,
-    },
-  };
+  return docsPageMetadata(docsPageSeoInput(page));
 }

@@ -1,22 +1,29 @@
-import { docsSource } from '@/lib/docsSource';
 import { AGENT_CORS_HEADERS } from '@/lib/agentApi';
+import { orderedDocsPages } from '@/lib/docsSeo';
+import { docsSource } from '@/lib/docsSource';
+import { HOME_DESCRIPTION, SITE_URL, absoluteUrl } from '@/lib/seo';
+
+// Prerendered at build time from the compiled MDX collection, so no request reads content/ from disk.
+export const dynamic = 'force-static';
 
 export async function GET() {
-  const pages = docsSource.getPages();
+  // docsSource.getPages() in sidebar order; orderedDocsPages() appends pages hidden from the sidebar.
+  const pages = orderedDocsPages();
   const sections = await Promise.all(pages.map(async (page) => {
     const body = (await page.data.getText('processed')).trim();
     return [
       `# ${page.data.title}`,
       page.data.description,
-      `Canonical page: ${page.url}`,
-      `Markdown endpoint: /api/docs/${page.slugs.join('/')}`,
+      `Canonical page: ${absoluteUrl(page.url)}`,
+      `Markdown: ${absoluteUrl(`${page.url}.md`)}`,
       body,
     ].filter(Boolean).join('\n\n');
   }));
 
   const introduction = [
-    '# Glyphfield complete documentation corpus',
-    'This file is generated at request time from the same processed MDX collection as the human documentation. Use /llms.txt as the concise router and this file when the task needs complete product and operating context.',
+    '# Glyphfield complete documentation',
+    HOME_DESCRIPTION,
+    `This file contains all ${docsSource.getPages().length} pages of the Glyphfield documentation at ${SITE_URL}/docs, built from the same MDX source as the human documentation. ${absoluteUrl('/llms.txt')} is the short index. Each page is also available as Markdown by adding .md to its URL.`,
   ].join('\n\n');
   const document = [
     introduction,

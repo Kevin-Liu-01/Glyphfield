@@ -61,7 +61,7 @@ describe('GIF palette stability', () => {
     expect(protectedPalettes.every((palette) => palette.some((color) => (
       color[0] === textColor[0] && color[1] === textColor[1] && color[2] === textColor[2]
     )))).toBe(true);
-  });
+  }, 15_000); // Three full-frame quantizations take about 4 s on a loaded machine.
 
   it('samples the start, middle, and end of motion within a fixed memory budget', () => {
     const indices = gifSampleFrameIndices(120);

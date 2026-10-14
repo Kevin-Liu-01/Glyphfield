@@ -1,50 +1,38 @@
 import './studio.css';
 
 import StudioApp from '@/components/StudioApp';
-import { SITE_URL, absoluteUrl, serializeJsonLd } from '@/lib/seo';
+import { PRODUCT_BRAND } from '@/lib/productBrand';
+import { STUDIO_DESCRIPTION, STUDIO_TITLE, serializeJsonLd, studioJsonLd } from '@/lib/seo';
 
 import type { Metadata } from 'next';
 
+// The canonical is static, so /studio?tool=... and /studio?project=... all canonicalize to /studio.
 export const metadata: Metadata = {
   alternates: {
     canonical: '/studio',
   },
-  description:
-    'Build, tune, and export motion, graphics, templates, and brand applications from one connected identity.',
+  description: STUDIO_DESCRIPTION,
   openGraph: {
-    description:
-      'Build, tune, and export motion, graphics, templates, and brand applications from one connected identity.',
-    title: 'Studio',
+    description: STUDIO_DESCRIPTION,
+    locale: 'en_US',
+    siteName: PRODUCT_BRAND.name,
+    title: STUDIO_TITLE,
+    type: 'website',
     url: '/studio',
   },
-  title: 'Studio',
+  title: { absolute: STUDIO_TITLE },
   twitter: {
     card: 'summary_large_image',
-    description:
-      'Build, tune, and export motion, graphics, templates, and brand applications from one connected identity.',
-    title: 'Glyphfield Studio',
+    description: STUDIO_DESCRIPTION,
+    title: STUDIO_TITLE,
   },
-};
-
-const STUDIO_JSON_LD = {
-  '@context': 'https://schema.org',
-  '@id': `${SITE_URL}/#software`,
-  '@type': 'SoftwareApplication',
-  applicationCategory: 'DesignApplication',
-  browserRequirements: 'Requires JavaScript and a modern web browser',
-  description:
-    'Build, tune, and export motion, graphics, templates, and brand applications from one connected identity.',
-  isAccessibleForFree: true,
-  name: 'Glyphfield Studio',
-  operatingSystem: 'Any',
-  url: absoluteUrl('/studio'),
 };
 
 export default function StudioPage() {
   return (
     <>
       <script
-        dangerouslySetInnerHTML={{ __html: serializeJsonLd(STUDIO_JSON_LD) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(studioJsonLd()) }}
         type='application/ld+json'
       />
       <StudioApp />

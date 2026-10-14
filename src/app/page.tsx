@@ -19,6 +19,7 @@ import {
   Sparkles,
 } from '@/components/ui/SolidIcons';
 
+import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 import MarketingArcField from '@/components/MarketingArcField';
@@ -43,9 +44,21 @@ import {
 import { MarketingThemeShell, MarketingThemeToggle } from '@/components/MarketingTheme';
 import { DEFAULT_LIVE_MATERIAL_SETTINGS, LIVE_MATERIAL_OPTIONS } from '@/lib/liveMaterials';
 import { PRODUCT_BRAND } from '@/lib/productBrand';
-import { HOME_FAQS, homeJsonLd, serializeJsonLd } from '@/lib/seo';
+import { HOME_DESCRIPTION, HOME_FAQS, HOME_TITLE, homeJsonLd, serializeJsonLd } from '@/lib/seo';
 import { SHADER_LIBRARY_SCENES } from '@/lib/shaderLab';
 import { STUDIO_TOOLS } from '@/lib/studioCatalog';
+
+export const metadata: Metadata = {
+  alternates: { canonical: '/' },
+  openGraph: {
+    description: HOME_DESCRIPTION,
+    locale: 'en_US',
+    siteName: PRODUCT_BRAND.name,
+    title: HOME_TITLE,
+    type: 'website',
+    url: '/',
+  },
+};
 
 const BRAND_LOGOS = [
   { darkSurfaceSrc: '/brands/gt/logos/mark-white.svg', id: 'gt', lightSurfaceSrc: '/brands/gt/logos/mark-black.svg', name: 'General Translation' },

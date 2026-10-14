@@ -22,6 +22,12 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      { destination: '/docs/skills', permanent: true, source: '/docs/agents/skills' },
+      { destination: '/docs/skills.md', permanent: true, source: '/docs/agents/skills.md' },
+    ];
+  },
   async rewrites() {
     return {
       beforeFiles: [
