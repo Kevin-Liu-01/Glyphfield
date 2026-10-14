@@ -47,7 +47,9 @@ describe('GT_BRAND_IDENTITY', () => {
       expect.arrayContaining(['mark-dark', 'mark-light', 'identity-field'])
     );
     expect(GT_BRAND_IDENTITY.assets.map(({ id }) => id)).not.toContain('locadex');
-    expect(GT_BRAND_IDENTITY.assets.map(({ id }) => id)).not.toContain('wordmark');
+    // The stacked GT wordmark fills wordmark slots instead of falling back to the mark.
+    expect(GT_BRAND_IDENTITY.assets.find(({ id }) => id === 'wordmark')?.path).toBe('/brands/gt/logos/wordmark-black.svg');
+    expect(GT_BRAND_IDENTITY.assets.find(({ id }) => id === 'wordmark-light')?.path).toBe('/brands/gt/logos/wordmark-white.svg');
     expect(GT_BRAND_IDENTITY.colors.map(({ id }) => id)).toEqual(
       expect.arrayContaining(['ink', 'paper', 'emphasis', 'success', 'warning', 'error'])
     );
