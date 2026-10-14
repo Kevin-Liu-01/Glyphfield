@@ -35,7 +35,7 @@ Sizes are `basePx × ratio^step` across nine steps: caption (−2), small, body 
 Typography checks every role at its scale size:
 
 - Leading: 0.95–1.15 for display sizes (28 px and up), 1.4–1.7 for text.
-- Tracking: large type usually tightens to between −0.01 and −0.04 em; text stays within ±0.03 em; monospaced code is never tightened.
+- Tracking: large display sizes take slight negative tracking, −0.01 to −0.025 em; text sizes use 0 (within ±0.01 em); lowercase is never tracked out; monospaced code is never tightened. **Apply recommended tracking** sets −0.02 em on large display roles and 0 on text roles that break the rule.
 - Measure: 45–75 characters per line for body text.
 - Scale: a base below 14 px, a ratio below 1.125 or above 1.5, and a Display role less than 1.5 times the body size.
 - Weight: body text below 300.
@@ -73,4 +73,8 @@ Typography checks every role at its scale size:
 }
 ```
 
-Roles merge by `role`; unknown role fields are kept. `opticalSize: null` and `slant: null` remove a fixed axis. Version 1 sources (`{ typography: [...] }`) still apply and leave the scale and specimen unchanged. The type tokens include `--brand-font-<role>-size`, and `--brand-font-<role>-variation` and `-style` when a role fixes an axis.
+Roles merge by `role`; unknown role fields are kept. `opticalSize: null` and `slant: null` remove a fixed axis. Version 1 sources (`{ typography: [...] }`) still apply and leave the scale and specimen unchanged.
+
+## Kerning and type tokens
+
+Specimens render with `font-kerning: normal` and the `kern` feature, and optical sizing follows the size unless a role fixes `opsz`. The type tokens carry the same settings: `--brand-font-kerning`, `--brand-font-feature-settings` and `--brand-font-optical-sizing`, each role's `--brand-font-<role>-size`, and its tracking in em relative to that size (`--brand-font-display-tracking: -0.02em`), so a role keeps its tracking at any size. Tailwind steps use the same em values in `--text-<step>--letter-spacing`. `--brand-font-<role>-variation` and `-style` appear when a role fixes an axis.

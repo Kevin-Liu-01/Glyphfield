@@ -100,6 +100,15 @@ export function brandRoleTypeStep(identity: Pick<BrandIdentity, 'typeScale'>, ro
   return step && BRAND_TYPE_STEPS.some(({ name }) => name === step) ? step : BRAND_ROLE_TYPE_STEP[role];
 }
 
+/**
+ * Tracking relative to size: the role's px tracking divided by the px size it is set at,
+ * so large display type keeps its slight negative tracking at any size.
+ */
+export function brandTrackingEm(letterSpacingPx: number, sizePx: number): string {
+  const em = sizePx > 0 ? Math.round((letterSpacingPx / sizePx) * 1000) / 1000 : 0;
+  return em === 0 ? '0' : `${em}em`;
+}
+
 /** CSS font-variation-settings for a role's fixed axes, or null when the role uses none. */
 export function brandFontVariationSettings(typography: Pick<BrandTypography, 'opticalSize'>): string | null {
   return typeof typography.opticalSize === 'number' ? `"opsz" ${typography.opticalSize}` : null;
@@ -286,7 +295,9 @@ function darkModeBlocks(identity: BrandIdentity, prefix: string): string[] {
 
 function cssTypeLines(identity: BrandIdentity): string[] {
   const scale = new Map(brandTypeScale(identity).map((step) => [step.name, step]));
-  return ROLES.flatMap((role) => {
+  // Kerning stays on everywhere; optical sizing follows the size unless a role fixes opsz.
+  const rendering = ['  --brand-font-kerning: normal;', '  --brand-font-feature-settings: "kern" 1;', '  --brand-font-optical-sizing: auto;'];
+  return [...rendering, ...ROLES.flatMap((role) => {
     const typography = brandTypographyRole(identity, role);
     const key = roleKey(role);
     const step = scale.get(brandRoleTypeStep(identity, role));
@@ -297,11 +308,11 @@ function cssTypeLines(identity: BrandIdentity): string[] {
       ...(step ? [`  --brand-font-${key}-size: ${step.rem}rem; /* ${step.name}, ${step.px}px */`] : []),
       `  --brand-font-${key}-weight: ${typography.weight ?? 400};`,
       `  --brand-font-${key}-leading: ${typography.lineHeight ?? 1.5};`,
-      `  --brand-font-${key}-tracking: ${typography.letterSpacing ?? 0}px;`,
+      `  --brand-font-${key}-tracking: ${brandTrackingEm(typography.letterSpacing ?? 0, step?.px ?? 16)}; /* ${typography.letterSpacing ?? 0}px at ${step?.px ?? 16}px */`,
       ...(variation ? [`  --brand-font-${key}-variation: ${variation};`] : []),
       ...(style ? [`  --brand-font-${key}-style: ${style};`] : []),
     ];
-  });
+  })];
 }
 
 /**
@@ -357,7 +368,7 @@ function tailwindTypeLines(identity: BrandIdentity): string[][] {
       `  --text-${step.name}: ${step.rem}rem;`,
       ...(role ? [
         `  --text-${step.name}--line-height: ${role.lineHeight ?? 1.5};`,
-        `  --text-${step.name}--letter-spacing: ${role.letterSpacing ?? 0}px;`,
+        `  --text-${step.name}--letter-spacing: ${brandTrackingEm(role.letterSpacing ?? 0, step.px)};`,
         `  --text-${step.name}--font-weight: ${role.weight ?? 400};`,
       ] : []),
     ];

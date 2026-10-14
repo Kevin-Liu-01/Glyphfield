@@ -9,7 +9,9 @@ import { fontAxis, parseFvar, readFontAxes } from '../fontAxes';
 import {
   applyTypographySource,
   clampTypeScale,
+  recommendedLetterSpacing,
   roleFonts,
+  rolesOffTracking,
   roleTypeStep,
   trackingEm,
   typeScaleRatioName,
@@ -104,8 +106,21 @@ describe('typography guidance', () => {
       )),
     };
     const ids = typographyGuidance(identity, { measureCh: 96 }).map(({ id }) => id);
-    expect(ids).toEqual(expect.arrayContaining(['Display-leading-loose', 'Display-tracking-loose', 'Body-weight-thin', 'measure-long']));
+    expect(ids).toEqual(expect.arrayContaining(['Display-leading-loose', 'Display-tracking-positive', 'Body-weight-thin', 'measure-long']));
     expect(trackingEm(-2, 40)).toBe(-0.05);
+  });
+
+  it('recommends −0.02em for large display roles and 0 for text, and lists roles off the rule', () => {
+    const base = createBrandIdentity('Acme', 'acme');
+    const identity: BrandIdentity = {
+      ...base,
+      typography: base.typography.map((role) => (role.role === 'Display' ? { ...role, letterSpacing: 1 } : role.role === 'Body' ? { ...role, letterSpacing: 0.4 } : { ...role, letterSpacing: 0 })),
+    };
+    const displayPx = roleTypeStep(identity, 'Display').px;
+    expect(recommendedLetterSpacing(identity, 'Display')).toBeCloseTo(-0.02 * displayPx, 1);
+    expect(recommendedLetterSpacing(identity, 'Body')).toBe(0);
+    expect(recommendedLetterSpacing(identity, 'Code')).toBe(0);
+    expect(rolesOffTracking(identity)).toEqual(['Display', 'Body']);
   });
 
   it('keeps the built-in identities free of leading warnings for body text', () => {

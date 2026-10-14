@@ -80,12 +80,18 @@ export function trackingEm(letterSpacingPx: number, sizePx: number): number {
   return sizePx > 0 ? letterSpacingPx / sizePx : 0;
 }
 
+/** Kevin's type spacing rule: about −0.01 to −0.025em on large display sizes, 0 for text. */
+export const DISPLAY_TRACKING_EM = { loosest: -0.005, recommended: -0.02, tightest: -0.035 } as const;
+export const TEXT_TRACKING_TOLERANCE_EM = 0.01;
+export const DISPLAY_SIZE_PX = 28;
+
 function displayRoleGuidance(role: BrandTypography['role'], size: number, lineHeight: number, tracking: number): TypeGuidance[] {
   const output: TypeGuidance[] = [];
   if (lineHeight > 1.25) output.push({ id: `${role}-leading-loose`, message: `${role} leading ${lineHeight} is loose at ${Math.round(size)}px; 0.95–1.15 keeps wrapped lines together.`, role, severity: 'warning' });
   if (lineHeight < 0.85) output.push({ id: `${role}-leading-tight`, message: `${role} leading ${lineHeight} can make ascenders and descenders collide; stay at 0.88 or above.`, role, severity: 'warning' });
-  if (tracking > 0.01) output.push({ id: `${role}-tracking-loose`, message: `${role} tracking is +${tracking.toFixed(3)}em; large type usually tightens to between −0.01 and −0.04em.`, role, severity: 'warning' });
-  if (tracking < -0.06) output.push({ id: `${role}-tracking-tight`, message: `${role} tracking ${tracking.toFixed(3)}em is tight enough for letters to touch.`, role, severity: 'warning' });
+  if (tracking > 0) output.push({ id: `${role}-tracking-positive`, message: `${role} tracking is +${tracking.toFixed(3)}em; large lowercase type is never tracked out. Use −0.01 to −0.025em.`, role, severity: 'warning' });
+  else if (tracking > DISPLAY_TRACKING_EM.loosest) output.push({ id: `${role}-tracking-loose`, message: `${role} tracking ${tracking.toFixed(3)}em at ${Math.round(size)}px reads loose; large type tightens slightly, to −0.01 to −0.025em.`, role, severity: 'info' });
+  if (tracking < DISPLAY_TRACKING_EM.tightest) output.push({ id: `${role}-tracking-tight`, message: `${role} tracking ${tracking.toFixed(3)}em is tight enough for letters to touch; stay above −0.03em.`, role, severity: 'warning' });
   return output;
 }
 
@@ -93,8 +99,25 @@ function textRoleGuidance(role: BrandTypography['role'], size: number, lineHeigh
   const output: TypeGuidance[] = [];
   if (lineHeight < 1.35) output.push({ id: `${role}-leading-tight`, message: `${role} leading ${lineHeight} is tight for ${Math.round(size)}px text; use 1.4–1.7 for paragraphs.`, role, severity: 'warning' });
   if (lineHeight > 1.8) output.push({ id: `${role}-leading-loose`, message: `${role} leading ${lineHeight} separates lines too far; use 1.4–1.7.`, role, severity: 'warning' });
-  if (Math.abs(tracking) > 0.03) output.push({ id: `${role}-tracking`, message: `${role} tracking ${tracking >= 0 ? '+' : ''}${tracking.toFixed(3)}em changes word shapes at text sizes; keep within ±0.03em.`, role, severity: 'warning' });
+  if (Math.abs(tracking) > TEXT_TRACKING_TOLERANCE_EM) output.push({ id: `${role}-tracking`, message: `${role} tracking ${tracking >= 0 ? '+' : ''}${tracking.toFixed(3)}em changes word shapes at text sizes; text sizes use 0.`, role, severity: 'warning' });
   return output;
+}
+
+/** The tracking the spacing rule recommends for a role at its scale size, in px (0.1px steps). */
+export function recommendedLetterSpacing(identity: BrandIdentity, role: BrandTypography['role']): number {
+  const size = roleTypeStep(identity, role).px;
+  if (size < DISPLAY_SIZE_PX || role === 'Code') return 0;
+  return Math.round(DISPLAY_TRACKING_EM.recommended * size * 10) / 10;
+}
+
+/** Roles whose tracking falls outside the spacing rule. */
+export function rolesOffTracking(identity: BrandIdentity): BrandTypography['role'][] {
+  return TYPE_ROLES.filter((role) => {
+    const size = roleTypeStep(identity, role).px;
+    const tracking = trackingEm(brandTypographyRole(identity, role).letterSpacing ?? 0, size);
+    if (size < DISPLAY_SIZE_PX || role === 'Code') return Math.abs(tracking) > TEXT_TRACKING_TOLERANCE_EM;
+    return tracking > DISPLAY_TRACKING_EM.loosest || tracking < DISPLAY_TRACKING_EM.tightest;
+  });
 }
 
 function roleGuidance(identity: BrandIdentity, role: BrandTypography['role']): TypeGuidance[] {
@@ -102,7 +125,7 @@ function roleGuidance(identity: BrandIdentity, role: BrandTypography['role']): T
   const size = roleTypeStep(identity, role).px;
   const lineHeight = typography.lineHeight ?? 1.5;
   const tracking = trackingEm(typography.letterSpacing ?? 0, size);
-  const output = size >= 28 ? displayRoleGuidance(role, size, lineHeight, tracking) : textRoleGuidance(role, size, lineHeight, tracking);
+  const output = size >= DISPLAY_SIZE_PX && role !== 'Code' ? displayRoleGuidance(role, size, lineHeight, tracking) : textRoleGuidance(role, size, lineHeight, tracking);
   if (role === 'Code' && tracking < -0.005) output.push({ id: 'Code-tracking-negative', message: 'Monospaced code should not be tightened; columns stop lining up.', role, severity: 'warning' });
   if (role === 'Body' && (typography.weight ?? 400) < 300) output.push({ id: 'Body-weight-thin', message: `Body weight ${typography.weight} loses contrast at ${Math.round(size)}px; use 350 or more.`, role, severity: 'warning' });
   return output;

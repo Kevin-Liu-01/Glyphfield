@@ -8,6 +8,7 @@ import {
   brandDesignTokens,
   brandFontStack,
   brandTailwindTheme,
+  brandTrackingEm,
   brandTokenName,
   brandTypeScale,
   parseCubicBezier,
@@ -127,6 +128,10 @@ describe('colour system and type extensions', () => {
     expect(css).toContain('--brand-font-display-variation: "opsz" 32;');
     expect(css).toContain('--brand-font-display-style: oblique 8deg;');
     expect(css).toContain('--brand-font-display-size: 3.0519rem; /* h1, 48.83px */');
+    expect(css).toContain('--brand-font-kerning: normal;');
+    expect(css).toMatch(/--brand-font-display-tracking: -?[\d.]+em; \/\* -?[\d.]+px at 48.83px \*\//);
+    expect(brandTrackingEm(-1.2, 60)).toBe('-0.02em');
+    expect(brandTrackingEm(0, 16)).toBe('0');
     expect(brandTailwindTheme(tuned, { include: ['type'] })).toMatch(/--text-h1: [\d.]+rem;\n {2}--text-h1--line-height:/);
   });
 });
