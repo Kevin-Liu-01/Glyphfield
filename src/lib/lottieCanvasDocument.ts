@@ -10,6 +10,7 @@ import {
   type LiveMaterialSettings,
 } from './liveMaterials';
 import type { LottieDocument } from './lottieExamples';
+import { EMPTY_LOTTIE_EDITS, normalizeLottieEdits, type LottieEdits } from './lottieEditing';
 import {
   parseSourceObject,
   sourceBoolean,
@@ -35,11 +36,15 @@ type LottieCanvasSource = {
   provenance: 'Glyphfield example' | 'Local import';
 };
 
+export type LottieRecolorMode = 'palette' | 'source';
+
 export type LottieCanvasState = {
   appearance: {
     accentColor: string;
     artColor: string;
     cornerRadius: number;
+    /** Palette slots recolour every unnamed paint (legacy); source keeps authored colours for the colour map. */
+    recolor?: LottieRecolorMode;
     secondaryColor: string;
     strokeWidth: number;
   };
@@ -51,6 +56,8 @@ export type LottieCanvasState = {
     transparent: boolean;
   };
   canvasPreset: LottieCanvasPreset;
+  /** Layer visibility, colour map, text, and markers over the source document. */
+  edits?: LottieEdits;
   playback: {
     fit: LottieCanvasFit;
     interpolate: boolean;
@@ -133,6 +140,9 @@ export function parseLottieWorkspaceSource(
       legacy: true,
       state: {
         ...fallback,
+        // Pasted raw JSON is a new document: authored colours, no carried-over edits.
+        appearance: { ...fallback.appearance, recolor: 'source' },
+        edits: { ...EMPTY_LOTTIE_EDITS },
         source: {
           ...fallback.source,
           data: parseLottieDocument(root),
@@ -148,6 +158,7 @@ export function parseLottieWorkspaceSource(
   const appearance = sourceObject(parsed.state, 'appearance') ?? {};
   const background = sourceObject(parsed.state, 'background') ?? {};
   const playback = sourceObject(parsed.state, 'playback') ?? {};
+  const edits = normalizeLottieEdits(sourceObject(parsed.state, 'edits') ?? fallback.edits ?? EMPTY_LOTTIE_EDITS);
   const savedSource = sourceObject(parsed.state, 'source');
   if (!savedSource) throw new TypeError('Lottie source state is missing.');
 
@@ -195,6 +206,7 @@ export function parseLottieWorkspaceSource(
         accentColor: sourceString(appearance, 'accentColor', fallback.appearance.accentColor),
         artColor: sourceString(appearance, 'artColor', fallback.appearance.artColor),
         cornerRadius: sourceNumber(appearance, 'cornerRadius', fallback.appearance.cornerRadius),
+        recolor: sourceString(appearance, 'recolor', 'palette') === 'source' ? 'source' : 'palette',
         secondaryColor: sourceString(appearance, 'secondaryColor', fallback.appearance.secondaryColor),
         strokeWidth: sourceNumber(appearance, 'strokeWidth', fallback.appearance.strokeWidth),
       },
@@ -209,6 +221,7 @@ export function parseLottieWorkspaceSource(
         transparent: sourceBoolean(background, 'transparent', fallback.background.transparent),
       },
       canvasPreset,
+      edits,
       playback: {
         fit,
         interpolate: sourceBoolean(playback, 'interpolate', fallback.playback.interpolate),

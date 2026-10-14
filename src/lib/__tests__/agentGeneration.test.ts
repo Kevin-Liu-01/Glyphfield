@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { BUILT_IN_BRAND_IDENTITIES } from '../brandIdentity';
+
 import {
   agentAssetPaths,
   planAgentGeneration,
@@ -19,10 +21,12 @@ describe('planAgentGeneration', () => {
       kind: 'template',
       template: 'partnership',
     });
-    expect(agentAssetPaths(plan)).toEqual([
+    // Logos, the partner mark, and the brand font files the SVG embeds.
+    expect(agentAssetPaths(plan)).toEqual(expect.arrayContaining([
       '/brands/gt/logos/mark-black.svg',
       '/brands/gt/proof/ramp.svg',
-    ]);
+      '/fonts/inter-variable.ttf',
+    ]));
   });
 
   it('resolves audited reference presets through the public agent contract', () => {
@@ -236,5 +240,56 @@ describe('renderAgentGeneration', () => {
     expect(result.automation.exports.png).toContain("format: 'png'");
     expect(result.automation.exports.gif).toContain("format: 'gif'");
     expect(result.automation.exports.mp4).toContain("format: 'mp4'");
+  });
+});
+
+describe('brand-true deterministic generation', () => {
+  const gtIdentity = BUILT_IN_BRAND_IDENTITIES.find(({ id }) => id === 'gt')!;
+
+  it('reads identity ids and full identity objects, and rejects stray preset fields', () => {
+    const byObject = planAgentGeneration({ identity: JSON.parse(JSON.stringify(gtIdentity)), kind: 'template', template: 'blog' });
+    expect(byObject.identity).toMatchObject({ id: 'gt', name: 'General Translation' });
+    expect(agentAssetPaths(byObject)).toContain('/brands/gt/logos/mark-black.svg');
+    expect(planAgentGeneration({ identity: { id: 'stripe' }, kind: 'template' }).identity.name).toBe('Stripe');
+    expect(() => planAgentGeneration({ identity: { colors: [], preset: 'gt' }, kind: 'template' })).toThrow('{ preset: "gt" }');
+    expect(() => planAgentGeneration({ identity: { id: 'nope' }, kind: 'template' })).toThrow('/api/identities');
+    expect(planAgentGeneration({ identity: { preset: 'basement' }, kind: 'template' }).identity.name).toBe('Basement');
+  });
+
+  it('renders every template from the Studio brand templates with real identity content', () => {
+    const ramp = planAgentGeneration({ identity: { preset: 'ramp' }, kind: 'template', slideLayout: 'metrics', template: 'slides' });
+    const rampSvg = renderAgentGeneration(ramp, {}).content;
+    expect(rampSvg).toContain('70,000+');
+    expect(rampSvg).not.toContain('98.7%');
+    const stripePartnership = renderAgentGeneration(planAgentGeneration({ identity: { preset: 'stripe' }, kind: 'template', template: 'partnership' }), {}).content;
+    expect(stripePartnership).toContain('Stripe × Partner');
+    expect(stripePartnership).not.toContain('Northstar');
+    for (const template of ['opengraph', 'terminal'] as const) {
+      const plan = planAgentGeneration({ format: 'square', identity: { preset: 'tailwind' }, kind: 'template', template });
+      const artifact = renderAgentGeneration(plan, {});
+      expect(artifact).toMatchObject({ height: 1080, width: 1080 });
+      expect(artifact.content).toContain('Inter, &quot;Helvetica Neue&quot;, Arial, sans-serif');
+    }
+    expect(() => planAgentGeneration({ identity: { preset: 'gt' }, kind: 'template', layout: 'nope', template: 'blog' })).toThrow('layout');
+    expect(() => planAgentGeneration({ identity: { preset: 'gt' }, kind: 'template', language: 'bash', template: 'blog' })).toThrow('language');
+  });
+
+  it('embeds the brand font files it is given', () => {
+    const plan = planAgentGeneration({ identity: { preset: 'gt' }, kind: 'template', template: 'blog', title: 'Embedded' });
+    const fontPath = agentAssetPaths(plan).find((path) => path.startsWith('/fonts/'))!;
+    const artifact = renderAgentGeneration(plan, { [fontPath]: 'data:font/ttf;base64,AAEAAA==' });
+    expect(artifact.content).toContain('@font-face{font-family:"x');
+    expect(artifact.content).toContain('data:font/ttf;base64,AAEAAA==');
+  });
+
+  it('keeps backgrounds on the identity palette and never returns a blank pattern', () => {
+    const stripe = planAgentGeneration({ identity: { preset: 'stripe' }, kind: 'background', settings: { style: 'gradient' } });
+    expect(stripe).toMatchObject({ settings: { colorA: '#0A2540', colorB: '#533AFD', colorC: '#00D4FF' } });
+    const gt = planAgentGeneration({ identity: { preset: 'gt' }, kind: 'background', settings: { style: 'gradient' } });
+    expect(gt).not.toMatchObject({ settings: { colorA: (stripe as { settings: { colorA: string } }).settings.colorA } });
+    const pattern = renderAgentGeneration(planAgentGeneration({ identity: { preset: 'ramp' }, kind: 'background', settings: { style: 'pattern' } }), {});
+    expect(pattern.content).toMatch(/fill="url\(#pattern-[a-z]+\)"/);
+    const explicit = planAgentGeneration({ identity: { preset: 'stripe' }, kind: 'background', settings: { colorA: '#112233' } });
+    expect(explicit).toMatchObject({ settings: { colorA: '#112233' } });
   });
 });

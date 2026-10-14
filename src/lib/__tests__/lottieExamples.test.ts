@@ -202,7 +202,7 @@ describe('Lottie product presets', () => {
       const records = collectRecords(example.data);
       const strokes = records.filter((record) => record.ty === 'st');
       const paths = records.filter((record) => record.ty === 'sh');
-      const kicker = layers.find(({ nm }) => nm === 'Palette 2 Text | Scene eyebrow');
+      const kicker = layers.find(({ nm }) => String(nm).endsWith('Scene eyebrow'));
       const title = layers.find(({ nm }) => nm === 'Palette 1 Text | Scene title');
       const meta = layers.find(({ nm }) => nm === 'Palette 2 Text | Scene number');
       const titleTransform = title?.ks as Record<string, unknown> | undefined;
@@ -220,7 +220,8 @@ describe('Lottie product presets', () => {
         const opacity = stroke.o as Record<string, unknown> | undefined;
         return typeof opacity?.k === 'number' && opacity.k >= 70;
       })).toBe(true);
-      expect(kicker).toBeDefined();
+      // No eyebrow above the title (Kevin: no eyebrow text).
+      expect(kicker).toBeUndefined();
       expect(meta).toBeDefined();
       expect(titlePosition?.k).toEqual([76, 138, 0]);
       expect(titleStyle?.s).toBe(44);

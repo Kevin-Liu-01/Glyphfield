@@ -98,9 +98,9 @@ Runtime frames use durable local asset references, not ephemeral `blob:` URLs. P
 | Animation | Sequence, frames, timing, material, output, and audio clip state | Playback rate and frame references validate; GIF has no audio channel |
 | Lottie | Portable Lottie composition with raw JSON or authorized embedded `.lottie` archive | JSON animation data requires numeric `fr` and `layers[]`; binary `.lottie` remains an archive while playback, canvas, background, and trim settings stay editable |
 | Design Lab | CanvasDocument v2 with Design Lab source metadata v4 | Exact layers, transforms, assets, effects, sequences, saved frames, and export settings |
-| OpenGraph/templates | Tool-specific composition object | Content, selected layout, assets, colors, and transforms are validated by the host tool |
-| Color/Typography | Identity-bound foundation state | Colors normalize through shared HEX/OKLCH utilities; font files remain local |
-| Terminal/Components | Tool-specific configuration | Code language, content, variant, and display settings depend on the active tool |
+| OpenGraph, Terminal card, Partnership, Blog, Slides | CanvasDocument schema 2 with expression source version 2: pages are artboards (slides are pages), elements are layers with a `data.slot` role and brand color roles | Mirrored flat `title`, `body`, `code`, and `language` in `metadata.studio.state` stay editable; version-1 flat tool states migrate on apply |
+| Color/Typography | Identity-bound foundation state, version 2 | Color: the palette, `colorPairings` and `colorSystem` (semantic light/dark roles, scale settings) plus per-token opacity. Typography: roles, `typeScale` and specimen settings. Version 1 sources still apply; font files remain local |
+| Components | Tool-specific configuration, version 2 | Variant and display settings depend on the active tool; version 1 migrates on apply |
 
 ## Safe agent mutation
 

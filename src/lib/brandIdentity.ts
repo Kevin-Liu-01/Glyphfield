@@ -121,6 +121,35 @@ export type BrandColorPairing = {
 export type BrandTypeScale = {
   basePx: number;
   ratio: number;
+  /** The scale step each role is set at, such as { Display: 'h1' }; omitted roles use the defaults. */
+  roleSteps?: Partial<Record<BrandTypography['role'], string>>;
+};
+
+/** OKLCH tint and shade scale settings for one palette color; omitted fields use the defaults. */
+export type BrandColorScale = {
+  /** Snap the step nearest in lightness to the exact palette HEX (default true). */
+  anchor?: boolean;
+  /** Chroma as a percentage of the palette color's own chroma (default 100). */
+  chroma?: number;
+  /** OKLCH lightness of the darkest step, 0–1. */
+  darkest?: number;
+  /** Hue rotation in degrees from the lightest to the darkest step. */
+  hueShift?: number;
+  /** The colors[].id this scale belongs to. */
+  id: string;
+  /** OKLCH lightness of the lightest step, 0–1. */
+  lightest?: number;
+};
+
+/**
+ * Semantic color roles for light and dark modes, plus per-color scale settings.
+ * Role values are color refs: a colors[].id ("ink") or one of its scale steps ("ink.700").
+ * Omitted roles are derived from the palette.
+ */
+export type BrandColorSystem = {
+  dark?: Partial<Record<string, string>>;
+  light?: Partial<Record<string, string>>;
+  scales?: BrandColorScale[];
 };
 
 export type BrandVoiceExample = {
@@ -183,7 +212,11 @@ export type BrandTypography = {
   fontId?: string;
   letterSpacing?: number;
   lineHeight?: number;
+  /** Fixed optical size (the `opsz` axis); omitted means automatic optical sizing. */
+  opticalSize?: number;
   role: 'Display' | 'Body' | 'Accent' | 'Code';
+  /** Oblique angle in degrees, leaning right; uses the font's `slnt` axis when it has one. */
+  slant?: number;
   usage: string;
   weight?: number;
 };
@@ -270,6 +303,7 @@ export type BrandIdentity = {
   audiences: string[];
   builtIn: boolean;
   colorPairings?: BrandColorPairing[];
+  colorSystem?: BrandColorSystem;
   colors: BrandColor[];
   contactEmail: string;
   /** Customer or client names, kept apart from the proof statements in `proof`. */
@@ -672,6 +706,26 @@ function cloneBrandSamples(samples: BrandSamples): BrandSamples {
   };
 }
 
+function cloneBrandColorSystem(system: BrandColorSystem): BrandColorSystem {
+  return {
+    ...system,
+    ...(system.dark ? { dark: { ...system.dark } } : {}),
+    ...(system.light ? { light: { ...system.light } } : {}),
+    ...(system.scales ? { scales: system.scales.map((scale) => ({ ...scale })) } : {}),
+  };
+}
+
+/** Optional colour and type system fields, deep-copied when present. */
+function cloneSystemFields(identity: BrandIdentity): Pick<BrandIdentity, 'colorSystem' | 'typeScale'> {
+  const typeScale = identity.typeScale
+    ? { ...identity.typeScale, ...(identity.typeScale.roleSteps ? { roleSteps: { ...identity.typeScale.roleSteps } } : {}) }
+    : undefined;
+  return {
+    ...(identity.colorSystem ? { colorSystem: cloneBrandColorSystem(identity.colorSystem) } : {}),
+    ...(typeScale ? { typeScale } : {}),
+  };
+}
+
 /** Optional collections, copied only when present so absent fields stay absent. */
 function cloneOptionalRecords(identity: BrandIdentity): Partial<BrandIdentity> {
   return {
@@ -679,7 +733,7 @@ function cloneOptionalRecords(identity: BrandIdentity): Partial<BrandIdentity> {
     ...(identity.customers ? { customers: [...identity.customers] } : {}),
     ...(identity.productDetails ? { productDetails: identity.productDetails.map((detail) => ({ ...detail })) } : {}),
     ...(identity.samples ? { samples: cloneBrandSamples(identity.samples) } : {}),
-    ...(identity.typeScale ? { typeScale: { ...identity.typeScale } } : {}),
+    ...cloneSystemFields(identity),
   };
 }
 

@@ -1,0 +1,34 @@
+---
+title: Terminal card
+description: Brand-themed code windows with file tabs, highlighted lines, and the identity's own code sample.
+icon: Braces
+---
+
+Terminal card renders a code window in the identity's code font and a theme built from its colors. Each identity starts with real code from its product: `gt-next` for General Translation, a PaymentIntent for Stripe, a Worker for Cloudflare, `docs.json` for Mintlify, utility classes for Tailwind CSS.
+
+## Content controls
+
+- **Card title** edits the title layer.
+- **Language** sets the active tab's language: TypeScript, TSX, JavaScript, Python, Bash, JSON, HTML, or CSS. An untouched sample switches with the language; edited code stays.
+- The **Source** section shows the window's tabs. **Show tab** buttons switch tabs, **Add file tab** and **Remove tab** manage them, **Tab name** renames the active one, and **Terminal source code** edits its code.
+- **Highlighted lines** takes a list such as `2, 4-6`. Highlighted lines get a tinted band and an accent rule.
+- **Terminal title font**, **Title weight**, **Terminal code font**, and **Code weight** set the type roles.
+- **Terminal card background** places an identity image behind the card; **Asset opacity** controls it.
+
+Select the code window for **Code theme** (Brand dark, Brand light, or Classic dark), **Window chrome** (file tabs, window, or none), **Show line numbers**, **Code size**, line height, and corner radius. Token colors come from the brand roles and are raised until they meet WCAG AA contrast against the window. Long lines shrink the code to fit the window instead of running out of it.
+
+Layouts: **Card** (title above the window, centered as a group), **Split** (copy beside the window), **Focus** (the window alone with a small footer), and **Caption** (window above a caption). Formats are the same as OpenGraph.
+
+## Browser actions
+
+| Action | Use |
+|---|---|
+| `terminal.export.png` / `terminal.export.svg` | Export |
+| `terminal.tab.add` / `terminal.tab.select` / `terminal.tab.update` / `terminal.tab.remove` | File tabs, code, language, and highlighted lines |
+| `terminal.document.describe` | Format, layouts, pages, and layers |
+| `terminal.layer.add` / `terminal.layer.update` / `terminal.layer.remove` / `terminal.layer.duplicate` | Layer edits |
+| `terminal.layer.reorder` / `terminal.layer.select` / `terminal.layer.align` | Stack, selection, and alignment |
+| `terminal.format.set` / `terminal.layout.apply` / `terminal.template.reset` | Format, layout, and template |
+| `terminal.history.undo` / `terminal.history.redo` | History |
+
+`studio.set('Terminal source code', 'const ok = true;')` still edits the active tab, and source keeps flat `code` and `language` fields that mirror it.

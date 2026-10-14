@@ -31,6 +31,7 @@ import {
   ShieldCheck,
   Sparkles,
   Table,
+  Type,
   WandSparkles,
   Warning,
   type LucideIcon,
@@ -66,6 +67,7 @@ const DOCS_SOLID_ICONS: Record<string, LucideIcon> = {
   Sparkles,
   TableProperties: Table,
   TriangleAlert: Warning,
+  Type,
   WandSparkles,
 };
 

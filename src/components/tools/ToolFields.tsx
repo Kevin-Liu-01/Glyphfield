@@ -119,6 +119,60 @@ export function RangeField({
   );
 }
 
+/** Compact numeric input; commits each valid value and keeps partial input ("-", "1.") as a draft. */
+export function NumberField({
+  ariaLabel,
+  className = '',
+  label,
+  max,
+  min,
+  onCommit,
+  step = 1,
+  value,
+}: {
+  ariaLabel: string;
+  className?: string;
+  label: ReactNode;
+  max?: number;
+  min?: number;
+  onCommit: (value: number) => void;
+  step?: number;
+  value: number;
+}) {
+  const gt = useGT();
+  const [draft, setDraft] = useState<string | null>(null);
+  const display = Math.round(value * 100) / 100;
+  const commit = (raw: string) => {
+    const next = Number(raw);
+    if (raw.trim() === '' || !Number.isFinite(next)) return;
+    const clamped = Math.min(max ?? Number.POSITIVE_INFINITY, Math.max(min ?? Number.NEGATIVE_INFINITY, next));
+    if (clamped !== display) onCommit(clamped);
+  };
+  return (
+    <label className={`grid grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-1 rounded-md border border-input pl-2 text-[11px] text-muted-foreground focus-within:border-foreground ${className}`.trim()}>
+      <span aria-hidden='true'>{label}</span>
+      <input
+        aria-label={gt(ariaLabel)}
+        className='h-8 min-w-0 border-0 bg-transparent text-[13px] tabular-nums text-foreground outline-none'
+        inputMode='decimal'
+        max={max}
+        min={min}
+        onBlur={() => setDraft(null)}
+        onChange={(event) => {
+          setDraft(event.currentTarget.value);
+          commit(event.currentTarget.value);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === 'Escape') setDraft(null);
+        }}
+        step={step}
+        type='number'
+        value={draft ?? String(display)}
+      />
+    </label>
+  );
+}
+
 export function SegmentedChoice<T extends string | number>({
   ariaLabel,
   onChange,

@@ -56,7 +56,8 @@ for (const scenario of cases) {
     });
     await waitForStudioSource(page);
     await expect.poll(() => readValue(page, scenario.path)).toBe(scenario.value);
-    if (scenario.tool === 'identity' || scenario.tool === 'typography') {
+    // These tools edit the identity itself; changes stay pending until saved.
+    if (scenario.tool === 'identity' || scenario.tool === 'typography' || scenario.tool === 'colors') {
       await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     }
     if (scenario.tool === 'lottie') {
@@ -111,6 +112,11 @@ for (const scenario of cases) {
     } else if (scenario.tool === 'colors') {
       const tokens = await page.evaluate(() => window.glyphfield!.studio.invoke('colors.tokens.read'));
       expect(tokens).toContain('oklch(');
+      const tailwind = await page.evaluate(() => window.glyphfield!.studio.invoke('colors.tokens.read', { format: 'tailwind' }));
+      expect(tailwind).toContain('--color-ink: #B85544;');
+    } else if (scenario.tool === 'buttons') {
+      const code = await page.evaluate(() => window.glyphfield!.studio.invoke('components.code.read', { format: 'html' })) as { files: { code: string }[] };
+      expect(code.files[0]!.code).toContain('Audit component');
     }
     // Exercise retained workspace ownership, then persisted state on reload.
     await page.locator('.studio-nav').getByRole('button', { name: 'Brand book', exact: true }).click();

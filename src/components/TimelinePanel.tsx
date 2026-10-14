@@ -13,11 +13,13 @@ import {
 } from 'react';
 
 import AnimationAudioTrack from '@/components/AnimationAudioTrack';
+import { KeyframeDiamond, SceneTrimHandle, type SceneTrimMode } from '@/components/AnimationTimelineHandles';
+import timelineStyles from '@/components/AnimationTimeline.module.css';
 import { animationPackagePresentation } from '@/components/AnimationPackageGallery';
 import AnimationSequenceTooltipPreview from '@/components/AnimationSequenceTooltipPreview';
 import AnimationTimelinePreview from '@/components/AnimationTimelinePreview';
 import { Button } from '@/components/ui/Button';
-import { Frame, Pause, Play, RotateCcw, SkipBack, SkipForward } from '@/components/ui/SolidIcons';
+import { Frame, Maximize2, Minus, Pause, Play, Plus, RotateCcw, SkipBack, SkipForward } from '@/components/ui/SolidIcons';
 import StudioContextMenu, {
   contextMenuPositionFromElement,
   contextMenuPositionFromEvent,
@@ -26,10 +28,20 @@ import StudioContextMenu, {
 import StudioPreviewTooltip from '@/components/ui/StudioPreviewTooltip';
 import StudioRange from '@/components/ui/StudioRange';
 import StudioSelect from '@/components/ui/StudioSelect';
-import { useCachedGT } from '@/hooks/useCachedGT';
+import { useMotionGT } from '@/components/MotionTranslation';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
 import { useTimelineFollow } from '@/hooks/useTimelineFollow';
+import {
+  clampTimelineZoom,
+  DEFAULT_TIMELINE_ZOOM,
+  MAX_TIMELINE_ZOOM,
+  MIN_TIMELINE_ZOOM,
+  sequenceSceneTime,
+  uniformSequenceLayout,
+  type SequenceLayout,
+} from '@/lib/animation';
 import type { AnimationAudioClip, AnimationAudioState } from '@/lib/animationAudio';
+import type { AnimationKeyframe } from '@/lib/animationMotion';
 import type { StudioSource } from '@/lib/renderFrame';
 import type { StudioSettings, StudioTransitionSettings } from '@/lib/studio';
 
@@ -44,11 +56,24 @@ type PlayheadDragSession = {
   pointerId: number;
 };
 
+const TIMELINE_AXIS_INSET = 10;
+/** A scene card's width at default zoom; zoom scales it with the time axis. */
+const MIN_SCENE_WIDTH = 224;
+
 type TimelinePanelProps = {
   audio: AnimationAudioState;
   currentMsRef: { current: number };
   disabled?: boolean;
   isPlaying: boolean;
+  /** Layer keyframes by scene ID, drawn as retimable diamonds over each hold. */
+  keyframes?: Readonly<Record<string, readonly AnimationKeyframe[] | undefined>>;
+  /** Per-scene timing. Defaults to the uniform sequence timing in `settings`. */
+  layout?: SequenceLayout;
+  onKeyframeRemove?: (sourceId: string, keyframeId: string) => void;
+  onKeyframeRetime?: (sourceId: string, keyframeId: string, atMs: number) => void;
+  onKeyframeSelect?: (sourceId: string, keyframeId: string) => void;
+  onSceneTrim?: (index: number, deltaMs: number, mode: SceneTrimMode) => void;
+  onZoomChange?: (pixelsPerSecond: number) => void;
   onAudioClipChange: (clipId: string, patch: Partial<AnimationAudioClip>) => void;
   onAudioFiles: (files: FileList) => void;
   onAudioMutedChange: (muted: boolean) => void;
@@ -72,7 +97,35 @@ type TimelinePanelProps = {
   sources: readonly StudioSource[];
   totalMs: number;
   transitionSettings: readonly StudioTransitionSettings[];
+  /** Horizontal scale of the storyboard in pixels per second. */
+  zoom?: number;
 };
+
+/** With zoom controls beside the scrubber, the storyboard label stays for assistive tech only. */
+function timelineHeadingClass(hasZoom: boolean): string {
+  return hasZoom ? 'animation-timeline-heading sr-only' : 'animation-timeline-heading';
+}
+
+function TimelineZoomControls({
+  disabled,
+  onFit,
+  onZoomChange,
+  pixelsPerSecond,
+}: {
+  disabled: boolean;
+  onFit: () => void;
+  onZoomChange: (pixelsPerSecond: number) => void;
+  pixelsPerSecond: number;
+}) {
+  const gt = useMotionGT();
+  return (
+    <div aria-label={gt('Timeline zoom')} className={timelineStyles.zoom} role='group' title={`${Math.round((pixelsPerSecond / DEFAULT_TIMELINE_ZOOM) * 100)}%`}>
+      <Button aria-label={gt('Zoom timeline out')} disabled={disabled || pixelsPerSecond <= MIN_TIMELINE_ZOOM} onClick={() => onZoomChange(clampTimelineZoom(pixelsPerSecond / 1.25))} size='icon-xs' type='button' variant='ghost'><Minus aria-hidden='true' /></Button>
+      <Button aria-label={gt('Zoom timeline in')} disabled={disabled || pixelsPerSecond >= MAX_TIMELINE_ZOOM} onClick={() => onZoomChange(clampTimelineZoom(pixelsPerSecond * 1.25))} size='icon-xs' type='button' variant='ghost'><Plus aria-hidden='true' /></Button>
+      <Button aria-label={gt('Fit timeline to view')} disabled={disabled} onClick={onFit} size='icon-xs' type='button' variant='ghost'><Maximize2 aria-hidden='true' /></Button>
+    </div>
+  );
+}
 
 function formatTime(timeMs: number): string {
   return `${(Math.max(0, timeMs) / 1000).toFixed(2)}s`;
@@ -82,11 +135,13 @@ function sourceLabel(source: StudioSource): string {
   return source.kind === 'text' ? source.text : source.name;
 }
 
-export default function TimelinePanel({
+function TimelinePanel({
   audio,
   currentMsRef,
   disabled = false,
   isPlaying,
+  keyframes,
+  layout: layoutInput,
   onAudioClipChange,
   onAudioFiles,
   onAudioMutedChange,
@@ -94,11 +149,16 @@ export default function TimelinePanel({
   onAudioSelectedClipChange,
   onAudioSplitClip,
   onAudioVolumeChange,
+  onKeyframeRemove,
+  onKeyframeRetime,
+  onKeyframeSelect,
   onPlayChange,
   onRateChange,
+  onSceneTrim,
   onSeek,
   onSelectSource,
   onSelectTransition,
+  onZoomChange,
   playbackRate,
   presentationMode = false,
   previewSources,
@@ -110,8 +170,9 @@ export default function TimelinePanel({
   sources,
   totalMs,
   transitionSettings,
+  zoom,
 }: TimelinePanelProps) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   const disabledRef = useCommittedRef(disabled);
   const inputRef = useRef<HTMLInputElement>(null);
   const outputRef = useRef<HTMLOutputElement>(null);
@@ -128,11 +189,32 @@ export default function TimelinePanel({
     currentMsRef, disabled: disabled || timelineMenu !== null, isPlaying, totalMs,
   });
   const frameDuration = 1000 / settings.fps;
-  const effectiveTransitionMs = sources.length > 1 ? settings.transitionMs : 0;
-  const timelineWidth = useMemo(() => Math.max(1, sources.length * 224 + 20), [sources.length]);
-  const segmentColumns = sources.length > 1
-    ? `minmax(0, ${settings.holdMs}fr) minmax(0, ${effectiveTransitionMs}fr)`
-    : 'minmax(0, 1fr)';
+  const layout = useMemo(() => layoutInput ?? uniformSequenceLayout({
+    holdMs: settings.holdMs,
+    itemCount: sources.length,
+    transitionMs: settings.transitionMs,
+  }), [layoutInput, settings.holdMs, settings.transitionMs, sources.length]);
+  const pixelsPerSecond = clampTimelineZoom(zoom);
+  // Segments grow in proportion to their duration, so the percentage playhead
+  // and audio clips stay aligned with every scene at any zoom.
+  const timelineWidth = useMemo(() => Math.max(
+    1,
+    Math.max(
+      sources.length * MIN_SCENE_WIDTH * (pixelsPerSecond / DEFAULT_TIMELINE_ZOOM),
+      (layout.totalMs / 1000) * pixelsPerSecond
+    ) + TIMELINE_AXIS_INSET * 2
+  ), [layout.totalMs, pixelsPerSecond, sources.length]);
+  const segmentBoundaries = useMemo(() => (
+    layout.totalMs > 0 ? layout.starts.map((start) => start / layout.totalMs) : []
+  ), [layout]);
+  const sceneStart = (index: number) => sequenceSceneTime(layout, index);
+  const transitionMidpoint = (index: number) => sequenceSceneTime(layout, index, 'transition');
+  const pixelsPerMs = useCallback(() => {
+    const content = contentRef.current;
+    const width = (content?.clientWidth ?? timelineWidth) - TIMELINE_AXIS_INSET * 2;
+    return Math.max(0.0001, width / Math.max(1, layout.totalMs));
+  // contentRef is a stable ref object from useTimelineFollow.
+  }, [layout.totalMs, timelineWidth]);
   const syncPlayheadUi = useCallback((timeMs = currentMsRef.current) => {
     follow(timeMs);
     const currentMs = Math.min(timeMs, totalMs);
@@ -153,6 +235,27 @@ export default function TimelinePanel({
   }, [currentMsRef, follow, totalMs]);
 
   useEffect(() => subscribeToPlayhead(syncPlayheadUi), [subscribeToPlayhead, syncPlayheadUi]);
+
+  const zoomRef = useCommittedRef({ onZoomChange, pixelsPerSecond });
+  useEffect(() => {
+    const scroll = scrollRef.current;
+    if (!scroll) return;
+    // Ctrl/Cmd + wheel zooms the time axis; plain wheel keeps native scrolling.
+    const handleWheel = (event: WheelEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || !zoomRef.current.onZoomChange) return;
+      event.preventDefault();
+      const factor = Math.exp(-event.deltaY * 0.0025);
+      zoomRef.current.onZoomChange(clampTimelineZoom(zoomRef.current.pixelsPerSecond * factor));
+    };
+    scroll.addEventListener('wheel', handleWheel, { passive: false });
+    return () => scroll.removeEventListener('wheel', handleWheel);
+  }, [scrollRef, zoomRef]);
+
+  function fitTimeline() {
+    const scroll = scrollRef.current;
+    if (!scroll || layout.totalMs <= 0) return;
+    onZoomChange?.(clampTimelineZoom(((scroll.clientWidth - TIMELINE_AXIS_INSET * 2) / layout.totalMs) * 1000));
+  }
 
   function seekAndSync(timeMs: number) {
     if (disabledRef.current) return;
@@ -236,7 +339,7 @@ export default function TimelinePanel({
         </div>
 
         <div className='animation-timeline-storyboard-control'>
-          <div className='animation-timeline-heading'>
+          <div className={timelineHeadingClass(Boolean(onZoomChange))}>
             <strong><T>Storyboard</T></strong>
           </div>
           <div className='animation-timeline-scrubber'>
@@ -251,6 +354,9 @@ export default function TimelinePanel({
               step='1'
             />
           </div>
+          {onZoomChange ? (
+            <TimelineZoomControls disabled={disabled} onFit={fitTimeline} onZoomChange={onZoomChange} pixelsPerSecond={pixelsPerSecond} />
+          ) : null}
         </div>
 
         <div className='animation-timeline-status'>
@@ -297,6 +403,14 @@ export default function TimelinePanel({
             {sources.map((source, index) => {
               const selected = source.id === selectedSourceId;
               const nextSource = sources[(index + 1) % sources.length];
+              const holdMs = layout.holds[index] ?? settings.holdMs;
+              const transitionMs = layout.transitions[index] ?? 0;
+              const segmentMs = Math.max(1, holdMs + transitionMs);
+              const holdShare = `${(holdMs / segmentMs) * 100}%`;
+              const sceneKeyframes = keyframes?.[source.id];
+              const segmentColumns = transitionMs > 0
+                ? `minmax(0, ${holdMs}fr) minmax(0, ${transitionMs}fr)`
+                : 'minmax(0, 1fr)';
               const transitionSetting = transitionSettings[index];
               const transitionPreviewSettings = transitionSetting
                 ? { ...settings, ...transitionSetting }
@@ -306,9 +420,10 @@ export default function TimelinePanel({
               );
               return (
                 <article
-                  className='animation-storyboard-segment'
+                  className={`animation-storyboard-segment ${timelineStyles.segment}`}
+                  data-scene-index={index}
                   key={source.id}
-                  style={{ gridTemplateColumns: segmentColumns }}
+                  style={{ flex: `${segmentMs} 0 0px`, gridTemplateColumns: segmentColumns, minWidth: 0 }}
                 >
                   <StudioPreviewTooltip
                     preview={(
@@ -326,8 +441,9 @@ export default function TimelinePanel({
                       data-studio-context-trigger='timeline-frame'
                       data-selected={selected ? 'true' : 'false'}
                       onClick={() => {
+                        // The host parks the playhead where the scene reads as composed.
                         onSelectSource(source.id);
-                        seekAndSync(index * (settings.holdMs + effectiveTransitionMs));
+                        follow(sceneStart(index), true);
                       }}
                       onContextMenu={(event) => {
                         event.preventDefault();
@@ -344,7 +460,7 @@ export default function TimelinePanel({
                       <span className='animation-storyboard-caption'>
                         <b>{String(index + 1).padStart(2, '0')}</b>
                         <strong>{sourceLabel(source)}</strong>
-                        <small>{formatTime(settings.holdMs)}</small>
+                        <small>{formatTime(holdMs)}</small>
                       </span>
                     </button>
                   </StudioPreviewTooltip>
@@ -360,13 +476,13 @@ export default function TimelinePanel({
                     >
                       <button
                         aria-keyshortcuts='Shift+F10'
-                        aria-label={`${gt('Preview transition to')} ${sourceLabel(nextSource ?? source)} · ${packagePresentation.label} · ${settings.transitionMs}ms`}
+                        aria-label={`${gt('Preview transition to')} ${sourceLabel(nextSource ?? source)} · ${packagePresentation.label} · ${Math.round(transitionMs)}ms`}
                         aria-pressed={selectedTransitionIndex === index}
                         className='animation-storyboard-transition'
                         data-studio-context-trigger='timeline-transition'
                         onClick={() => {
                           onSelectTransition(index);
-                          seekAndSync(index * (settings.holdMs + effectiveTransitionMs) + settings.holdMs + settings.transitionMs / 2);
+                          seekAndSync(transitionMidpoint(index));
                         }}
                         onContextMenu={(event) => {
                           event.preventDefault();
@@ -385,10 +501,45 @@ export default function TimelinePanel({
                             {String(index + 1).padStart(2, '0')}→{String((index + 1) % sources.length + 1).padStart(2, '0')}
                           </b>
                           <strong>{packagePresentation.label}</strong>
-                          <small>{settings.transitionMs}ms</small>
+                          {(transitionMs / 1000) * pixelsPerSecond >= 96 ? <small>{Math.round(transitionMs)}ms</small> : null}
                         </span>
                       </button>
                     </StudioPreviewTooltip>
+                  ) : null}
+                  {sceneKeyframes?.length && !presentationMode ? (
+                    <div className={timelineStyles.keyLane} style={{ width: holdShare }}>
+                      {sceneKeyframes.map((keyframe, keyIndex) => (
+                        <KeyframeDiamond
+                          atMs={keyframe.atMs}
+                          current={selected}
+                          disabled={disabled}
+                          frameMs={frameDuration}
+                          holdMs={holdMs}
+                          id={keyframe.id}
+                          key={keyframe.id}
+                          label={`${gt('Scene')} ${index + 1} ${gt('keyframe')} ${keyIndex + 1} ${gt('at')} ${formatTime(keyframe.atMs)}`}
+                          onRemove={(keyframeId) => onKeyframeRemove?.(source.id, keyframeId)}
+                          onRetime={(keyframeId, atMs) => onKeyframeRetime?.(source.id, keyframeId, atMs)}
+                          onSelect={(keyframeId) => {
+                            onKeyframeSelect?.(source.id, keyframeId);
+                            seekAndSync(sceneStart(index) + keyframe.atMs);
+                          }}
+                          pixelsPerMs={pixelsPerMs}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+                  {onSceneTrim && !presentationMode ? (
+                    <SceneTrimHandle
+                      disabled={disabled}
+                      frameMs={frameDuration}
+                      holdMs={holdMs}
+                      index={index}
+                      label={`${gt('Scene')} ${index + 1} ${gt('duration')}`}
+                      left={holdShare}
+                      onCommit={onSceneTrim}
+                      pixelsPerMs={pixelsPerMs}
+                    />
                   ) : null}
                 </article>
               );
@@ -412,6 +563,7 @@ export default function TimelinePanel({
               onVolumeChange={onAudioVolumeChange}
               playheadMs={Math.min(currentMsRef.current, totalMs)}
               playheadRef={audioPlayheadRef}
+              segmentBoundaries={segmentBoundaries}
               selectedClipId={selectedAudioClipId}
               segmentCount={sources.length}
               totalMs={totalMs}
@@ -421,7 +573,7 @@ export default function TimelinePanel({
       </div>
 
       <StudioContextMenu
-        detail={timelineMenu ? `${formatTime(timelineMenu.index * (settings.holdMs + effectiveTransitionMs))} on master timeline` : undefined}
+        detail={timelineMenu ? `${formatTime(sceneStart(timelineMenu.index))} on master timeline` : undefined}
         label={timelineMenu
           ? timelineMenu.kind === 'frame'
             ? `Frame ${timelineMenu.index + 1} · ${sourceLabel(sources[timelineMenu.index]!)}`
@@ -442,14 +594,14 @@ export default function TimelinePanel({
                 icon: <SkipForward aria-hidden='true' />,
                 id: 'jump-frame',
                 label: gt('Jump to frame start'),
-                onSelect: () => seekAndSync(timelineMenu.index * (settings.holdMs + effectiveTransitionMs)),
+                onSelect: () => seekAndSync(sceneStart(timelineMenu.index)),
               },
               {
                 icon: <Play aria-hidden='true' />,
                 id: 'play-frame',
                 label: gt('Play from here'),
                 onSelect: () => {
-                  seekAndSync(timelineMenu.index * (settings.holdMs + effectiveTransitionMs));
+                  seekAndSync(sceneStart(timelineMenu.index));
                   onPlayChange(true);
                 },
               },
@@ -462,14 +614,14 @@ export default function TimelinePanel({
                 icon: <Frame aria-hidden='true' />,
                 id: 'preview-transition',
                 label: gt('Preview transition'),
-                onSelect: () => seekAndSync(timelineMenu.index * (settings.holdMs + effectiveTransitionMs) + settings.holdMs + settings.transitionMs / 2),
+                onSelect: () => seekAndSync(transitionMidpoint(timelineMenu.index)),
               },
               {
                 icon: <Play aria-hidden='true' />,
                 id: 'play-transition',
                 label: gt('Play transition'),
                 onSelect: () => {
-                  seekAndSync(timelineMenu.index * (settings.holdMs + effectiveTransitionMs) + settings.holdMs);
+                  seekAndSync(sequenceSceneTime(layout, timelineMenu.index, 'transition-start'));
                   onPlayChange(true);
                 },
               },
@@ -486,3 +638,5 @@ export default function TimelinePanel({
     </section>
   );
 }
+
+export default memo(TimelinePanel);

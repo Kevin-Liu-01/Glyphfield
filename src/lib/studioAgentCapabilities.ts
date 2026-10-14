@@ -1,3 +1,4 @@
+import { expressionActionContracts } from './expressionActions';
 import type { StudioToolId } from './studioCatalog';
 
 export type NavigableStudioToolId = Exclude<
@@ -68,8 +69,8 @@ const EXPORT_ARTIFACT = 'ExportPreviewAsset with a non-empty Blob and determinis
 export const STUDIO_TOOL_ACTION_CONTRACTS = {
   animation: {
     'animation.export': {
-      description: 'Render the current Animation workspace with its authentic timeline, shaders, and MP4 audio mix.',
-      input: "{ format: 'gif' | 'mp4', download?: boolean }",
+      description: 'Render the current Animation workspace with its authentic timeline, shaders, and MP4 audio mix, or a PNG poster frame at the playhead.',
+      input: "{ format: 'gif' | 'mp4' | 'png', download?: boolean }",
       output: EXPORT_ARTIFACT,
     },
     'animation.export.gif': {
@@ -82,10 +83,50 @@ export const STUDIO_TOOL_ACTION_CONTRACTS = {
       input: 'No input',
       output: EXPORT_ARTIFACT,
     },
+    'animation.export.png': {
+      description: 'Render the frame at the playhead at full output size as a PNG poster frame.',
+      input: 'No input',
+      output: EXPORT_ARTIFACT,
+    },
     'animation.export.project': {
       description: 'Package the complete editable animation and authorized local assets.',
       input: 'No input',
       output: EXPORT_ARTIFACT,
+    },
+    'animation.describe': {
+      description: 'Describe scenes with their master-timeline start, hold, outgoing transition, keyframes, and text entrance, plus brand starters.',
+      input: 'No input',
+      output: '{ durationMs, fps, width, height, playheadMs, scenes: [{ id, index, kind, label, startMs, holdMs, transitionMs, keyframes, textAnimation }], starters }',
+    },
+    'animation.seek': {
+      description: 'Pause and move the playhead; the inspector follows the displayed scene or transition.',
+      input: '{ timeMs: non-negative number }',
+      output: 'animation.describe result',
+    },
+    'animation.scene.update': {
+      description: 'Set a scene hold or outgoing transition (null follows the sequence default), its text entrance (null removes it), or its pose at the playhead (a keyframe when the layer is keyframed).',
+      input: "{ sceneId, holdMs?: number | null, transitionMs?: number | null, textAnimation?: { preset: 'none' | 'type-on' | 'word-rise' | 'line-reveal' | 'glyph-stagger' | 'tracking-in', durationMs?, staggerMs?, easing? } | null, pose?: { alignX?, alignY?, scale?, rotation?, opacity? } }",
+      output: 'animation.describe result',
+    },
+    'animation.keyframe.set': {
+      description: 'Add or update the scene layer keyframe at a time into its hold, optionally with a pose and outgoing easing.',
+      input: '{ sceneId, atMs, pose?: { alignX?, alignY?, scale?, rotation?, opacity? }, easing?: [x1, y1, x2, y2] }',
+      output: 'animation.describe result',
+    },
+    'animation.keyframe.remove': {
+      description: 'Remove one keyframe; removing the last keeps its pose as the static pose.',
+      input: '{ sceneId, keyframeId }',
+      output: 'animation.describe result',
+    },
+    'animation.motion.preset': {
+      description: 'Replace a scene layer keyframes with a preset built around its settled pose.',
+      input: "{ sceneId, preset: 'push-in' | 'rise-in' | 'slide-in' | 'pop-in' | 'float' }",
+      output: 'animation.describe result',
+    },
+    'animation.starter.apply': {
+      description: 'Replace the active artboard with a brand starter composed in the identity art direction. Undo restores the previous sequence.',
+      input: "{ starterId: 'brand-intro' | 'product-reel' | 'proof-points' }",
+      output: 'animation.describe result',
     },
   },
   'brand-book': {
@@ -112,16 +153,63 @@ export const STUDIO_TOOL_ACTION_CONTRACTS = {
       output: `${EXPORT_ARTIFACT}; previewText holds the HTML`,
     },
   },
-  colors: {
-    'colors.tokens.copy': {
-      description: 'Copy the current normalized OKLCH color tokens to the clipboard.',
+  buttons: {
+    'components.code.copy': {
+      description: 'Copy the generated code for a component to the clipboard: React + Tailwind (TSX and theme.css) or HTML + CSS (markup and components.css), built from the same settings as the preview.',
+      input: "{ pattern?: component id, format?: 'react' | 'html' } (defaults to the selected pattern and code format)",
+      output: 'The copied text: every file, each headed by its file name',
+    },
+    'components.code.read': {
+      description: 'Return the generated code files for a component without touching the clipboard.',
+      input: "{ pattern?: component id, format?: 'react' | 'html' }",
+      output: '{ pattern, files: [{ name, language, code }] }',
+    },
+    'components.list': {
+      description: 'List every component pattern with its family, description and the states its preview shows.',
       input: 'No input',
-      output: 'The copied CSS custom-property string',
+      output: 'Array of { id, label, family, description, states }',
+    },
+  },
+  colors: {
+    'colors.contrast.read': {
+      description: 'Return the WCAG and APCA contrast of every text/background pair in the palette, the approved colorPairings, and the semantic role checks for light and dark.',
+      input: 'No input',
+      output: '{ matrix: [{ foreground, background, ratio, wcag, apca, apcaLevel, approved }], pairings, semantic: { light, dark } }',
+    },
+    'colors.pairing.toggle': {
+      description: 'Approve or remove one text pairing in colorPairings. New pairs record AA (4.5:1) or AA-large (3:1); pairs below 3:1 are refused. The change is pending until identity.save or Save changes.',
+      input: '{ foreground: color id, background: color id }',
+      output: 'The resulting colorPairings array',
+    },
+    'colors.proportion.balance': {
+      description: 'Apply the 60 / 30 / 10 balance to the palette: paper 60, ink 30, emphasis 10, other colors 0. Pending until saved.',
+      input: 'No input',
+      output: 'Array of { id, proportion }',
+    },
+    'colors.scale.read': {
+      description: 'Return the OKLCH tint and shade scale (steps 50–950) of one palette color, or of every color.',
+      input: '{ id?: color id }',
+      output: 'Record of color id → [{ step, hex, oklch, anchored }]',
+    },
+    'colors.semantic.read': {
+      description: 'Return every semantic role (background … negative) resolved for light and dark: its color ref, HEX, derived default and whether it is overridden.',
+      input: 'No input',
+      output: '{ light: Record<role, { ref, hex, defaultRef, overridden }>, dark: … }',
+    },
+    'colors.tokens.copy': {
+      description: 'Copy color tokens to the clipboard. The default is the original OKLCH CSS; css, tailwind and dtcg include scales and semantic light/dark roles.',
+      input: "{ format?: 'oklch-css' | 'css' | 'tailwind' | 'dtcg' } (default 'oklch-css')",
+      output: 'The copied text',
     },
     'colors.tokens.read': {
-      description: 'Return the current normalized OKLCH color tokens without accessing the clipboard.',
-      input: 'No input',
-      output: 'CSS custom-property string',
+      description: 'Return color tokens without accessing the clipboard. The default is the original OKLCH CSS; css, tailwind and dtcg come from the brand token serializers.',
+      input: "{ format?: 'oklch-css' | 'css' | 'tailwind' | 'dtcg' } (default 'oklch-css')",
+      output: 'Token text (CSS, Tailwind v4 theme, or DTCG JSON)',
+    },
+    'colors.vision.read': {
+      description: 'Simulate the palette for a color vision deficiency (Machado 2009, full severity) and list pairs that nearly merge.',
+      input: "{ mode?: 'normal' | 'protanopia' | 'deuteranopia' | 'tritanopia' | 'achromatopsia' } (default 'deuteranopia')",
+      output: '{ mode, colors: [{ id, hex, simulated }], confusable: [{ first, second, distance, typicalDistance }] }',
     },
   },
   'design-board': {
@@ -205,9 +293,39 @@ export const STUDIO_TOOL_ACTION_CONTRACTS = {
   },
   lottie: {
     'lottie.export': {
-      description: 'Export either the current rendered PNG frame or the edited JSON/.lottie source.',
-      input: "{ format: 'png' | 'source', download?: boolean }",
+      description: 'Export the current rendered PNG frame, the edited JSON/.lottie source, or the trimmed segment as GIF or MP4 with the composited background.',
+      input: "{ format: 'png' | 'source' | 'gif' | 'mp4', download?: boolean }",
       output: EXPORT_ARTIFACT,
+    },
+    'lottie.export.gif': {
+      description: 'Render the trimmed segment, with speed, direction, edits, and background, as GIF.',
+      input: 'No input',
+      output: EXPORT_ARTIFACT,
+    },
+    'lottie.export.mp4': {
+      description: 'Render the trimmed segment, with speed, direction, edits, and background, as MP4.',
+      input: 'No input',
+      output: EXPORT_ARTIFACT,
+    },
+    'lottie.describe': {
+      description: 'Describe the active document: top-level layers with keys, text layers, static colours, markers, segment, edits, and recolour mode.',
+      input: 'No input',
+      output: '{ format, source, totalFrames, frameRate, segment, layers, textLayers, colors, markers, edits, recolor }',
+    },
+    'lottie.edit': {
+      description: 'Apply non-destructive JSON edits. Each listed field replaces the stored one: hidden layer keys, colour map, text by layer key, named markers, and recolour mode.',
+      input: "{ hiddenLayers?: string[], colorMap?: Record<'#RRGGBB', '#RRGGBB'>, textOverrides?: Record<layerKey, string>, markers?: [{ name, frame, duration }], recolor?: 'palette' | 'source' }",
+      output: 'lottie.describe result',
+    },
+    'lottie.colors.brand': {
+      description: 'Map every document colour to the nearest active brand token: chromatic colours to accents, neutrals by lightness.',
+      input: 'No input',
+      output: 'lottie.describe result',
+    },
+    'lottie.segment.set': {
+      description: 'Play a named marker segment or set the in and out frames.',
+      input: '{ marker: string } | { start: number, end: number }',
+      output: 'lottie.describe result',
     },
     'lottie.export.frame.png': {
       description: 'Render the current Lottie frame and configured background as PNG.',
@@ -222,6 +340,7 @@ export const STUDIO_TOOL_ACTION_CONTRACTS = {
   },
   blog: {
     'blog.export.png': { description: 'Render the current blog-cover composition as PNG.', input: 'No input', output: EXPORT_ARTIFACT },
+    ...expressionActionContracts('blog'),
   },
   material: {
     'design.workspace.describe': {
@@ -289,15 +408,46 @@ export const STUDIO_TOOL_ACTION_CONTRACTS = {
   },
   opengraph: {
     'opengraph.export.png': { description: 'Render the current OpenGraph composition as PNG.', input: 'No input', output: EXPORT_ARTIFACT },
+    ...expressionActionContracts('opengraph'),
   },
   partnership: {
     'partnership.export.png': { description: 'Render the current partnership lockup as PNG.', input: 'No input', output: EXPORT_ARTIFACT },
+    ...expressionActionContracts('partnership'),
   },
   slides: {
-    'slides.export.png': { description: 'Render the current slide composition as PNG.', input: 'No input', output: EXPORT_ARTIFACT },
+    'slides.export.png': { description: 'Render the active slide as PNG.', input: 'No input', output: EXPORT_ARTIFACT },
+    ...expressionActionContracts('slides'),
   },
   terminal: {
     'terminal.export.png': { description: 'Render the current syntax-highlighted terminal card as PNG.', input: 'No input', output: EXPORT_ARTIFACT },
+    ...expressionActionContracts('terminal'),
+  },
+  typography: {
+    'typography.axes.read': {
+      description: 'Read the variation axes (wght, opsz, slnt …) of each role’s font file. WOFF2 needs a browser that decodes Brotli; unreadable files return null.',
+      input: 'No input',
+      output: 'Record of role → { family, fontId, axes: [{ tag, min, default, max }] | null }',
+    },
+    'typography.guidance.read': {
+      description: 'Return leading, tracking, measure, scale and weight warnings for every role at its scale size.',
+      input: 'No input',
+      output: 'Array of { id, role?, severity, message }',
+    },
+    'typography.scale.read': {
+      description: 'Return the modular type scale: base, ratio and its name, each step in px and rem, and the step each role is set at.',
+      input: 'No input',
+      output: '{ basePx, ratio, ratioName, roleSteps, steps: [{ name, step, px, rem }] }',
+    },
+    'typography.tokens.copy': {
+      description: 'Copy the type tokens (families, sizes, weights, leading, tracking, axes, scale) to the clipboard.',
+      input: "{ format?: 'css' | 'tailwind' | 'dtcg' } (default 'css')",
+      output: 'The copied text',
+    },
+    'typography.tokens.read': {
+      description: 'Return the type tokens without accessing the clipboard, from the brand token serializers.',
+      input: "{ format?: 'css' | 'tailwind' | 'dtcg' } (default 'css')",
+      output: 'Token text',
+    },
   },
 } as const satisfies Partial<Record<NavigableStudioToolId, Record<string, StudioActionContract>>>;
 
@@ -307,24 +457,25 @@ export const STUDIO_AGENT_CAPABILITIES = {
     exports: [
       { action: 'animation.export.gif', format: 'GIF', route: 'browser-action' },
       { action: 'animation.export.mp4', format: 'MP4', route: 'browser-action' },
+      { action: 'animation.export.png', format: 'PNG poster frame', route: 'browser-action' },
       { action: 'animation.export.project', format: 'JSON project', route: 'browser-action' },
     ],
     source: { apply: true, boundary: 'CanvasDocument schema 2 with Animation state and portable assets', format: 'JSON', read: true },
   },
-  blog: { directHttpGeneration: ['template'], exports: [{ action: 'blog.export.png', format: 'PNG', route: 'browser-action' }, { format: 'SVG', route: 'http' }], source: { apply: true, boundary: 'Blog cover workspace document', format: 'JSON', read: true } },
+  blog: { directHttpGeneration: ['template'], exports: [{ action: 'blog.export.png', format: 'PNG', route: 'browser-action' }, { action: 'blog.export.svg', format: 'SVG', route: 'browser-action' }, { format: 'SVG', route: 'http' }], source: { apply: true, boundary: 'Expression document: CanvasDocument schema 2 with expression source version 2', format: 'JSON', read: true } },
   'brand-book': { directHttpGeneration: [], exports: [{ action: 'brand-book.print', format: 'PDF print flow', route: 'browser-action' }], source: { apply: true, boundary: 'Brand book section order and visibility, and per-page visibility, layout, surface, image, and copy', format: 'JSON', read: true } },
   'brand-elements': { directHttpGeneration: ['element-brief'], exports: [{ action: 'brand-element.export.png', format: 'PNG at real pixel size', route: 'browser-action' }, { action: 'brand-element.export.html', format: 'HTML email (inlined styles)', route: 'browser-action' }, { action: 'brand-element.export.brief', format: 'JSON brief', route: 'browser-action' }], source: { apply: true, boundary: 'Selected brand-element override', format: 'JSON', read: true } },
-  buttons: { directHttpGeneration: [], exports: [], source: { apply: true, boundary: 'Component Library workspace configuration', format: 'JSON', read: true } },
-  colors: { directHttpGeneration: [], exports: [{ action: 'colors.tokens.copy', format: 'CSS variables / color tokens via clipboard', route: 'browser-action' }], source: { apply: true, boundary: 'Identity-bound color token workspace', format: 'JSON', read: true } },
+  buttons: { directHttpGeneration: [], exports: [{ action: 'components.code.read', format: 'React + Tailwind or HTML + CSS component code', route: 'browser-action' }, { action: 'components.code.copy', format: 'Component code via clipboard', route: 'browser-action' }], source: { apply: true, boundary: 'Component Library workspace configuration (version 2: pattern, content, system, palette, typography, theme, code format)', format: 'JSON', read: true } },
+  colors: { directHttpGeneration: [], exports: [{ action: 'colors.tokens.copy', format: 'OKLCH CSS, CSS variables, Tailwind v4 or DTCG tokens via clipboard', route: 'browser-action' }, { action: 'colors.tokens.read', format: 'OKLCH CSS, CSS variables, Tailwind v4 or DTCG tokens', route: 'browser-action' }], source: { apply: true, boundary: 'Identity palette, colorPairings and colorSystem (version 2), plus per-token opacity', format: 'JSON', read: true } },
   'design-board': { directHttpGeneration: [], exports: [{ action: 'moodboard.export.png', format: 'PNG', route: 'browser-action' }, { action: 'moodboard.export.svg', format: 'SVG', route: 'browser-action' }, { action: 'moodboard.export.identity', format: 'Identity JSON', route: 'browser-action' }], source: { apply: true, boundary: 'Moodboard boards, tiles (order, visibility, layout, size, surface, image, copy), and export settings', format: 'JSON', read: true } },
   identity: { directHttpGeneration: [], exports: [{ action: 'identity.export.json', format: 'BrandIdentity JSON', route: 'browser-action' }, { action: 'identity.export.kit', format: 'Brand kit ZIP, DTCG JSON, CSS, Tailwind v4 theme, brand.md, logo ZIP', route: 'browser-action' }, { format: 'DTCG JSON, CSS, Tailwind v4 theme, brand.md via POST /api/brand/kit', route: 'http' }], source: { apply: true, boundary: 'Complete BrandIdentity', format: 'JSON', read: true } },
-  lottie: { directHttpGeneration: [], exports: [{ action: 'lottie.export.frame.png', format: 'PNG frame', route: 'browser-action' }, { action: 'lottie.export.source', format: 'JSON or .lottie', route: 'browser-action' }], source: { apply: true, boundary: 'Portable Lottie composition; raw animation data retained when authorized', format: 'JSON', read: true } },
+  lottie: { directHttpGeneration: [], exports: [{ action: 'lottie.export.frame.png', format: 'PNG frame', route: 'browser-action' }, { action: 'lottie.export.gif', format: 'GIF', route: 'browser-action' }, { action: 'lottie.export.mp4', format: 'MP4', route: 'browser-action' }, { action: 'lottie.export.source', format: 'JSON or .lottie', route: 'browser-action' }], source: { apply: true, boundary: 'Portable Lottie composition; raw animation data retained when authorized', format: 'JSON', read: true } },
   material: { directHttpGeneration: ['design-sequence'], exports: [{ action: 'design.export.png', format: 'PNG', route: 'browser-action' }, { action: 'design.export.jpg', format: 'JPG', route: 'browser-action' }, { action: 'design.export.gif', format: 'GIF', route: 'browser-action' }, { action: 'design.export.mp4', format: 'MP4', route: 'browser-action' }, { action: 'design.export.project', format: 'JSON project', route: 'browser-action' }], source: { apply: true, boundary: 'CanvasDocument schema 2 with Design Lab metadata source 4', format: 'JSON', read: true } },
-  opengraph: { directHttpGeneration: ['background'], exports: [{ action: 'opengraph.export.png', format: 'PNG', route: 'browser-action' }, { format: 'SVG background', route: 'http' }], source: { apply: true, boundary: 'OpenGraph workspace document', format: 'JSON', read: true } },
-  partnership: { directHttpGeneration: ['template'], exports: [{ action: 'partnership.export.png', format: 'PNG', route: 'browser-action' }, { format: 'SVG', route: 'http' }], source: { apply: true, boundary: 'Partnership workspace document', format: 'JSON', read: true } },
-  slides: { directHttpGeneration: ['template'], exports: [{ action: 'slides.export.png', format: 'PNG', route: 'browser-action' }, { format: 'SVG', route: 'http' }], source: { apply: true, boundary: 'Slide workspace document', format: 'JSON', read: true } },
-  terminal: { directHttpGeneration: [], exports: [{ action: 'terminal.export.png', format: 'PNG', route: 'browser-action' }], source: { apply: true, boundary: 'Terminal card workspace document', format: 'JSON', read: true } },
-  typography: { directHttpGeneration: [], exports: [], source: { apply: true, boundary: 'Identity typography preview workspace', format: 'JSON', read: true } },
+  opengraph: { directHttpGeneration: ['background', 'template'], exports: [{ action: 'opengraph.export.png', format: 'PNG', route: 'browser-action' }, { action: 'opengraph.export.svg', format: 'SVG', route: 'browser-action' }, { format: 'SVG background', route: 'http' }], source: { apply: true, boundary: 'Expression document: CanvasDocument schema 2 with expression source version 2', format: 'JSON', read: true } },
+  partnership: { directHttpGeneration: ['template'], exports: [{ action: 'partnership.export.png', format: 'PNG', route: 'browser-action' }, { action: 'partnership.export.svg', format: 'SVG', route: 'browser-action' }, { format: 'SVG', route: 'http' }], source: { apply: true, boundary: 'Expression document: CanvasDocument schema 2 with expression source version 2', format: 'JSON', read: true } },
+  slides: { directHttpGeneration: ['template'], exports: [{ action: 'slides.export.png', format: 'PNG', route: 'browser-action' }, { action: 'slides.export.svg', format: 'SVG', route: 'browser-action' }, { action: 'slides.export.pdf', format: 'PDF deck', route: 'browser-action' }, { format: 'SVG', route: 'http' }], source: { apply: true, boundary: 'Expression document: CanvasDocument schema 2 with expression source version 2 (one page per slide)', format: 'JSON', read: true } },
+  terminal: { directHttpGeneration: ['template'], exports: [{ action: 'terminal.export.png', format: 'PNG', route: 'browser-action' }, { action: 'terminal.export.svg', format: 'SVG', route: 'browser-action' }, { format: 'SVG', route: 'http' }], source: { apply: true, boundary: 'Expression document: CanvasDocument schema 2 with expression source version 2', format: 'JSON', read: true } },
+  typography: { directHttpGeneration: [], exports: [{ action: 'typography.tokens.read', format: 'CSS, Tailwind v4 or DTCG type tokens', route: 'browser-action' }, { action: 'typography.tokens.copy', format: 'Type tokens via clipboard', route: 'browser-action' }], source: { apply: true, boundary: 'Identity typography roles and typeScale plus specimen settings (version 2)', format: 'JSON', read: true } },
 } as const satisfies Record<NavigableStudioToolId, StudioAgentCapability>;
 
 export function studioToolActionContracts(toolId: StudioToolId): Record<string, StudioActionContract> {

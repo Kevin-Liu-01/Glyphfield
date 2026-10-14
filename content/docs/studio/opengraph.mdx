@@ -1,0 +1,35 @@
+---
+title: OpenGraph
+description: Social preview images in seven formats, built from the identity's own device, copy, and proof.
+icon: Images
+---
+
+OpenGraph starts from the identity's brand template: its headline, its promise as supporting copy, a proof chip, the brand mark, and the identity's graphic device or photograph as the media panel. General Translation gets its language field, Stripe its programmable field, Ramp its campaign photograph, Tailwind CSS its utility wave.
+
+## Content controls
+
+- **Headline**, **Typography role**, and **Font weight** edit the headline layer.
+- **Surface** switches the page between **Base white** and **Base dark**; text and marks switch with it.
+- **Add supporting image** replaces the media panel with a local image. **Identity evidence** picks an image from the identity library, or **Brand device** to go back to the generated device.
+- **Replace logo** and **Brand logo asset** change the mark. Select the logo layer for **Logo effects** (invert, dither, outline, shadow).
+- **Add font file** loads a local font for the headline.
+
+Every layer is also editable on the canvas; see [Expression tools](/docs/studio/templates).
+
+## Formats and layouts
+
+Formats: OpenGraph 1200 × 630, Wide 1600 × 900, Square 1080 × 1080, Portrait 1080 × 1350, Story 1080 × 1920, LinkedIn 1200 × 627, and Lockup 1200 × 600. Layouts: **Split** (copy beside the media panel; stacked on tall formats), **Statement** (one large headline with a ruled footer), **Full bleed** (media behind the headline with a scrim), **Centered**, and **Editorial** (kicker, large headline, ruled footer with logo).
+
+## Browser actions
+
+| Action | Use |
+|---|---|
+| `opengraph.export.png` | PNG at 2× of the artboard |
+| `opengraph.export.svg` | Self-contained SVG |
+| `opengraph.document.describe` | Format, layouts, pages, and layers |
+| `opengraph.layer.add` / `opengraph.layer.update` / `opengraph.layer.remove` / `opengraph.layer.duplicate` | Layer edits |
+| `opengraph.layer.reorder` / `opengraph.layer.select` / `opengraph.layer.align` | Stack, selection, and alignment |
+| `opengraph.format.set` / `opengraph.layout.apply` / `opengraph.template.reset` | Format, layout, and template |
+| `opengraph.history.undo` / `opengraph.history.redo` | History |
+
+Agents can also set the labelled controls with `studio.set('Headline', 'Ship every locale')`.

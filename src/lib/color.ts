@@ -195,24 +195,69 @@ export function hexToOklch(value: string): Oklch {
   };
 }
 
-export function oklchToHex({ chroma, hue, lightness }: Oklch): string {
+/** Linear sRGB channels for an OKLCH color, unclamped so callers can test the gamut. */
+function oklchToLinearRgb({ chroma, hue, lightness }: Oklch): Rgb {
   const finiteChroma = Number.isFinite(chroma) ? Math.max(0, chroma) : 0;
   const finiteHue = Number.isFinite(hue) ? hue : 0;
   const finiteLightness = Number.isFinite(lightness) ? clampChannel(lightness) : 0;
   const radians = (finiteHue * Math.PI) / 180;
   const a = finiteChroma * Math.cos(radians);
   const b = finiteChroma * Math.sin(radians);
-  const lRoot = finiteLightness + 0.3963377774 * a + 0.2158037573 * b;
-  const mRoot = finiteLightness - 0.1055613458 * a - 0.0638541728 * b;
-  const sRoot = finiteLightness - 0.0894841775 * a - 1.291485548 * b;
-  const l = lRoot ** 3;
-  const m = mRoot ** 3;
-  const s = sRoot ** 3;
-  const red = delinearize(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s);
-  const green = delinearize(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s);
-  const blue = delinearize(-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s);
+  const l = (finiteLightness + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+  const m = (finiteLightness - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+  const s = (finiteLightness - 0.0894841775 * a - 1.291485548 * b) ** 3;
+  return {
+    blue: -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
+    green: -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+    red: 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+  };
+}
 
-  return `#${channelToHex(red)}${channelToHex(green)}${channelToHex(blue)}`;
+export function oklchToHex(color: Oklch): string {
+  const { blue, green, red } = oklchToLinearRgb(color);
+  return `#${channelToHex(delinearize(red))}${channelToHex(delinearize(green))}${channelToHex(delinearize(blue))}`;
+}
+
+/** True when the OKLCH color is displayable in sRGB without clipping. */
+export function oklchInSrgbGamut(color: Oklch, tolerance = 0.0005): boolean {
+  const { blue, green, red } = oklchToLinearRgb(color);
+  return [red, green, blue].every((channel) => channel >= -tolerance && channel <= 1 + tolerance);
+}
+
+/** Keep lightness and hue; reduce chroma until the color fits sRGB. */
+export function gamutMapOklch(color: Oklch): Oklch {
+  if (oklchInSrgbGamut(color)) return color;
+  let low = 0;
+  let high = Math.max(0, color.chroma);
+  for (let iteration = 0; iteration < 24; iteration += 1) {
+    const middle = (low + high) / 2;
+    if (oklchInSrgbGamut({ ...color, chroma: middle })) low = middle;
+    else high = middle;
+  }
+  return { ...color, chroma: low };
+}
+
+/** Euclidean distance in OKLab, about 0.02 for a just-noticeable difference. */
+export function oklabDistance(first: string, second: string): number {
+  const toLab = (hex: string) => {
+    const { chroma, hue, lightness } = hexToOklch(hex);
+    const radians = (hue * Math.PI) / 180;
+    return [lightness, chroma * Math.cos(radians), chroma * Math.sin(radians)] as const;
+  };
+  const [l1, a1, b1] = toLab(first);
+  const [l2, a2, b2] = toLab(second);
+  return Math.hypot(l1 - l2, a1 - a2, b1 - b2);
+}
+
+/** Linear-light sRGB channels (0–1) for a HEX color. */
+export function hexToLinearRgb(value: string): [number, number, number] {
+  const rgb = hexToRgb(value);
+  return [linearize(rgb.red), linearize(rgb.green), linearize(rgb.blue)];
+}
+
+/** HEX for linear-light sRGB channels; out-of-range channels are clamped. */
+export function linearRgbToHex([red, green, blue]: readonly [number, number, number]): string {
+  return `#${channelToHex(delinearize(clampChannel(red)))}${channelToHex(delinearize(clampChannel(green)))}${channelToHex(delinearize(clampChannel(blue)))}`;
 }
 
 export function parseOklch(value: string): Oklch | null {
