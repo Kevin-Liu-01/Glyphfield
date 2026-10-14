@@ -7,6 +7,7 @@ import {
   type BrandIdentity,
 } from '@/lib/brandIdentity';
 import { brandElementContent } from '@/lib/brandElementContent';
+import { displayTrackingEm } from '@/lib/brandOutputKit';
 import { capVisibleFontWeight } from '@/lib/typography';
 
 type BrandIdentityPreviewProps = {
@@ -81,7 +82,7 @@ function PreviewShell({ children, identity }: { children: ReactNode; identity: B
     '--brand-code-weight': capVisibleFontWeight(code.weight ?? 400),
     '--brand-display': brandTypographyFamily(identity, 'Display'),
     '--brand-display-line-height': display.lineHeight ?? 0.98,
-    '--brand-display-tracking': `${display.letterSpacing ?? 0}px`,
+    '--brand-display-tracking': `${displayTrackingEm(display.letterSpacing)}em`,
     '--brand-display-weight': capVisibleFontWeight(display.weight ?? 500),
     '--brand-emphasis': identity.colors.find((color) => color.id === 'emphasis')?.hex ?? '#2f6bff',
     '--brand-ink': identity.colors.find((color) => color.id === 'ink')?.hex ?? '#181818',
@@ -171,7 +172,7 @@ function TranslationFrame({ identity, languageConstellation, lightMark }: Recipe
 function FocusWindow({ darkMark, identity, overview, promise, studioOverviewDark, studioOverviewLight, title }: RecipeProps) {
   return (
     <PreviewShell identity={identity}>
-      <header><Mark name={identity.name} path={darkMark} /><span>RESEARCH / DIRECTION / SYSTEM</span></header>
+      <header><Mark name={identity.name} path={darkMark} /></header>
       <div className='brand-art-focus-grid'>
         <div className='brand-art-focus-image'>
           {studioOverviewLight || studioOverviewDark
@@ -179,7 +180,7 @@ function FocusWindow({ darkMark, identity, overview, promise, studioOverviewDark
             : <EvidenceImage asset={overview} />}
           <span>01 / selected evidence</span>
         </div>
-        <div className='brand-art-focus-window'><small>Current signal</small><PreviewTitle>{title}</PreviewTitle><p>{promise}</p></div>
+        <div className='brand-art-focus-window'><PreviewTitle>{title}</PreviewTitle><p>{promise}</p></div>
         <div className='brand-art-focus-notes'>{identity.strategy.pillars.slice(0, 3).map((pillar, index) => <p key={pillar}><b>{String(index + 1).padStart(2, '0')}</b>{pillar}</p>)}</div>
       </div>
     </PreviewShell>
@@ -189,7 +190,7 @@ function FocusWindow({ darkMark, identity, overview, promise, studioOverviewDark
 function EconomicLedger({ content, darkMark, detail, editorial, identity, promise, title }: RecipeProps) {
   return (
     <PreviewShell identity={identity}>
-      <div className='brand-art-ledger-title'><Mark name={identity.name} path={darkMark} /><span>FINANCE OPERATIONS / CONTROL</span></div>
+      <div className='brand-art-ledger-title'><Mark name={identity.name} path={darkMark} /></div>
       <div className='brand-art-ledger-copy'>
         <PreviewTitle>{title}</PreviewTitle>
         <p>{promise}</p>
@@ -208,7 +209,7 @@ function EconomicLedger({ content, darkMark, detail, editorial, identity, promis
 function KnowledgeBeam({ content, darkMark, identity, lightMark, promise, title }: RecipeProps) {
   return (
     <PreviewShell identity={identity}>
-      <header className='brand-art-mintlify-header'><Mark name={identity.name} path={darkMark} /><span>Knowledge for people + agents</span></header>
+      <header className='brand-art-mintlify-header'><Mark name={identity.name} path={darkMark} /></header>
       <div className='brand-art-mintlify-copy'>
         <PreviewTitle>{title}</PreviewTitle>
         <p>{content.phrases.find((phrase) => phrase !== title) ?? promise}</p>
@@ -219,7 +220,7 @@ function KnowledgeBeam({ content, darkMark, identity, lightMark, promise, title 
         </div>
         <div className='brand-art-mintlify-agent'>
           <Mark name={identity.name} path={lightMark} />
-          <div><small>{content.products[2]?.name ?? identity.name}</small><strong>{content.products[2]?.summary ?? promise}</strong></div>
+          <div><strong>{content.products[2]?.summary ?? promise}</strong><small>{content.products[2]?.name ?? identity.name}</small></div>
           <i />
         </div>
         <div className='brand-art-mintlify-status'>
@@ -233,7 +234,7 @@ function KnowledgeBeam({ content, darkMark, identity, lightMark, promise, title 
 function UtilityWave({ content, identity, lightMark, promise, title }: RecipeProps) {
   return (
     <PreviewShell identity={identity}>
-      <header className='brand-art-tailwind-header'><Mark name={identity.name} path={lightMark} /><span>{content.release.title}</span></header>
+      <header className='brand-art-tailwind-header'><Mark name={identity.name} path={lightMark} /></header>
       <div className='brand-art-tailwind-copy'>
         <PreviewTitle>{title}</PreviewTitle>
         <p>{promise}</p>
@@ -259,7 +260,7 @@ function UnifiedTerminal({ atmosphere, content, darkMark, identity, overview, pr
   return (
     <PreviewShell identity={identity}>
       <div className='brand-art-terminal-field'><EvidenceImage asset={overview ?? atmosphere} /></div>
-      <header><Mark name={identity.name} path={darkMark} /><span>ONE CONFIGURATION / ONE FLOW</span></header>
+      <header><Mark name={identity.name} path={darkMark} /></header>
       <div className='brand-art-terminal-copy'><PreviewTitle>{title}</PreviewTitle><p>{promise}</p></div>
       <div className='brand-art-terminal-window'>
         <span>$ {content.install}</span>
@@ -272,7 +273,7 @@ function UnifiedTerminal({ atmosphere, content, darkMark, identity, overview, pr
 function NetworkHorizon({ content, identity, lightMark, overview, promise, title }: RecipeProps) {
   return (
     <PreviewShell identity={identity}>
-      <header><Mark name={identity.name} path={lightMark} /><span>CONNECTIVITY CLOUD</span></header>
+      <header><Mark name={identity.name} path={lightMark} /></header>
       <div className='brand-art-network-image'><EvidenceImage asset={overview} /></div>
       <div className='brand-art-network-copy'><PreviewTitle>{title}</PreviewTitle><p>{promise}</p></div>
       <div className='brand-art-network-route'>{content.products.slice(0, 4).map((product, index) => <span key={product.name}><i />{String(index + 1).padStart(2, '0')} {product.name}</span>)}</div>
@@ -284,12 +285,12 @@ function ProgrammableField({ atmosphere, content, darkMark, identity, promise, t
   return (
     <PreviewShell identity={identity}>
       <div className='brand-art-spectrum'><EvidenceImage asset={atmosphere} /></div>
-      <header><Mark name={identity.name} path={darkMark} /><span>PROGRAMMABLE ECONOMY</span></header>
+      <header><Mark name={identity.name} path={darkMark} /></header>
       <div className='brand-art-programmable-copy'><PreviewTitle>{title}</PreviewTitle><p>{promise}</p></div>
       <div className='brand-art-transaction'>
-        <div className='brand-art-transaction-head'><span>{content.products[0]?.name ?? identity.name}</span><span>{content.code.label}</span></div>
         <strong>{content.metric.value}</strong>
         <small>{content.metric.label} · {content.metric.change}</small>
+        <div className='brand-art-transaction-head'><span>{content.products[0]?.name ?? identity.name}</span><span>{content.code.label}</span></div>
         <i />
         <dl>
           {content.products.slice(1, 4).map((product) => <div key={product.name}><dt>{product.name}</dt><dd>{product.summary}</dd></div>)}
@@ -303,7 +304,7 @@ function ProgrammableField({ atmosphere, content, darkMark, identity, promise, t
 function EditorialInterruption({ content, darkMark, editorial, identity, promise, title }: RecipeProps) {
   return (
   <PreviewShell identity={identity}>
-    <header><Mark name={identity.name} path={darkMark} /><span>INDEPENDENT DIGITAL STUDIO</span></header>
+    <header><Mark name={identity.name} path={darkMark} /></header>
     <div className='brand-art-editorial-image'><EvidenceImage asset={editorial} /></div>
     <div className='brand-art-editorial-copy'><PreviewTitle>{title}</PreviewTitle><p>{promise}</p></div>
     <footer>{content.products.slice(0, 4).map(({ name }) => name).join(' / ')}</footer>

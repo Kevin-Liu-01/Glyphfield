@@ -248,10 +248,20 @@ export function fitText(
   return { fontSize: minSize, lineHeight: minSize * lineHeight, lines: clipped };
 }
 
-/** Typography tracking: identity letterSpacing is authored in display "units" (≈1.8% em each). */
+/**
+ * Display tracking in em. Identity letterSpacing is authored in "units" of about
+ * 1.8% em; the result stays within -0.025em and 0 (never positive on lowercase)
+ * and eases to 0 below 40 px so smaller headlines are not crowded.
+ */
+export function displayTrackingEm(letterSpacing: number | undefined, fontSize = 64): number {
+  const base = Math.max(-0.025, Math.min(0, (letterSpacing ?? 0) * 0.018));
+  const ease = fontSize >= 40 ? 1 : fontSize <= 16 ? 0 : (fontSize - 16) / 24;
+  return Number((base * ease).toFixed(4));
+}
+
+/** Display tracking in px for a font size. */
 export function trackingFor(fontSize: number, letterSpacing: number | undefined): number {
-  const units = Math.max(-3, Math.min(2, letterSpacing ?? 0));
-  return Number((fontSize * units * 0.018).toFixed(2));
+  return Number((fontSize * displayTrackingEm(letterSpacing, fontSize)).toFixed(2));
 }
 
 export type BrandImageAsset = Pick<BrandAsset, 'focalPoint' | 'id' | 'label' | 'path' | 'tags' | 'type'>;

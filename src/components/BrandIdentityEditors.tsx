@@ -632,7 +632,6 @@ export function DirectionSection({ identity, update }: { identity: BrandIdentity
     <div className={styles.sectionStack}>
       <section className='brand-direction-editorial'>
         <div className='brand-direction-editorial-copy'>
-          <span><T>Identity direction</T></span>
           <h2 style={{ fontFamily: brandTypographyFamily(identity, 'Display'), fontWeight: display.weight }}>{identity.tagline}</h2>
           <div><p>{identity.dossier.premise}</p><small>{identity.dossier.personality}</small></div>
         </div>

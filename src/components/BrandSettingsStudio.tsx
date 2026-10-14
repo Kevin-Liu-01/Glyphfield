@@ -426,10 +426,7 @@ export default function BrandSettingsStudio({
           {activeSection === 'overview' ? null : (
             <header className={styles.sectionMasthead}>
               <ThemeAwareBrandMark className={styles.mastheadMark} identity={identity} />
-              <div>
-                <span>{identity.name}</span>
-                <h1>{gt(SECTIONS.find(({ id }) => id === activeSection)?.label ?? 'Overview')}</h1>
-              </div>
+              <h1>{gt(SECTIONS.find(({ id }) => id === activeSection)?.label ?? 'Overview')}</h1>
             </header>
           )}
           {feedback ? <div className={styles.feedback} role='status'>{feedback}<button aria-label={gt('Dismiss message')} onClick={() => setFeedback(null)} type='button'>×</button></div> : null}

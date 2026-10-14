@@ -34,6 +34,7 @@ import {
 import {
   brandDeviceSvg,
   contrastRatio,
+  displayTrackingEm,
   isDarkColor,
   type BrandPalette,
 } from '@/lib/brandOutputKit';
@@ -261,7 +262,7 @@ function artboardStyle(context: ElementPreviewContext): CSSProperties {
   const body = brandTypographyRole(identity, 'Body');
   const code = brandTypographyRole(identity, 'Code');
   const display = brandTypographyRole(identity, settings.fontRole);
-  const tracking = Math.max(-3, Math.min(2, display.letterSpacing ?? 0)) * 0.018;
+  const tracking = displayTrackingEm(display.letterSpacing);
   return {
     '--el-accent': settings.accentColor,
     // Accent used as text or a thin mark falls back to the text colour when it would not read.
@@ -311,7 +312,7 @@ function LifecycleEmail({ context }: Props) {
   const products = identity.id === 'gt' ? [] : contentOf(context).products.slice(0, 3);
   return (
     <div className={styles.email}>
-      <header className={styles.emailTop}><Logo context={context} kind='wordmark' /><span className={styles.meta}>{template.timing}</span></header>
+      <header className={styles.emailTop}><Logo context={context} kind='wordmark' /></header>
       {settings.showLogo ? <EmailHeaderArt context={context} /> : null}
       <div className={styles.emailContent}>
         <Edit as='h1' className={styles.emailTitle} context={context} field='headline' multiline />
@@ -350,11 +351,11 @@ function PlainTextEmail({ context }: Props) {
   const { identity, settings } = context;
   return (
     <div className={styles.letter}>
-      <p className={styles.meta}>Subject · {settings.headline}</p>
+      <p><strong>{settings.headline}</strong></p>
       <p>Hi {firstName(contentOf(context).person.name)},</p>
       <Edit as='p' context={context} field='body' multiline />
       <p>All best,<br />{settings.personName}<br /><span className={styles.quiet}>{settings.personRole}</span></p>
-      <p className={styles.meta}>{identity.website}/account · Unsubscribe</p>
+      <p className={styles.quiet}>{identity.website}/account · Unsubscribe</p>
     </div>
   );
 }
@@ -384,17 +385,16 @@ function NewsletterEmail({ context }: Props) {
   const stories = content.products.slice(0, 3);
   return (
     <div className={styles.email}>
-      <header className={styles.emailTop}><Logo context={context} kind='wordmark' /><span className={styles.meta}>{context.identity.name} update</span></header>
+      <header className={styles.emailTop}><Logo context={context} kind='wordmark' /></header>
       <EmailHeaderArt context={context} />
       <div className={styles.emailContent}>
-        <span className={styles.meta}>What changed</span>
         <Edit as='h1' className={styles.emailTitle} context={context} field='headline' multiline />
         <Edit as='p' className={styles.emailText} context={context} field='body' multiline />
         {content.release.items.length ? <ul className={styles.newsletterList}>{content.release.items.slice(0, 3).map((item) => <li key={item}>{item}</li>)}</ul> : null}
         <Button context={context} />
         <div className={styles.newsletterStories}>
-          {stories.map((story, index) => (
-            <article key={story.name}><span className={styles.meta}>{String(index + 1).padStart(2, '0')}</span><strong>{story.name}</strong><p>{story.summary || context.identity.positioning}</p></article>
+          {stories.map((story) => (
+            <article key={story.name}><strong>{story.name}</strong><p>{story.summary || context.identity.positioning}</p></article>
           ))}
         </div>
       </div>
@@ -405,14 +405,15 @@ function NewsletterEmail({ context }: Props) {
 
 function InvitationEmail({ context }: Props) {
   const { identity } = context;
+  const { event } = contentOf(context);
   return (
     <div className={styles.email}>
-      <header className={styles.emailTop}><Logo context={context} kind='wordmark' /><span className={styles.meta}>Invitation</span></header>
+      <header className={styles.emailTop}><Logo context={context} kind='wordmark' /></header>
       <EmailHeaderArt context={context} />
       <div className={styles.emailContent}>
-        <dl className={styles.inviteFacts}><div><dt>Date</dt><dd>Thu 14 Nov</dd></div><div><dt>Time</dt><dd>17:00 UTC</dd></div><div><dt>Where</dt><dd>Online</dd></div></dl>
         <Edit as='h1' className={styles.emailTitle} context={context} field='headline' multiline />
         <Edit as='p' className={styles.emailText} context={context} field='body' multiline />
+        <dl className={styles.inviteFacts}><div><dt>Date</dt><dd>{event.date}</dd></div><div><dt>Time</dt><dd>{event.time}</dd></div><div><dt>Where</dt><dd>{event.location}</dd></div></dl>
         <Button context={context} />
       </div>
       <EmailFooter context={context} note={`${identity.name} events`} />
@@ -484,8 +485,6 @@ function SocialPost({ context }: Props) {
     <Composition art={art} context={context}>
       <SocialHeader context={context} />
       <div className={styles.stack}>
-        {element.id === 'launch-card' ? <span className={styles.chip}>Now available</span> : null}
-        {element.id === 'community-card' ? <span className={styles.chip}># announcements</span> : null}
         <Edit as='h1' className={styles.headline} context={context} field='headline' multiline />
         {settings.body ? <Edit as='p' className={styles.lead} context={context} field='body' multiline /> : null}
         <Button context={context} />
@@ -528,8 +527,8 @@ function AppStoreGallery({ context }: Props) {
         <Edit as='h2' className={styles.galleryCaption} context={context} field='headline' multiline />
         <span className={styles.phone}>
           <span className={styles.phoneScreen}>
-            <span className={styles.phoneTop}><Logo context={context} /><span className={styles.meta}>{first?.name}</span></span>
-            <span className={styles.phoneMetric}><span className={styles.meta}>{content.metric.label}</span><strong>{content.metric.value}</strong><small>{content.metric.change}</small></span>
+            <span className={styles.phoneTop}><Logo context={context} /><span className={styles.phoneTitle}>{first?.name}</span></span>
+            <span className={styles.phoneMetric}><strong>{content.metric.value}</strong><small>{content.metric.label} · {content.metric.change}</small></span>
             <span className={styles.phoneArt}><Device context={context} dark seed={2} /></span>
           </span>
         </span>
@@ -538,7 +537,7 @@ function AppStoreGallery({ context }: Props) {
         <h2 className={styles.galleryCaption}>{second?.summary || second?.name}</h2>
         <span className={styles.phone}>
           <span className={styles.phoneScreen}>
-            <span className={styles.phoneTop}><Logo context={context} /><span className={styles.meta}>{second?.name}</span></span>
+            <span className={styles.phoneTop}><Logo context={context} /><span className={styles.phoneTitle}>{second?.name}</span></span>
             {content.actions.slice(0, 4).map((action, index) => <span className={styles.phoneRow} data-active={index === 0 || undefined} key={action}><i />{capitalize(action)}</span>)}
           </span>
         </span>
@@ -547,7 +546,7 @@ function AppStoreGallery({ context }: Props) {
         <h2 className={styles.galleryCaption}>{third?.summary || third?.name}</h2>
         <span className={styles.phone}>
           <span className={styles.phoneScreen}>
-            <span className={styles.phoneTop}><Logo context={context} /><span className={styles.meta}>{third?.name}</span></span>
+            <span className={styles.phoneTop}><Logo context={context} /><span className={styles.phoneTitle}>{third?.name}</span></span>
             <span className={styles.phoneCode}>{content.code.snippet}</span>
             <span className={styles.phoneFoot}>{content.proof[0] ?? content.tagline}</span>
           </span>
@@ -695,7 +694,6 @@ function DocsHeader({ context }: Props) {
     <div className={styles.docsHeader}>
       <Pattern context={context} />
       <div className={styles.docsTop}><Logo context={context} kind='wordmark' /><span className={styles.search}><Search aria-hidden='true' />Search documentation<kbd>⌘K</kbd></span></div>
-      <span className={styles.meta}>Docs / Get started</span>
       <Edit as='h1' className={styles.headline} context={context} field='headline' />
       <Edit as='p' className={styles.lead} context={context} field='body' multiline />
       <span className={styles.docsTabs}>{tabs.map((tab, index) => <span data-active={index === 0 || undefined} key={tab}>{tab}</span>)}</span>
@@ -725,7 +723,7 @@ function PackageCard({ context }: Props) {
   const content = contentOf(context);
   return (
     <div className={styles.package}>
-      <div className={styles.packageTop}><Logo context={context} /><Edit as='strong' className={styles.packageName} context={context} field='headline' /><span className={styles.chip}>{context.identity.name}</span></div>
+      <div className={styles.packageTop}><Logo context={context} /><Edit as='strong' className={styles.packageName} context={context} field='headline' /></div>
       <Edit as='p' className={styles.body} context={context} field='body' multiline />
       <code className={styles.install}>$ <Edit context={context} field='cta' /></code>
       <span className={styles.packageStats}>{[content.proof[0], context.identity.website].filter(Boolean).map((stat) => <span key={stat}>{stat}</span>)}</span>
@@ -739,7 +737,6 @@ function ApiHero({ context }: Props) {
   return (
     <div className={styles.api}>
       <div className={styles.apiText}>
-        <span className={styles.meta}>{http ? 'API reference' : 'Quickstart'}</span>
         <Edit as='h1' className={styles.headline} context={context} field='headline' />
         <Edit as='p' className={styles.lead} context={context} field='body' multiline />
         <code className={styles.endpoint}><Edit context={context} field='cta' /></code>
@@ -771,7 +768,7 @@ function ReleaseNotes({ context }: Props) {
   return (
     <div className={styles.release}>
       <Pattern context={context} />
-      <div className={styles.releaseTop}><Logo context={context} kind='wordmark' /><span className={styles.chip}>Latest</span><span className={styles.meta}>Changelog</span></div>
+      <div className={styles.releaseTop}><Logo context={context} kind='wordmark' /></div>
       <Edit as='h1' className={styles.headline} context={context} field='headline' multiline />
       <Edit as='p' className={styles.lead} context={context} field='body' multiline />
       <ul className={styles.changes}>{items.map((change) => <li key={change}><Check aria-hidden='true' />{change}</li>)}</ul>
@@ -831,7 +828,7 @@ function NavigationBar({ context }: Props) {
         </div>
         <div className={styles.navMenuFeature}>
           <Device className={styles.fill} context={context} seed={2} />
-          <span className={styles.navMenuCaption}><span className={styles.meta}>{context.identity.website}</span><Edit as='strong' context={context} field='headline' /></span>
+          <span className={styles.navMenuCaption}><Edit as='strong' context={context} field='headline' /><span className={styles.quiet}>{context.identity.website}</span></span>
         </div>
       </div>
     </AppFrame>
@@ -843,7 +840,6 @@ function HeroSection({ context }: Props) {
     <div className={styles.hero}>
       <nav className={styles.navBar}><span className={styles.navBrand}><Logo context={context} kind='wordmark' /></span><span className={styles.navLinks}>{contentOf(context).products.slice(0, 4).map(({ name }) => <span key={name}>{name}</span>)}</span><span className={styles.quiet}>Sign in</span></nav>
       <Composition context={context}>
-        <span className={styles.chip}>{contentOf(context).products[0]?.name ?? context.identity.name}</span>
         <Edit as='h1' className={styles.headline} context={context} field='headline' multiline />
         <Edit as='p' className={styles.lead} context={context} field='body' multiline />
         <span className={styles.buttonRow}><Button context={context} /><span className={styles.ghostButton}>Talk to sales</span></span>
@@ -885,7 +881,6 @@ function PricingCard({ context }: Props) {
     <AppFrame className={styles.pricing} context={context} >
       {plans.map((plan, index) => (
         <article data-featured={index === featured || undefined} key={plan.name}>
-          <span className={styles.meta}>{index === featured ? 'Most teams start here' : 'Plan'}</span>
           {index === featured ? <Edit as='h2' className={styles.priceTitle} context={context} field='headline' /> : <h2 className={styles.priceTitle}>{plan.name}</h2>}
           <strong className={styles.price} data-long={plan.price.length > 12 || undefined}>{plan.price}</strong>
           {index === featured && context.settings.body ? <Edit as='p' className={styles.body} context={context} field='body' multiline /> : null}
@@ -902,10 +897,9 @@ function TestimonialCard({ context }: Props) {
   const others = customers.filter((name) => name !== story?.customer).slice(0, 4);
   return (
     <AppFrame className={styles.testimonial} context={context}>
-      <span className={styles.meta}>{story ? 'Customer proof' : 'Proof'}</span>
       <Edit as='h1' className={styles.quote} context={context} field='headline' multiline />
       <span className={styles.person}><span className={styles.avatar}>{(story?.customer ?? context.identity.shortName).slice(0, 2)}</span><Edit as='span' className={styles.quiet} context={context} field='body' /><Logo className={styles.personLogo} context={context} kind='wordmark' /></span>
-      {others.length ? <span className={styles.customerRow}><span className={styles.meta}>Also with {context.identity.name}</span>{others.map((name) => <strong key={name}>{name}</strong>)}</span> : null}
+      {others.length ? <span className={styles.customerRow}><span className={styles.quiet}>Also with {context.identity.name}</span>{others.map((name) => <strong key={name}>{name}</strong>)}</span> : null}
     </AppFrame>
   );
 }
@@ -932,7 +926,6 @@ function CommandMenu({ context }: Props) {
     <AppFrame className={styles.overlayStage} context={context}>
       <div className={styles.command}>
         <div className={styles.commandInput}><Search aria-hidden='true' /><Edit context={context} field='headline' /><kbd>esc</kbd></div>
-        <span className={styles.meta}>Actions</span>
         {items.map((item, index) => <div className={styles.commandItem} data-active={index === 0 || undefined} key={item}><Command aria-hidden='true' />{capitalize(item)}<kbd>↵</kbd></div>)}
         <Edit as='p' className={styles.commandHint} context={context} field='body' />
       </div>
@@ -993,8 +986,8 @@ function DashboardWidget({ context }: Props) {
   return (
     <AppFrame className={styles.widgetStage} context={context}>
       <div className={styles.widget}>
-        <span className={styles.meta}>{contentOf(context).metric.label}</span>
         <span className={styles.metric}><Edit as='strong' context={context} field='headline' /></span>
+        <span className={styles.metricLabel}>{contentOf(context).metric.label}</span>
         <Edit as='p' className={styles.quiet} context={context} field='body' />
         <svg aria-hidden='true' className={styles.chart} preserveAspectRatio='none' viewBox='0 0 100 100'><path d={`${path}L100 100L0 100Z`} fill='var(--el-accent)' fillOpacity='0.14' /><path d={path} fill='none' stroke='var(--el-accent)' strokeWidth='2' vectorEffect='non-scaling-stroke' /></svg>
       </div>
@@ -1020,7 +1013,6 @@ function CheckoutCard({ context }: Props) {
   return (
     <AppFrame className={styles.overlayStage} context={context}>
       <div className={styles.checkout}>
-        <span className={styles.meta}>Order summary</span>
         <Edit as='p' className={styles.body} context={context} field='body' />
         <dl>
           <div><dt>{plan?.name ?? context.identity.name}</dt><dd>{plan?.price ?? ''}</dd></div>
@@ -1088,7 +1080,7 @@ function SidebarNavigation({ context }: Props) {
       </aside>
       <div className={styles.shellMain}>
         <Edit as='h1' className={styles.headlineSmall} context={context} field='headline' />
-        <div className={styles.shellCards}>{content.products.slice(0, 3).map((product, index) => <article key={product.name}><span className={styles.meta}>0{index + 1}</span><strong>{product.name}</strong><p className={styles.quiet}>{product.summary}</p></article>)}</div>
+        <div className={styles.shellCards}>{content.products.slice(0, 3).map((product) => <article key={product.name}><strong>{product.name}</strong><p className={styles.quiet}>{product.summary}</p></article>)}</div>
         <Device className={styles.shellArt} context={context} seed={26} />
       </div>
     </AppFrame>
@@ -1196,24 +1188,25 @@ function EditorialCover({ context }: Props) {
   if (element.id === 'notebook-cover') return <NotebookCover context={context} />;
   const portrait = ['report-cover', 'whitepaper-cover'].includes(element.id);
   const content = contentOf(context);
-  const kicker: Record<string, string> = {
+  // Context that used to sit above the headline now closes the page.
+  const footnote: Record<string, string> = {
     'blog-cover': `${identity.name} blog`,
     'case-study-cover': content.story ? `Customer story · ${content.story.customer}` : 'Customer story',
     'report-cover': `${identity.name} report`,
-    'slide-section': 'Section 02',
-    'slide-title': `${identity.name} · ${content.event.name}`,
+    'slide-section': '02',
+    'slide-title': `${content.event.name} · ${content.event.date}`,
     'whitepaper-cover': 'Field guide',
   };
   return (
     <div className={styles.editorial} data-layout={context.settings.layout} data-portrait={portrait || undefined}>
       <Pattern context={context} />
       <Device className={styles.editorialArt} context={context} seed={element.id.length} />
-      <div className={styles.editorialTop}><Logo context={context} kind='wordmark' /><span className={styles.meta}>{kicker[element.id] ?? identity.name}</span></div>
+      <div className={styles.editorialTop}><Logo context={context} kind='wordmark' /></div>
       <div className={styles.editorialText}>
         <Edit as='h1' className={styles.headline} context={context} field='headline' multiline />
         {context.settings.body ? <Edit as='p' className={styles.lead} context={context} field='body' multiline /> : null}
       </div>
-      <div className={styles.footerRow}><Website context={context} /><span className={styles.meta}>{element.id === 'slide-title' ? content.event.date : identity.socialHandle}</span></div>
+      <div className={styles.footerRow}><Website context={context} /><span className={styles.meta}>{footnote[element.id] ?? identity.socialHandle}</span></div>
     </div>
   );
 }
@@ -1227,7 +1220,6 @@ function PressKit({ context }: Props) {
     <div className={styles.pressKit}>
       <div className={styles.pressHead}>
         <Logo context={context} kind='wordmark' />
-        <span className={styles.meta}>Press and media</span>
       </div>
       <div className={styles.pressMain}>
         <div className={styles.pressIntro}>
@@ -1235,9 +1227,9 @@ function PressKit({ context }: Props) {
           <p className={styles.lead}>{identity.positioning}</p>
           <Edit as='p' className={styles.quiet} context={context} field='body' multiline />
         </div>
-        <dl className={styles.pressFacts}>
-          {facts.map((fact, index) => <div key={fact}><dt className={styles.meta}>{String(index + 1).padStart(2, '0')}</dt><dd>{fact}</dd></div>)}
-        </dl>
+        <ul className={styles.pressFacts}>
+          {facts.map((fact) => <li key={fact}>{fact}</li>)}
+        </ul>
       </div>
       <div className={styles.pressAssets}>
         <span className={styles.pressTile} data-tone='light'><Logo context={context} kind='wordmark' onDark={false} /><small>Logo · light</small></span>
@@ -1274,10 +1266,9 @@ function Badge({ context, lanyard }: Props & { lanyard: boolean }) {
       <div className={styles.badgeCard}>
         <span className={styles.badgeBand}><Device context={context} dark seed={21} /><Logo className={styles.badgeMark} context={context} kind='wordmark' onDark /></span>
         <div className={styles.badgeBody}>
-          <span className={styles.meta}>{event.name}</span>
           <Edit as='h1' className={styles.badgeName} context={context} field='personName' />
           <Edit as='p' className={styles.quiet} context={context} field='personRole' />
-          <span className={styles.badgeFoot}><span className={styles.chip}>Speaker</span><span className={styles.meta}>{event.date} · {event.location}</span><span aria-hidden='true' className={styles.qr}>{Array.from({ length: 49 }, (_, index) => <i data-on={(index * 7 + index % 3) % 5 < 2 || undefined} key={index} />)}</span></span>
+          <span className={styles.badgeFoot}><span className={styles.badgeEvent}><strong>{event.name}</strong><span className={styles.quiet}>{event.date} · {event.location}</span></span><span aria-hidden='true' className={styles.qr}>{Array.from({ length: 49 }, (_, index) => <i data-on={(index * 7 + index % 3) % 5 < 2 || undefined} key={index} />)}</span></span>
         </div>
       </div>
     </div>
@@ -1359,9 +1350,8 @@ function PackagingLabel({ context }: Props) {
   const { person, event } = contentOf(context);
   return (
     <div className={styles.label}>
-      <div className={styles.labelTop}><Logo context={context} kind='wordmark' /><span className={styles.meta}>Priority · 1 of 1</span></div>
+      <div className={styles.labelTop}><Logo context={context} kind='wordmark' /></div>
       <div className={styles.labelAddress}>
-        <span className={styles.meta}>Ship to</span>
         <strong>{person.name}</strong>
         <span>{person.role}</span>
         <span>{event.location}</span>
@@ -1382,7 +1372,7 @@ function Letterhead({ context }: Props) {
     <div className={styles.letterhead}>
       <div className={styles.letterTop}><Logo context={context} kind='wordmark' /><span className={styles.meta}>{identity.website}<br />{identity.contactEmail}<br />{identity.socialHandle}</span></div>
       <div className={styles.letterMeta}>
-        <span className={styles.meta}>14 October {new Date().getFullYear()}</span>
+        <span className={styles.quiet}>14 October {new Date().getFullYear()}</span>
         <span>{content.customers[0] ? `The ${content.customers[0]} team` : 'Dear reader'}</span>
       </div>
       <Edit as='h1' className={styles.headlineSmall} context={context} field='headline' />

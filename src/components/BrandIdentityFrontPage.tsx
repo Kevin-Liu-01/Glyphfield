@@ -15,6 +15,7 @@ import {
   type BrandIdentity,
 } from '@/lib/brandIdentity';
 import type { BrandHealthReport, BrandHealthSectionId } from '@/lib/brandHealth';
+import { displayTrackingEm } from '@/lib/brandOutputKit';
 import { colorContrastRatio, hexToOklch } from '@/lib/color';
 
 import styles from './BrandIdentityStudio.module.css';
@@ -112,15 +113,13 @@ function BrandCover({ identity }: { identity: BrandIdentity }) {
     <section aria-label={gt('Brand cover')} className={styles.cover} data-identity={identity.id} style={style}>
       <div className={styles.coverMeta}>
         <ThemeAwareBrandMark className={styles.coverMark} identity={identity} surface={isDark(paper) ? 'dark' : 'light'} />
-        <span className={styles.coverMetaItem}>{kind}</span>
-        {identity.website ? <span className={styles.coverMetaItem}>{identity.website.replace(/^https?:\/\//, '')}</span> : null}
       </div>
       <h1
         className={styles.coverName}
         style={{
           fontFamily: brandTypographyFamily(identity, 'Display'),
           fontWeight: display.weight,
-          letterSpacing: `${Math.min(0, (display.letterSpacing ?? 0) / 40)}em`,
+          letterSpacing: `${displayTrackingEm(display.letterSpacing)}em`,
         }}
       >
         {identity.name}
@@ -128,6 +127,7 @@ function BrandCover({ identity }: { identity: BrandIdentity }) {
       <div className={styles.coverFoot}>
         <p className={styles.coverTagline} style={{ fontFamily: brandTypographyFamily(identity, 'Display'), fontWeight: display.weight }}>{identity.tagline}</p>
         <p className={styles.coverPositioning} style={{ fontFamily: brandTypographyFamily(identity, 'Body'), fontWeight: body.weight }}>{identity.positioning}</p>
+        <p className={styles.coverFootnote}>{[kind, identity.website.replace(/^https?:\/\//, '')].filter(Boolean).join(' · ')}</p>
       </div>
       <CoverVisual identity={identity} />
     </section>
@@ -138,13 +138,12 @@ function HealthSummary({ onNavigate, report }: { onNavigate: (section: BrandIden
   const gt = useGT();
   return (
     <section aria-label={gt('Brand health summary')} className={styles.healthSummary}>
-      <div className={styles.eyebrow}><T>Brand health</T></div>
       <div className={styles.score}>
         <strong>{report.score}</strong>
         <span>/100</span>
       </div>
       <p className={styles.scoreCaption}>
-        {report.grade} · {gt('{errors} errors · {warnings} warnings · {info} suggestions', {
+        {gt('Brand health')} · {report.grade} · {gt('{errors} errors · {warnings} warnings · {info} suggestions', {
           errors: report.counts.error,
           info: report.counts.info,
           warnings: report.counts.warning,
@@ -173,7 +172,6 @@ function QuickActions({
   const gt = useGT();
   return (
     <section aria-label={gt('Quick actions')} className={styles.quickActions}>
-      <div className={styles.eyebrow}><T>Quick actions</T></div>
       <button className={styles.primaryAction} onClick={() => onNavigate('agent')} type='button'>
         <Bot aria-hidden='true' />
         <span><strong><T>Set up with your agent</T></strong><small><T>Claude Code, Codex or Cursor researches and fills the brand</T></small></span>
@@ -243,7 +241,7 @@ function SystemGlance({ identity }: { identity: BrandIdentity }) {
         <figcaption>{total > 0 ? <T>Palette in proportion</T> : <T>Palette · proportions not set</T>}</figcaption>
       </figure>
       <figure className={styles.glanceType}>
-        <strong style={{ fontFamily: brandTypographyFamily(identity, 'Display'), fontWeight: display.weight, letterSpacing: `${display.letterSpacing ?? 0}px` }}>Aa</strong>
+        <strong style={{ fontFamily: brandTypographyFamily(identity, 'Display'), fontWeight: display.weight, letterSpacing: `${displayTrackingEm(display.letterSpacing)}em` }}>Aa</strong>
         <figcaption>{families.join(' · ')}</figcaption>
       </figure>
       <figure className={styles.glanceDevice}>

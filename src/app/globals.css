@@ -18550,7 +18550,6 @@ html.dark .studio-app .studio-app-header > a img {
 .brand-art-ledger-title {
   min-width: 0;
   font-size: clamp(0.48rem, 1.15cqw, 0.72rem);
-  letter-spacing: 0.04em;
 }
 
 .brand-art-preview header img,
@@ -18822,7 +18821,7 @@ html.dark .studio-app .brand-art-evidence-theme--dark {
 
 .brand-art-ledger-title { grid-column: 1 / -1; }
 .brand-art-ledger-copy { min-width: 0; align-self: end; display: grid; gap: 1.15cqw; }
-.brand-art-ledger-copy h2[data-preview-title='true'] { max-width: none; font-size: clamp(1.9rem, 6cqw, 4.2rem); font-weight: 350; letter-spacing: -0.04em; }
+.brand-art-ledger-copy h2[data-preview-title='true'] { max-width: none; font-size: clamp(1.9rem, 6cqw, 4.2rem); font-weight: 350; letter-spacing: var(--brand-display-tracking, -0.02em); }
 .brand-art-ledger-copy p { max-width: 38ch; font-size: clamp(0.5rem, 1.15cqw, 0.75rem); line-height: 1.4; }
 .brand-art-ledger-copy > strong { width: fit-content; max-width: 100%; padding: 0.55cqw 0.8cqw; background: var(--brand-emphasis); color: var(--brand-ink); font-size: clamp(0.55rem, 1.2cqw, 0.78rem); font-weight: 400; line-height: 1.3; overflow-wrap: anywhere; }
 .brand-art-ledger-evidence { min-height: 0; display: block; overflow: hidden; background: #292827; }
@@ -18843,7 +18842,7 @@ html.dark .studio-app .brand-art-evidence-theme--dark {
 .brand-art-mintlify-header { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; }
 .brand-art-mintlify-header span { font-size: clamp(0.44rem, 0.85cqw, 0.58rem); }
 .brand-art-mintlify-copy { align-self: center; display: grid; gap: 1.25cqw; }
-.brand-art-mintlify-copy h2[data-preview-title='true'] { max-width: 24ch; font-size: clamp(1.2rem, 3.1cqw, 2.5rem); letter-spacing: -0.04em; line-height: 1.04; }
+.brand-art-mintlify-copy h2[data-preview-title='true'] { max-width: 24ch; font-size: clamp(1.2rem, 3.1cqw, 2.5rem); letter-spacing: var(--brand-display-tracking, -0.02em); line-height: 1.04; }
 .brand-art-mintlify-copy p { max-width: 34ch; font-size: clamp(0.5rem, 1.1cqw, 0.72rem); line-height: 1.45; }
 .brand-art-mintlify-system {
   position: relative;
@@ -18963,7 +18962,7 @@ html.dark .studio-app .brand-art-evidence-theme--dark {
 .brand-art-programmable-copy p { max-width: 35ch; font-size: clamp(0.5rem, 1.05cqw, 0.7rem); line-height: 1.45; }
 .brand-art-transaction { position: relative; min-height: 0; align-self: center; padding: 2cqw; display: flex; flex-direction: column; gap: 0.9cqw; overflow: hidden; border: 1px solid rgb(6 27 49 / 0.12); border-radius: 0.8cqw; color: var(--brand-ink); background: #fff; box-shadow: 0 2.2cqw 6cqw rgb(83 58 253 / 0.22); }
 .brand-art-transaction-head { display: flex; justify-content: space-between; gap: 1cqw; font-family: var(--brand-code), monospace; font-size: clamp(0.45rem, 0.85cqw, 0.62rem); color: rgb(6 27 49 / 0.62); }
-.brand-art-transaction > strong { font-size: clamp(1.1rem, 3.6cqw, 2.6rem); font-weight: 300; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.brand-art-transaction > strong { font-size: clamp(1.1rem, 3.6cqw, 2.6rem); font-weight: 300; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .brand-art-transaction > small { font-size: clamp(0.45rem, 0.9cqw, 0.66rem); color: rgb(6 27 49 / 0.62); }
 .brand-art-transaction > i { width: 100%; height: 1px; background: rgb(6 27 49 / 0.12); }
 .brand-art-transaction dl { margin: 0; display: grid; gap: 0.7cqw; }
@@ -19040,13 +19039,10 @@ html.dark .studio-app .brand-art-evidence-theme--dark {
   gap: 1.4rem;
 }
 
-.brand-direction-editorial-copy > span,
 .brand-direction-editorial dt {
   color: hsl(var(--muted-foreground));
-  font-size: 0.62rem;
+  font-size: 0.75rem;
   font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .brand-direction-editorial-copy h2 {
@@ -19057,7 +19053,7 @@ html.dark .studio-app .brand-art-evidence-theme--dark {
   font-family: var(--font-sans);
   font-size: clamp(1.75rem, 2.5vw, 3.25rem);
   font-weight: 500;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.025em;
   line-height: 0.98;
   text-wrap: balance;
   -webkit-box-orient: vertical;

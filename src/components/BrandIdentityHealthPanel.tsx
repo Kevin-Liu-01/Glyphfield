@@ -82,8 +82,7 @@ export default function BrandIdentityHealthPanel({
           <span>/100</span>
         </div>
         <div>
-          <div className={styles.eyebrow}>{report.grade}</div>
-          <p>{gt('{errors} errors, {warnings} warnings and {info} suggestions across {sections} sections.', {
+          <p><strong>{report.grade}.</strong> {gt('{errors} errors, {warnings} warnings and {info} suggestions across {sections} sections.', {
             errors: report.counts.error,
             info: report.counts.info,
             sections: report.sections.length,

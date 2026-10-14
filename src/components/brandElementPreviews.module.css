@@ -163,7 +163,6 @@
   background: var(--el-raised);
   font-family: var(--el-code);
   font-size: 12px;
-  letter-spacing: 0.04em;
 }
 
 .stack {
@@ -365,7 +364,7 @@
   font-family: var(--el-display);
   font-size: 240px;
   font-weight: var(--el-display-weight);
-  letter-spacing: -0.04em;
+  letter-spacing: -0.025em;
   line-height: 0.85;
   color: var(--el-accent-text);
 }
@@ -1433,9 +1432,8 @@
 .pressMain { display: grid; grid-template-columns: 1.15fr 1fr; gap: 72px; }
 .pressIntro { display: flex; flex-direction: column; gap: 22px; }
 .pressIntro .headline { font-size: calc(72px * var(--el-scale)); }
-.pressFacts { display: grid; align-content: start; gap: 0; margin: 0; }
-.pressFacts > div { display: grid; grid-template-columns: 48px 1fr; gap: 16px; border-top: 1px solid var(--el-rule); padding: 18px 0; }
-.pressFacts dd { margin: 0; font-size: 20px; line-height: 1.35; }
+.pressFacts { display: grid; align-content: start; gap: 0; margin: 0; padding: 0; list-style: none; }
+.pressFacts li { border-top: 1px solid var(--el-rule); padding: 18px 0; font-size: 20px; line-height: 1.35; }
 .pressAssets { display: grid; flex: 1; grid-template-columns: repeat(4, 1fr); gap: 20px; min-height: 0; }
 .pressTile { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; overflow: hidden; border-radius: var(--el-radius); box-shadow: inset 0 0 0 1px var(--el-rule); }
 .pressTile small { position: absolute; bottom: 14px; left: 16px; font-family: var(--el-code); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--el-quiet); }
@@ -1501,3 +1499,28 @@
 .strap .logo { object-position: center; }
 
 .lockup[data-placeholder] .partner { border: 2px dashed var(--el-rule); border-radius: var(--el-radius); padding: 8px 28px; color: var(--el-quiet); font-size: 48px; }
+
+/* Editable text inherits the browser's break-word; display type never splits a word. */
+.headline,
+.headlineSmall,
+.cardTitle,
+.emailTitle,
+.thumbnailTitle,
+.podcastTitle,
+.quote,
+.priceTitle,
+.badgeName,
+.galleryCaption,
+.notebookTitle,
+.partner { overflow-wrap: normal; }
+.podcastTitle { font-size: calc(112px * var(--el-scale)); }
+
+/* No eyebrows: labels follow the content they describe (brand-polish). */
+.phoneTitle { font-size: 15px; font-weight: 600; }
+.metricLabel { font-size: 18px; font-weight: 500; }
+.badgeEvent { display: grid; gap: 2px; font-size: 18px; line-height: 1.3; }
+
+/* Type spacing: kerning on, optical sizes where the face has them. */
+.artboard { font-kerning: normal; font-feature-settings: 'kern' 1; font-optical-sizing: auto; }
+.surface[data-element='slide-title'] .headline { font-size: calc(56px * var(--el-scale)); }
+.surface[data-element='slide-section'] .headline { font-size: calc(46px * var(--el-scale)); }
