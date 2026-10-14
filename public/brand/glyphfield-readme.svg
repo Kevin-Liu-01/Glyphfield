@@ -11,9 +11,8 @@
   <path d="M880 0V720" stroke="#16141A" stroke-opacity="0.18"/>
 
   <g transform="translate(54 38)">
-    <path d="M6 6H56V16H16V48H48V58H6V6Z" fill="#16141A"/>
-    <path d="M46 16H56V26H46V16Z" fill="#16141A"/>
-    <path d="M28 27H46L41 32H58L40 45L45 37H27L32 32H22L28 27Z" fill="#16141A"/>
+    <path d="M6 6H58V22H48V16H16V48H48V40H58V58H6Z" fill="#16141A"/>
+    <path d="M33 24.5H50L46 29.5H61L42 42.5L46 35.5H30L34 30H25Z" fill="#16141A"/>
   </g>
   <text x="137" y="82" fill="#16141A" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="27" font-weight="500" letter-spacing="-0.25">Glyphfield</text>
 
@@ -32,8 +31,7 @@
 
   <rect x="1160" y="280" width="160" height="160" fill="#201046" fill-opacity="0.74" stroke="#FFFFFF" stroke-opacity="0.42"/>
   <g transform="translate(1208 328)">
-    <path d="M6 6H56V16H16V48H48V58H6V6Z" fill="#FFFFFF"/>
-    <path d="M46 16H56V26H46V16Z" fill="#FFFFFF"/>
-    <path d="M28 27H46L41 32H58L40 45L45 37H27L32 32H22L28 27Z" fill="#FFFFFF"/>
+    <path d="M6 6H58V22H48V16H16V48H48V40H58V58H6Z" fill="#FFFFFF"/>
+    <path d="M33 24.5H50L46 29.5H61L42 42.5L46 35.5H30L34 30H25Z" fill="#FFFFFF"/>
   </g>
 </svg>

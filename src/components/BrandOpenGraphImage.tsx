@@ -72,9 +72,8 @@ const DITHERED_SWIRL_PATH = buildDitheredSwirlPath();
 function GlyphfieldMark({ color = '#ffffff', size = 52 }: { color?: string; size?: number }) {
   return (
     <svg height={size} viewBox='0 0 64 64' width={size}>
-      <path d='M6 6H56V16H16V48H48V58H6V6Z' fill={color} />
-      <path d='M46 16H56V26H46V16Z' fill={color} />
-      <path d='M28 27H46L41 32H58L40 45L45 37H27L32 32H22L28 27Z' fill={color} />
+      <path d='M6 6H58V22H48V16H16V48H48V40H58V58H6Z' fill={color} />
+      <path d='M33 24.5H50L46 29.5H61L42 42.5L46 35.5H30L34 30H25Z' fill={color} />
     </svg>
   );
 }
