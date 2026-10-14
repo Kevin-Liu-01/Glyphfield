@@ -589,9 +589,12 @@ function renderWeb(context: TileContext): string {
   const textW = browserW - artW - inner * 2;
   const buttonFont = clamp(heroH * 0.045, 8, 14);
   const buttonH = buttonFont * 2.5;
+  // Headline, body and button share the room above the hero's inner margin, so the button never lands on the body.
+  const budget = Math.max(0, heroH * 0.74 - inner - buttonH);
+  const headlineMax = Math.min(heroH * 0.44, budget * 0.66);
   const copyStack = textStack(siteContext, p + inner, heroY + heroH * 0.14, textW, [
-    { gap: heroH * 0.06, options: { field: 'headline', maxHeight: heroH * 0.44, maxLines: 3, maxSize: clamp(heroH * 0.15, 12, 56), minSize: 10, role: 'display' }, value: tile.copy.headline },
-    { gap: heroH * 0.06, options: { color: site.secondary, field: 'body', maxHeight: Math.max(0, heroH * 0.78 - heroH * 0.44 - buttonH - heroH * 0.12), maxLines: 3, maxSize: clamp(heroH * 0.048, 8, 16), role: 'body' }, value: tile.copy.body },
+    { gap: heroH * 0.06, options: { field: 'headline', maxHeight: headlineMax, maxLines: 3, maxSize: clamp(heroH * 0.15, 12, 56), minSize: 10, role: 'display' }, value: tile.copy.headline },
+    { gap: heroH * 0.06, options: { color: site.secondary, field: 'body', maxHeight: Math.max(0, budget - headlineMax), maxLines: 3, maxSize: clamp(heroH * 0.048, 8, 16), role: 'body' }, value: tile.copy.body },
   ]);
   const cta = getCtaLabel(identity);
   const buttonW = estimateTextWidth(cta, buttonFont, context.fonts.body.charWidth) + buttonFont * 2.4;
@@ -744,12 +747,12 @@ function renderTypePhrases(context: TileContext): string {
 }
 
 function renderTypePairing(context: TileContext): string {
-  const { fonts, h, identity, surface, w } = context;
+  const { fonts, h, surface, tile, w } = context;
   const p = pad(context);
   const half = (h - p * 2) / 2;
   const size = labelSize(context);
   // Each sample leads; the face it is set in follows underneath.
-  return `${rect(0, 0, w, h, surface.background)}${textBlock(context, brandMessaging(identity).promise || identity.tagline, { maxHeight: Math.min(half * 0.62, half - size * 3), maxLines: 2, maxSize: clamp(half * 0.32, 14, 52), role: 'display', width: w - p * 2, x: p, y: p })}${label(context, `Display · ${fonts.display.family}`, p, p + half - size * 2)}${hairline(p, p + half, w - p * 2, surface.rule)}${textBlock(context, identity.positioning || identity.mission, { color: surface.secondary, maxHeight: Math.min(half * 0.7, half - size * 3), maxLines: 5, maxSize: clamp(half * 0.09, 9, 17), role: 'body', width: w - p * 2, x: p, y: p + half + size })}${label(context, `Body · ${fonts.body.family}`, p, h - p - size)}`;
+  return `${rect(0, 0, w, h, surface.background)}${textBlock(context, tile.copy.headline, { field: 'headline', maxHeight: Math.min(half * 0.62, half - size * 3), maxLines: 2, maxSize: clamp(half * 0.32, 14, 52), role: 'display', width: w - p * 2, x: p, y: p })}${label(context, `Display · ${fonts.display.family}`, p, p + half - size * 2)}${hairline(p, p + half, w - p * 2, surface.rule)}${textBlock(context, tile.copy.body, { color: surface.secondary, field: 'body', maxHeight: Math.min(half * 0.7, half - size * 3), maxLines: 5, maxSize: clamp(half * 0.09, 9, 17), role: 'body', width: w - p * 2, x: p, y: p + half + size })}${label(context, `Body · ${fonts.body.family}`, p, h - p - size)}`;
 }
 
 function renderCharset(context: TileContext): string {
@@ -818,7 +821,8 @@ function renderProportion(context: TileContext): string {
   const blocks = [
     { color: dominant.color, h: areaH, share: dominant, w: areaW, x: areaX, y: areaY },
     { color: support.color, h: supportH, share: support, w: supportW, x: supportX, y: supportY },
-    { color: accent.color, h: accentH, share: accent, w: accentW, x: accentX, y: accentY },
+    // The accent block stops where the signal block starts, so its label never runs under it.
+    { color: accent.color, h: accentH, share: accent, w: accentW - signalW, x: accentX, y: accentY },
     { color: signal.color, h: accentH, share: signal, w: signalW, x: accentX + accentW - signalW, y: accentY },
   ];
   const big = clamp(Math.min(areaW, areaH) * 0.2, 16, 88);

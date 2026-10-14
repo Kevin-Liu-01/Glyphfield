@@ -181,7 +181,7 @@ function FocusWindow({ darkMark, identity, overview, promise, studioOverviewDark
           <span>01 / selected evidence</span>
         </div>
         <div className='brand-art-focus-window'><PreviewTitle>{title}</PreviewTitle><p>{promise}</p></div>
-        <div className='brand-art-focus-notes'>{identity.strategy.pillars.slice(0, 3).map((pillar, index) => <p key={pillar}><b>{String(index + 1).padStart(2, '0')}</b>{pillar}</p>)}</div>
+        <div className='brand-art-focus-notes'>{identity.strategy.pillars.slice(0, 3).map((pillar) => <p key={pillar}>{pillar}</p>)}</div>
       </div>
     </PreviewShell>
   );
@@ -276,7 +276,7 @@ function NetworkHorizon({ content, identity, lightMark, overview, promise, title
       <header><Mark name={identity.name} path={lightMark} /></header>
       <div className='brand-art-network-image'><EvidenceImage asset={overview} /></div>
       <div className='brand-art-network-copy'><PreviewTitle>{title}</PreviewTitle><p>{promise}</p></div>
-      <div className='brand-art-network-route'>{content.products.slice(0, 4).map((product, index) => <span key={product.name}><i />{String(index + 1).padStart(2, '0')} {product.name}</span>)}</div>
+      <div className='brand-art-network-route'>{content.products.slice(0, 4).map((product) => <span key={product.name}><i />{product.name}</span>)}</div>
     </PreviewShell>
   );
 }

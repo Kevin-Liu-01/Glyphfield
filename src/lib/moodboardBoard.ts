@@ -440,6 +440,7 @@ const DEFAULT_COPY: Record<MoodboardTileKind, CopyBuilder> = {
     const display = identity.typography?.find((font) => font.role === 'Display') ?? identity.typography?.[0];
     if (variant === 'phrases') return copy(brandMessaging(identity).phrases[0] ?? identity.tagline, list(identity.greetings, 6).join('  ·  '), 'Voice in type');
     if (variant === 'scale') return copy(identity.tagline, identity.mission ?? '', `Type scale · ${identity.typeScale?.ratio ?? 1.333}`);
+    if (variant === 'pairing') return copy(brandMessaging(identity).promise || identity.tagline, identity.positioning || identity.mission || '', 'Type pairing');
     return copy(display?.family ?? identity.name, display?.usage ?? '', 'Display typeface');
   },
   voice: (identity) => copy(brandMessaging(identity).phrases[0] ?? identity.tagline, list(identity.voice?.principles, 4).join(' · '), 'Voice'),
@@ -455,7 +456,7 @@ function sameLine(left: string, right: string): boolean {
 
 /** Swap a headline that already appears on the board for the next unused brand line. */
 function distinctHeadline(identity: BrandIdentity, tile: MoodboardTileCopy, kind: MoodboardTileKind, variant: string, used: string[]): MoodboardTileCopy {
-  if (!LINE_KINDS.has(kind) || (kind === 'type' && variant !== 'phrases' && variant !== 'scale')) return tile;
+  if (!LINE_KINDS.has(kind) || (kind === 'type' && !['pairing', 'phrases', 'scale'].includes(variant))) return tile;
   if (!used.some((line) => sameLine(line, tile.headline))) {
     used.push(tile.headline);
     return tile;
