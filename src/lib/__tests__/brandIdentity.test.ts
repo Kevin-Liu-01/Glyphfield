@@ -120,9 +120,6 @@ describe('GT_BRAND_IDENTITY', () => {
 
   it('keeps the built-in GT sample labels and live SVG typography aligned with Inter', () => {
     expect(readFileSync('src/components/MarketingStudioShowcaseDemos.tsx', 'utf8')).not.toContain('Switzer');
-    const constellation = readFileSync('public/brands/gt/library/language-constellation.svg', 'utf8');
-    expect(constellation).toContain('font-family="Rasmus Inter, Inter, Arial, sans-serif"');
-    expect(constellation).not.toContain('Switzer');
   });
 });
 
@@ -497,18 +494,34 @@ describe('hydrateBrandIdentities', () => {
     const storedGt = {
       ...GT_BRAND_IDENTITY,
       assets: GT_BRAND_IDENTITY.assets
-        .filter(({ id }) => id !== 'library-advance' && id !== 'library-constellation')
+        .filter(({ id }) => id !== 'library-gem-smoke' && id !== 'library-compass')
         .map((asset) => asset.id === 'mark-dark' ? { ...asset, label: 'Stored GT mark' } : asset),
     };
 
     const gt = hydrateBrandIdentities([storedGt]).find(({ id }) => id === 'gt')!;
 
     expect(gt.assets.find(({ id }) => id === 'mark-dark')?.label).toBe('Stored GT mark');
-    expect(gt.assets.find(({ id }) => id === 'library-advance')?.path).toBe(
-      '/brands/gt/library/advance.png'
+    expect(gt.assets.find(({ id }) => id === 'library-gem-smoke')?.path).toBe(
+      '/brands/gt/library/gem-smoke.webp'
     );
-    expect(gt.assets.find(({ id }) => id === 'library-constellation')?.path).toBe(
-      '/brands/gt/library/language-constellation.svg'
+    expect(gt.assets.find(({ id }) => id === 'library-compass')?.path).toBe(
+      '/brands/gt/library/bowen-compass.png'
     );
+  });
+
+  it('drops links to bundled files a release retired from an edited built-in, but keeps uploads', () => {
+    const storedGt = {
+      ...GT_BRAND_IDENTITY,
+      assets: [
+        ...GT_BRAND_IDENTITY.assets,
+        { id: 'library-advance', label: 'Retired', path: '/brands/gt/library/advance.png', surface: 'dark' as const, type: 'image' as const },
+        { id: 'upload-1', label: 'Upload', path: 'data:image/png;base64,AAAA', surface: 'any' as const, type: 'image' as const },
+      ],
+      tagline: 'Edited tagline',
+    };
+    const gt = hydrateBrandIdentities([storedGt]).find(({ id }) => id === 'gt')!;
+    expect(gt.tagline).toBe('Edited tagline');
+    expect(gt.assets.some(({ id }) => id === 'library-advance')).toBe(false);
+    expect(gt.assets.some(({ id }) => id === 'upload-1')).toBe(true);
   });
 });

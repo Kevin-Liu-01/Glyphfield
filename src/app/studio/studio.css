@@ -8008,12 +8008,12 @@ input.studio-range[data-studio-range='true'] {
   content: none;
 }
 
-.brand-art-gt-constellation {
+.brand-art-gt-globe {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  object-position: center;
+  object-fit: cover;
+  object-position: 66% 50%;
 }
 
 .brand-art-gt-metal-stage {

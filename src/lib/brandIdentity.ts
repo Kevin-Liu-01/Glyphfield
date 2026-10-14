@@ -962,11 +962,22 @@ function migrateBasementDisplaySpacing(
 }
 
 /** One-time content migrations for edited built-ins saved by earlier releases. */
+/**
+ * A release can retire bundled artwork. An edited built-in keeps its own uploads (data URLs) and every
+ * bundled file the preset still ships, but drops links to bundled files that no longer exist.
+ */
+function dropRetiredBundledAssets(identity: BrandIdentity, preset: BrandIdentity): BrandIdentity {
+  const shipped = new Set(preset.assets.map(({ path }) => path));
+  const assets = identity.assets.filter(({ path }) => !/^\/(brands|templates|screenshots)\//.test(path) || shipped.has(path));
+  return assets.length === identity.assets.length ? identity : { ...identity, assets };
+}
+
 function migrateStoredBuiltIn(identity: BrandIdentity, preset: BrandIdentity): BrandIdentity {
-  return migrateBasementDisplaySpacing(
+  const migrated = migrateBasementDisplaySpacing(
     migrateGtTypography(identity, preset, DEFAULT_BRAND_FONT_ASSETS),
     preset
   ) ?? identity;
+  return dropRetiredBundledAssets(migrated, preset);
 }
 
 /** The shipped version of a built-in identity, ready to replace an edited copy. */

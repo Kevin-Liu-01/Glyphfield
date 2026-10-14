@@ -114,15 +114,14 @@ function recipeProps({
   const editorial = libraryAsset(identity, 'library-editorial');
   const detail = libraryAsset(identity, 'library-detail');
   const atmosphere = libraryAsset(identity, 'library-atmosphere');
-  const languageConstellation = libraryAsset(identity, 'library-constellation');
   const studioOverviewDark = libraryAsset(identity, 'studio-brand-elements-dark');
   const studioOverviewLight = libraryAsset(identity, 'studio-brand-elements-light');
-  return { atmosphere, content, darkMark, detail, editorial, identity, languageConstellation, lightMark, overview, promise, studioOverviewDark, studioOverviewLight, title };
+  return { atmosphere, content, darkMark, detail, editorial, identity, lightMark, overview, promise, studioOverviewDark, studioOverviewLight, title };
 }
 
 type RecipeProps = ReturnType<typeof recipeProps>;
 
-function TranslationFrame({ identity, languageConstellation, lightMark }: RecipeProps) {
+function TranslationFrame({ identity, lightMark, overview }: RecipeProps) {
   const savedGreetings = identity.greetings.includes('환영합니다')
     ? identity.greetings
     : [...identity.greetings, '환영합니다'];
@@ -139,8 +138,8 @@ function TranslationFrame({ identity, languageConstellation, lightMark }: Recipe
   return (
     <PreviewShell identity={identity}>
       <div aria-hidden='true' className='brand-art-gt-material'>
-        {languageConstellation ? (
-          <EvidenceImage asset={languageConstellation} className='brand-art-gt-constellation' />
+        {overview ? (
+          <EvidenceImage asset={overview} className='brand-art-gt-globe' />
         ) : (
           <div className='brand-art-gt-metal-stage'>
             {greetings.map((greeting) => (

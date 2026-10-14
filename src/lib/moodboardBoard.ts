@@ -226,7 +226,7 @@ const RECIPES: Record<BrandArtDirection['moodboard'], BoardRecipe> = {
   },
   'monochrome-language': {
     coverVariant: 'device',
-    imagery: ['library-advance', 'library-constellation', 'library-overview', 'library-editorial', 'library-material', 'library-workflow'],
+    imagery: ['library-overview', 'library-hero', 'library-editorial', 'library-material', 'library-workflow', 'library-campaign'],
     surface: 'light',
     tones: { accent: 'muted', contrast: 'ink', feature: 'ink', quiet: 'paper' },
   },
