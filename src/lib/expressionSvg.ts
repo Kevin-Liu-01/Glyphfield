@@ -11,6 +11,7 @@ import { layoutCanvasText } from './canvasText';
 import { colorContrastRatio, mixHexColors } from './color';
 import { escapeXml } from './download';
 import { isExpressionDevice, renderExpressionDevice } from './expressionDevices';
+import { inkAspect, placeInk, type LogoArtwork } from './expressionType';
 import {
   activeCodeTab,
   dataBoolean,
@@ -39,6 +40,8 @@ export type TextMeasure = (text: string, font: { family: string; size: number; w
 export type ExpressionRenderContext = {
   /** Width / height of an image asset when known; SVG-in-SVG alignment needs exact boxes. */
   assetAspect?: (assetId: string | undefined) => number | null;
+  /** Bundled logo artwork (aspect and visible ink) for an asset, so marks are sized by their ink. */
+  assetArtwork?: (assetId: string | undefined) => LogoArtwork | null;
   assetSource: (assetId: string | undefined) => string | null;
   colors: Readonly<Record<string, string>>;
   /** Returns the CSS font-family list for a text style's font asset. */
@@ -55,6 +58,14 @@ export type ExpressionRenderContext = {
 
 const FALLBACK_STACK = 'Inter, "Helvetica Neue", Arial, sans-serif';
 const round = (value: number) => Math.round(value * 100) / 100;
+
+/**
+ * Inherited by every glyph of a layer, in the editor and in exported files:
+ * kerning on and the font's kern feature on. Optical size is set per text run
+ * from its export size (see `renderText`), because Chrome lays SVG text out at
+ * the on-screen size and automatic optical sizing would follow the zoom.
+ */
+export const EXPRESSION_TEXT_STYLE = "font-kerning:normal;font-feature-settings:'kern' 1";
 
 /** Width estimate for DOM-free generation; the browser passes canvas metrics. */
 export const estimateTextWidth: TextMeasure = (text, { size, weight }) => {
@@ -178,7 +189,13 @@ function renderText(element: CanvasElement, context: ExpressionRenderContext): s
   const partnerFamily = dataString(element, 'partnerFontFamily');
   const partnerFontId = dataString(element, 'partnerFontAssetId') || undefined;
   const partnerWeight = dataNumber(element, 'partnerFontWeight', style.fontWeight);
-  const tabular = dataBoolean(element, 'tabular', false) ? ' style="font-variant-numeric:tabular-nums"' : '';
+  const features = [
+    `font-variation-settings:'opsz' ${round(layout.fontSize)}`,
+    dataBoolean(element, 'tabular', false) ? 'font-variant-numeric:tabular-nums' : '',
+    // Capitals get the font's capital spacing where it has one (Inter's cpsp).
+    style.casing === 'uppercase' ? "font-feature-settings:'kern' 1,'cpsp' 1" : '',
+  ].filter(Boolean).join(';');
+  const tabular = ` style="${features}"`;
   return layout.lines.map((line, index) => {
     const baseline = round(layout.top + index * layout.lineHeight + layout.lineHeight / 2 + layout.fontSize * 0.35);
     const parts = partnerFamily ? line.split(/(\s*×\s*)/) : [line];
@@ -257,19 +274,21 @@ function renderLogo(element: CanvasElement, context: ExpressionRenderContext): s
   const filter = appearance
     ? buildLogoSvgFilter(appearance, tone === 'original' ? (context.colors.ink ?? '#000000') : toneColor, filterId)
     : tone !== 'original' ? toneFilter(filterId, toneColor) : '';
-  const fitted = fitAsset(element.bounds, context.assetAspect?.(element.assetId) ?? null, dataString(element, 'align', 'center'));
+  const artwork = context.assetArtwork?.(element.assetId) ?? null;
+  const fitted = fitAsset(element.bounds, context.assetAspect?.(element.assetId) ?? artwork?.aspect ?? null, artwork, dataString(element, 'align', 'center'));
   const aspect = fitted ? 'none' : alignedAspect(element, 'meet');
   const { height, width, x, y } = fitted ?? element.bounds;
   return `${filter ? `<defs>${filter}</defs>` : ''}<image href="${escapeXml(source)}" x="${round(x)}" y="${round(y)}" width="${round(width)}" height="${round(height)}" preserveAspectRatio="${aspect}"${filter ? ` filter="url(#${filterId})"` : ''}/>`;
 }
 
-/** Fit an image of known aspect inside a box ourselves; browsers differ on SVG-in-SVG alignment. */
-function fitAsset(box: { height: number; width: number; x: number; y: number }, aspect: number | null, align: string) {
+/**
+ * Fit an image of known aspect inside a box ourselves (browsers differ on
+ * SVG-in-SVG alignment). Bundled logos fit by their visible ink, so padding in
+ * the file never shrinks the mark.
+ */
+function fitAsset(box: { height: number; width: number; x: number; y: number }, aspect: number | null, artwork: LogoArtwork | null, align: string) {
   if (!aspect || !Number.isFinite(aspect) || aspect <= 0) return null;
-  const width = Math.min(box.width, box.height * aspect);
-  const height = width / aspect;
-  const x = align === 'start' ? box.x : align === 'end' ? box.x + box.width - width : box.x + (box.width - width) / 2;
-  return { height, width, x, y: box.y + (box.height - height) / 2 };
+  return placeInk(box, aspect, artwork?.ink ?? [0, 0, 1, 1], align === 'start' || align === 'end' ? align : 'center');
 }
 
 function renderShape(element: CanvasElement, context: ExpressionRenderContext): string {
@@ -485,6 +504,66 @@ function languageBadge(tab: CodeTab, x: number, y: number, size: number, theme: 
   return `<rect x="${round(x)}" y="${round(y)}" width="${round(size)}" height="${round(size)}" rx="${round(size * 0.18)}" fill="${theme.border}"/><text x="${round(x + size / 2)}" y="${round(y + size * 0.68)}" text-anchor="middle" fill="${theme.foreground}" font-family="${family}" font-size="${round(size * 0.46)}" font-weight="600">${label}</text>`;
 }
 
+type CodeRow = { continuation: boolean; line: number; tokens: CodeToken[] };
+
+const CODE_BREAK_AFTER = /[\s,;(){}[\]=>.+\-*/|&:]/;
+
+/** Slice highlighted tokens to the characters [start, end). */
+function sliceTokens(tokens: readonly CodeToken[], start: number, end: number): CodeToken[] {
+  const result: CodeToken[] = [];
+  let offset = 0;
+  for (const token of tokens) {
+    const from = Math.max(start, offset);
+    const to = Math.min(end, offset + token.content.length);
+    if (to > from) result.push({ color: token.color, content: token.content.slice(from - offset, to - offset) });
+    offset += token.content.length;
+  }
+  return result;
+}
+
+/** Longest prefix of `rest` that fits, pulled back to a break after a space or punctuation when one is near. */
+function codeCut(rest: string, prefix: string, room: number, measure: (text: string) => number): number {
+  let low = 1;
+  let high = rest.length;
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+    if (measure(prefix + rest.slice(0, middle)) <= room) low = middle;
+    else high = middle - 1;
+  }
+  for (let back = low; back > low * 0.5; back -= 1) {
+    if (CODE_BREAK_AFTER.test(rest[back - 1]!)) return back;
+  }
+  return low;
+}
+
+function codeRow(tokens: readonly CodeToken[], line: number, prefix: string, start: number, end: number): CodeRow {
+  const indent = prefix ? [{ color: tokens[0]?.color ?? '', content: prefix }] : [];
+  return { continuation: Boolean(prefix), line, tokens: [...indent, ...sliceTokens(tokens, start, end)] };
+}
+
+/**
+ * Break each source line into rows that fit `room`, after a space or
+ * punctuation when one is near, with continuation rows indented two spaces past
+ * the line's own indent.
+ */
+export function wrapCodeLines(lines: readonly CodeToken[][], room: number, measure: (text: string) => number): CodeRow[] {
+  return lines.flatMap((tokens, index) => {
+    const text = tokens.map(({ content }) => content).join('');
+    const indent = `${/^\s*/.exec(text)![0]}  `;
+    const rows: CodeRow[] = [];
+    let start = 0;
+    do {
+      const prefix = rows.length > 0 ? indent : '';
+      const rest = text.slice(start);
+      const cut = measure(prefix + rest) <= room || rest.length <= 1 ? rest.length : codeCut(rest, prefix, room, measure);
+      rows.push(codeRow(tokens, index + 1, prefix, start, start + cut));
+      start += cut;
+      while (text[start] === ' ') start += 1;
+    } while (start < text.length);
+    return rows;
+  });
+}
+
 function renderCode(element: CanvasElement, context: ExpressionRenderContext): string {
   const style = element.textStyle;
   const tabs = readCodeTabs(element);
@@ -497,7 +576,7 @@ function renderCode(element: CanvasElement, context: ExpressionRenderContext): s
   const lineNumbers = dataBoolean(element, 'lineNumbers', true);
   const radius = element.style.borderRadius;
   const { height, width, x, y } = element.bounds;
-  const header = chrome === 'none' ? 0 : round(Math.max(baseSize * 3, 40));
+  const header = chrome === 'none' ? 0 : round(Math.max(baseSize * 2.6, 36));
   const clipId = uid(context, element, 'clip');
   const padX = round(Math.max(baseSize * 1.6, 24));
   const tabSize = round(baseSize * 0.86);
@@ -518,26 +597,38 @@ function renderCode(element: CanvasElement, context: ExpressionRenderContext): s
   }
   const highlighted = new Set(active.highlight);
   const lines = highlightCodeLines(active.code, active.language, theme);
-  // Long lines shrink the code (to 62% at most) instead of running out of the window.
-  const longest = Math.max(1, ...lines.map((tokens) => context.measure(tokens.map(({ content }) => content).join(''), { family: style.fontFamily, size: baseSize, weight: style.fontWeight })));
-  const room = width - padX * 1.5 - (lineNumbers ? context.measure(String(lines.length), { family: style.fontFamily, size: baseSize, weight: style.fontWeight }) + baseSize * 1.4 : 0);
-  const size = baseSize * Math.max(0.62, Math.min(1, room / longest));
-  const lineHeight = size * style.lineHeight;
-  const gutter = lineNumbers ? round(context.measure(String(lines.length), { family: style.fontFamily, size, weight: style.fontWeight }) + size * 1.4) : 0;
+  // Long lines wrap inside the window. Only when the wrapped code is taller than
+  // the window does it shrink, and never below 80% of its set size.
+  let size = baseSize;
+  let rows: CodeRow[] = [];
+  let gutter = 0;
+  let lineHeight = 0;
+  let visible = 1;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const font = { family: style.fontFamily, size, weight: style.fontWeight };
+    const tracking = style.letterSpacing * size;
+    const measure = (text: string) => context.measure(text, font) + Math.max(0, [...text].length - 1) * tracking;
+    gutter = lineNumbers ? round(context.measure(String(lines.length), font) + size * 1.4) : 0;
+    lineHeight = size * style.lineHeight;
+    visible = Math.max(1, Math.floor((height - header - size * 1.4) / lineHeight));
+    rows = wrapCodeLines(lines, width - padX * 1.5 - gutter, measure);
+    if (rows.length <= visible || size <= baseSize * 0.8) break;
+    size = Math.max(baseSize * 0.8, size * 0.95);
+  }
   const top = y + header + size * 1.1;
-  const visible = Math.max(1, Math.floor((height - header - size * 1.4) / lineHeight));
   const tracking = round(style.letterSpacing * size);
-  const body = lines.slice(0, visible).map((tokens, index) => {
+  const body = rows.slice(0, visible).map((row, index) => {
     const lineTop = top + index * lineHeight;
     const baseline = round(lineTop + lineHeight / 2 + size * 0.35);
-    const band = highlighted.has(index + 1)
+    const marked = highlighted.has(row.line);
+    const band = marked
       ? `<rect x="${round(x)}" y="${round(lineTop)}" width="${round(width)}" height="${round(lineHeight)}" fill="${theme.accent}" opacity="0.14"/><rect x="${round(x)}" y="${round(lineTop)}" width="3" height="${round(lineHeight)}" fill="${theme.accent}"/>`
       : '';
-    const number = lineNumbers
-      ? `<text x="${round(x + padX + gutter - size * 1.2)}" y="${baseline}" text-anchor="end" fill="${highlighted.has(index + 1) ? theme.foreground : theme.gutter}" font-family="${family}" font-size="${round(size)}" font-weight="${style.fontWeight}">${index + 1}</text>`
+    const number = lineNumbers && !row.continuation
+      ? `<text x="${round(x + padX + gutter - size * 1.2)}" y="${baseline}" text-anchor="end" fill="${marked ? theme.foreground : theme.gutter}" font-family="${family}" font-size="${round(size)}" font-weight="${style.fontWeight}">${row.line}</text>`
       : '';
-    const content = tokens.length > 0
-      ? tokens.map(({ color, content: value }) => `<tspan fill="${color}">${escapeXml(value)}</tspan>`).join('')
+    const content = row.tokens.length > 0
+      ? row.tokens.map(({ color, content: value }) => `<tspan fill="${color}">${escapeXml(value)}</tspan>`).join('')
       : ' ';
     return `${band}${number}<text x="${round(x + padX + gutter)}" y="${baseline}" fill="${theme.foreground}" font-family="${family}" font-size="${round(size)}" font-weight="${style.fontWeight}" letter-spacing="${tracking}" xml:space="preserve">${content}</text>`;
   }).join('');
@@ -562,7 +653,10 @@ export function layoutLockup(element: CanvasElement, context: ExpressionRenderCo
       const textWidth = context.measure(partner.label, { family: partner.fontFamily ?? 'Inter', size, weight: partner.fontWeight ?? 500 });
       return { height: size, width: textWidth };
     }
-    const aspect = Math.max(0.2, context.assetAspect?.(partner.assetId) ?? partner.aspect);
+    // Balance partners on the ink they show, not the padding in their files.
+    const artwork = context.assetArtwork?.(partner.assetId) ?? null;
+    const fileAspect = context.assetAspect?.(partner.assetId) ?? artwork?.aspect ?? partner.aspect;
+    const aspect = Math.max(0.2, artwork ? inkAspect(fileAspect, artwork.ink) : fileAspect);
     if (sizing === 'height') return { height: unit * 0.62, width: unit * 0.62 * aspect };
     if (sizing === 'width') {
       const widthTarget = unit * 1.8;
@@ -606,8 +700,12 @@ function renderLockup(element: CanvasElement, context: ExpressionRenderContext):
       parts.push(`<text data-lockup-partner="${escapeXml(partner.id)}" x="${round(cursor)}" y="${round(top + h * 0.82)}" fill="${fill}" font-family="${family}" font-size="${size}" font-weight="${partner.fontWeight ?? 500}" letter-spacing="${round((partner.letterSpacing ?? 0) * size)}">${escapeXml(partner.label)}</text>`);
     } else {
       const source = context.assetSource(partner.assetId);
+      const artwork = context.assetArtwork?.(partner.assetId) ?? null;
+      const fileAspect = context.assetAspect?.(partner.assetId) ?? artwork?.aspect ?? null;
+      const exact = Boolean(fileAspect && artwork);
+      const placed = exact ? placeInk({ height: h, width: w, x: cursor, y: top }, fileAspect!, artwork!.ink) : { height: h, width: w, x: cursor, y: top };
       if (source) {
-        parts.push(`<image data-lockup-partner="${escapeXml(partner.id)}" href="${escapeXml(source)}" x="${round(cursor)}" y="${round(top)}" width="${round(w)}" height="${round(h)}" preserveAspectRatio="xMidYMid meet"${tone === 'mono' ? ` filter="url(#${toneId})"` : ''}/>`);
+        parts.push(`<image data-lockup-partner="${escapeXml(partner.id)}" href="${escapeXml(source)}" x="${round(placed.x)}" y="${round(placed.y)}" width="${round(placed.width)}" height="${round(placed.height)}" preserveAspectRatio="${exact ? 'none' : 'xMidYMid meet'}"${tone === 'mono' ? ` filter="url(#${toneId})"` : ''}/>`);
       }
     }
     cursor += w;
@@ -685,8 +783,8 @@ export function renderExpressionElement(element: CanvasElement, context: Express
   const { height, rotation, width, x, y } = element.bounds;
   const transform = rotation ? ` transform="rotate(${round(rotation)} ${round(x + width / 2)} ${round(y + height / 2)})"` : '';
   const opacity = element.style.opacity < 1 ? ` opacity="${round(element.style.opacity)}"` : '';
-  const blend = element.style.blendMode !== 'normal' ? ` style="mix-blend-mode:${element.style.blendMode}"` : '';
-  return `<g data-element-id="${escapeXml(element.id)}"${transform}${opacity}${blend}>${body}</g>`;
+  const blend = element.style.blendMode !== 'normal' ? `;mix-blend-mode:${element.style.blendMode}` : '';
+  return `<g data-element-id="${escapeXml(element.id)}"${transform}${opacity} style="${EXPRESSION_TEXT_STYLE}${blend}">${body}</g>`;
 }
 
 export type ExpressionFontFace = { family: string; source: string };

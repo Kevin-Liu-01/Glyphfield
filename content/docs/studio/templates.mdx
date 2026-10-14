@@ -19,6 +19,16 @@ OpenGraph, Terminal card, Partnership lockup, Blog cover, and Slide templates sh
 | Blog cover | 1200 × 630 | Same as OpenGraph | Editorial, Feature image, Statement, Centered, Index | [Blog cover](/docs/studio/blog-cover) |
 | Slide templates | 1600 × 900 | 16:9, 4:3, Square | 14 slide layouts per slide | [Slide templates](/docs/studio/slide-templates) |
 
+## Type, spacing, and logos
+
+Every template sizes type from one modular scale per format (ratio 4:3) based on the artboard area. On a 1600 × 900 slide the title is 67px (7.4% of the height), content headlines 50px, list items 28px, body 21px, and footers 16px. Social formats run larger at the same proportions because they are read as thumbnails: a 1200 × 630 card sets its headline at 58px and its body at 18px.
+
+Tracking follows the size the text is set at: −0.022em at title size, −0.018em at headline size, tapering to 0 at body size. It is never positive, and code keeps its designed spacing. Text renders with kerning and the font's `kern` feature on, and with the optical size of its export size where the font has an optical-size axis. The canvas, the inline text editor, and exported SVG and PNG files use the same settings.
+
+Templates put no labels above headlines. Metadata such as the website, the page number, a metric's label, or a comparison side goes in the footer or after its content.
+
+Logos are sized by the ink they show. Bundled logo files carry a measured ink box (`scripts/generate-logo-ink.mjs` writes it), and a mark's height falls as its width grows (height ∝ aspect^−0.4), so a square monogram and a long wordmark carry similar weight.
+
 ## Edit on the canvas
 
 - **Select** a layer by clicking it on the canvas or in the **Layers** list. Shift-click or Command-click adds layers to the selection.

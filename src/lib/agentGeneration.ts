@@ -48,7 +48,7 @@ import {
 } from '@/lib/expressionGeneration';
 import { expressionFormats, expressionState, type ExpressionToolKind } from '@/lib/expressionModel';
 import { CODE_LANGUAGES } from '@/lib/expressionSvg';
-import { brandBackgroundPalette, brandBackgroundPattern, expressionLayouts, expressionPartnerOptions } from '@/lib/expressionTemplates';
+import { brandBackgroundPalette, brandPatternSettings, expressionLayouts, expressionPartnerOptions } from '@/lib/expressionTemplates';
 
 const AGENT_IDENTITY_PRESETS = [
   'custom',
@@ -696,8 +696,13 @@ function brandBackgroundDefaults(identity: AgentIdentity, input: Record<string, 
     colorC,
     logoColor: readableOn(colorA, brand),
     logoTone: readableOn(colorA, brand) === baseColor(brand, 'paper', '#FFFFFF') ? 'white' : 'black',
-    pattern: style === 'pattern' ? brandBackgroundPattern(brand) : DEFAULT_BACKGROUND_SETTINGS.pattern,
-    patternOpacity: style === 'pattern' ? 34 : DEFAULT_BACKGROUND_SETTINGS.patternOpacity,
+    ...(style === 'pattern'
+      ? brandPatternSettings(
+        brand,
+        typeof settings.width === 'number' ? settings.width : DEFAULT_BACKGROUND_SETTINGS.width,
+        typeof settings.height === 'number' ? settings.height : DEFAULT_BACKGROUND_SETTINGS.height
+      )
+      : {}),
   };
 }
 

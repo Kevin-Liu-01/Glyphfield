@@ -23,6 +23,7 @@ import {
   type TextMeasure,
 } from './expressionSvg';
 import { createExpressionDocument, expressionColors, setPageSurface } from './expressionTemplates';
+import { assetArtworkLookup } from './expressionType';
 import { choosePartner, setBackgroundImage, setLegacySurface, setLockupPartner } from './expressionToolOperations';
 
 /**
@@ -223,6 +224,7 @@ export function renderExpressionGeneration(
     fonts.push({ family: alias, source });
   }
   const content = buildExpressionPageSvg(document, pageId, {
+    assetArtwork: assetArtworkLookup(document.assets),
     assetAspect: (assetId) => {
       const source = resolve(assetId);
       return source ? dataUrlAspect(source) : null;

@@ -2,6 +2,7 @@ import type { CanvasDocument } from './canvasDocument';
 import { imageUrlToDataUrl, resolveSvgRasterDimensions } from './download';
 import { elementComponent, pageElements, readLockupPartners } from './expressionModel';
 import { hashString } from './expressionSource';
+import { assetArtworkLookup } from './expressionType';
 import {
   buildExpressionPageSvg,
   defaultFontFamily,
@@ -73,6 +74,7 @@ export async function prepareExpressionExport(document: CanvasDocument, pageId: 
   }
   const context: ExpressionRenderContext = {
     ...base,
+    assetArtwork: assetArtworkLookup(document.assets),
     assetSource: (assetId) => (assetId ? sources.get(assetId) ?? null : null),
     fontFamily: (assetId, family) => {
       const alias = assetId ? aliases.get(assetId) : undefined;

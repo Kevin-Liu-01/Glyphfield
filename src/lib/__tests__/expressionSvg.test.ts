@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { BUILT_IN_BRAND_IDENTITIES } from '../brandIdentity';
 import { buildPdf, deflate, rgbaToRgb } from '../expressionExport';
 import { addExpressionLayer, updateExpressionLayer } from '../expressionOperations';
-import { patchElement, slotElement, pageElements, elementComponent } from '../expressionModel';
+import { activeCodeTab, patchElement, slotElement, pageElements, elementComponent } from '../expressionModel';
+import { setCodeTab } from '../expressionSource';
 import {
   buildExpressionPageSvg,
   estimateTextWidth,
@@ -89,6 +90,17 @@ describe('expression renderer', () => {
     const lines = highlightCodeLines('const a = "b";\n// c', 'typescript', resolveCodeTheme('brand-dark', expressionColors(gt)));
     expect(lines).toHaveLength(2);
     expect(lines[0]!.map(({ content }) => content).join('')).toBe('const a = "b";');
+  });
+
+  it('badges code tabs with the real TypeScript, Python, and Bash artwork', () => {
+    let document = createExpressionDocument('terminal', gt);
+    const code = pageElements(document, document.pageIds[0]!).find((element) => elementComponent(element) === 'code')!;
+    expect(renderExpressionElement(code, contextFor(document))).toContain('data-language-icon="bash"');
+    document = setCodeTab(document, code.id, activeCodeTab(code)!.id, { code: 'print("hello")', language: 'python' });
+    const svg = renderExpressionElement(document.elements[code.id]!, contextFor(document));
+    expect(svg).toContain('data-language-icon="python"');
+    expect(svg).toContain('stop-color="#387EB8"');
+    expect(svg).toContain('stop-color="#FFE052"');
   });
 
   it('balances three or more partners optically and follows lockup rules', () => {
