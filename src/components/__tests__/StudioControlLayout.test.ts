@@ -26,7 +26,7 @@ describe('shared Studio control layout', () => {
   it('flashes semantic solid icons only while the shared sidebar signal panel is hovered', () => {
     const panel = source('src/components/SidebarDitherPanel.tsx');
     const studio = source('src/components/StudioApp.tsx');
-    const styles = source('src/app/globals.css');
+    const styles = `${source('src/app/globals.css')}\n${source('src/app/studio/studio.css')}`;
 
     expect(panel).toContain("className='project-dither-symbols'");
     expect(panel).toContain("aria-hidden='true'");
@@ -54,7 +54,7 @@ describe('shared Studio control layout', () => {
     const button = source('src/components/ui/Button.tsx');
     const designLab = readDesignLabSource();
     const studio = source('src/components/StudioApp.tsx');
-    const styles = source('src/app/globals.css');
+    const styles = `${source('src/app/globals.css')}\n${source('src/app/studio/studio.css')}`;
 
     expect(button).toContain("toolbar: \"h-9 gap-1.5 px-2.5 text-xs");
     expect(button).toContain("'icon-toolbar': \"size-9 text-xs");
@@ -69,7 +69,7 @@ describe('shared Studio control layout', () => {
 
   it('uses one shared label and value scale for range controls', () => {
     const label = source('src/components/StudioRangeLabel.tsx');
-    const styles = source('src/app/globals.css');
+    const styles = `${source('src/app/globals.css')}\n${source('src/app/studio/studio.css')}`;
 
     expect(label).toContain("className='studio-range-value'");
     expect(styles).toContain('--studio-control-label-size: 0.6875rem;');
@@ -80,7 +80,7 @@ describe('shared Studio control layout', () => {
 
   it('reflows timing choices instead of compressing or wrapping their text', () => {
     const controls = source('src/components/StudioControls.tsx');
-    const styles = source('src/app/globals.css');
+    const styles = `${source('src/app/globals.css')}\n${source('src/app/studio/studio.css')}`;
 
     expect(controls).toContain("className='studio-choice-grid studio-choice-grid-timing'");
     expect(controls).toContain("className='studio-choice-grid studio-choice-grid-easing'");
@@ -93,7 +93,7 @@ describe('shared Studio control layout', () => {
     const artboardBar = source('src/components/StudioArtboardBar.tsx');
     const controls = source('src/components/StudioControls.tsx');
     const sizeMenu = source('src/components/ArtboardSizeMenu.tsx');
-    const styles = source('src/app/globals.css');
+    const styles = `${source('src/app/globals.css')}\n${source('src/app/studio/studio.css')}`;
 
     expect(animation).toContain("ariaLabel='Animation artboards'");
     expect(animation).toContain("selectLabel='Active animation artboard'");
@@ -119,7 +119,7 @@ describe('shared Studio control layout', () => {
 
   it('uses the same size menu in Design Lab without changing legacy square drafts', () => {
     const designLab = readDesignLabSource();
-    const styles = source('src/app/globals.css');
+    const styles = `${source('src/app/globals.css')}\n${source('src/app/studio/studio.css')}`;
 
     expect(designLab).toContain('<StudioArtboardBar');
     expect(designLab).toContain("className='design-lab-artboard-bar'");
@@ -138,7 +138,7 @@ describe('shared Studio control layout', () => {
 
   it('keeps the Design Lab shader search attached to its header without a divider', () => {
     const designLab = readDesignLabSource();
-    const styles = source('src/app/globals.css');
+    const styles = `${source('src/app/globals.css')}\n${source('src/app/studio/studio.css')}`;
 
     expect(designLab).toContain("className='shader-lab-v2-panel-heading'");
     expect(designLab).toContain("className='shader-lab-v2-search'");
@@ -151,7 +151,7 @@ describe('shared Studio control layout', () => {
     const controls = source('src/components/StudioControls.tsx');
     const gallery = source('src/components/AnimationPackageGallery.tsx');
     const shaderLibrary = source('src/components/ShaderLibrarySidebar.tsx');
-    const styles = source('src/app/globals.css');
+    const styles = `${source('src/app/globals.css')}\n${source('src/app/studio/studio.css')}`;
 
     expect(controls).not.toContain("type AnimationSetupSection = 'source' | 'motion' | 'background'");
     expect(controls).not.toContain("className='animation-setup-navigation'");
@@ -206,7 +206,7 @@ describe('shared Studio control layout', () => {
     const timeline = source('src/components/TimelinePanel.tsx');
     const preview = source('src/components/AnimationTimelinePreview.tsx');
     const audio = source('src/components/AnimationAudioTrack.tsx');
-    const styles = source('src/app/globals.css');
+    const styles = `${source('src/app/globals.css')}\n${source('src/app/studio/studio.css')}`;
 
     expect(timeline).toContain('data-animation-storyboard');
     expect(timeline).toContain("kind='frame'");
@@ -259,7 +259,7 @@ describe('shared Studio control layout', () => {
   it('opens Animation Studio with the first layer selected and a static inspector preview', () => {
     const animation = source('src/components/AnimationStudio.tsx');
     const controls = source('src/components/StudioControls.tsx');
-    const styles = source('src/app/globals.css');
+    const styles = `${source('src/app/globals.css')}\n${source('src/app/studio/studio.css')}`;
 
     expect(animation).toContain("sequenceOrder[0]");
     expect(animation).toContain("? 'brand-logo' : 'text-0'");
@@ -280,7 +280,7 @@ describe('shared Studio control layout', () => {
     const sequenceTooltip = source('src/components/AnimationSequenceTooltipPreview.tsx');
     const designLab = readDesignLabSource();
     const tooltip = source('src/components/ui/StudioPreviewTooltip.tsx');
-    const styles = source('src/app/globals.css');
+    const styles = `${source('src/app/globals.css')}\n${source('src/app/studio/studio.css')}`;
 
     expect(animation).toContain('<StudioPreviewTooltip');
     expect(animation).not.toContain("eyebrow={`Frame ${String(index + 1).padStart(2, '0')}`}");
@@ -344,7 +344,7 @@ describe('shared Studio control layout', () => {
 
   it('gives the header-free Animation presentation one full-height grid row without changing normal Studio', () => {
     const animation = source('src/components/AnimationStudio.tsx');
-    const styles = source('src/app/globals.css');
+    const styles = `${source('src/app/globals.css')}\n${source('src/app/studio/studio.css')}`;
     const studioRows = styles.match(/\.animation-studio\s*\{[^}]*grid-template-rows:\s*([^;]+);[^}]*\}/);
     const presentationRows = styles.match(/\.animation-studio-presentation\s*\{[^}]*grid-template-rows:\s*([^;]+);[^}]*\}/);
 

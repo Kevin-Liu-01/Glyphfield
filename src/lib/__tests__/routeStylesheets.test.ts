@@ -36,4 +36,12 @@ describe('route stylesheets', () => {
     });
     expect(offRoute).toEqual([]);
   });
+
+  it('loads Studio-only rules from the Studio route, never the landing page or the docs', () => {
+    const page = readFileSync('src/app/studio/page.tsx', 'utf8');
+    const importers = sourceFiles('src').filter((file) => readFileSync(file, 'utf8').includes("studio.css'"));
+
+    expect(page.startsWith("import './studio.css';")).toBe(true);
+    expect(importers).toEqual(['src/app/studio/page.tsx']);
+  });
 });

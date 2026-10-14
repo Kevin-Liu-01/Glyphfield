@@ -18,7 +18,10 @@ const canvasDocumentAutosave = readFileSync(join(process.cwd(), 'src/hooks/useCa
 const portableCanvasWorkspace = readFileSync(join(process.cwd(), 'src/hooks/usePortableCanvasWorkspace.ts'), 'utf8');
 const studioSelect = readFileSync(join(process.cwd(), 'src/components/ui/StudioSelect.tsx'), 'utf8');
 const stickerScene = readFileSync(join(process.cwd(), 'src/components/StickerDeviceScene.tsx'), 'utf8');
-const studioStyles = readFileSync(join(process.cwd(), 'src/app/globals.css'), 'utf8');
+// Studio-only rules live in the /studio route stylesheet; shared rules stay global.
+const studioStyles = ['src/app/globals.css', 'src/app/studio/studio.css']
+  .map((path) => readFileSync(join(process.cwd(), path), 'utf8'))
+  .join('\n');
 
 describe('Playground optional layers', () => {
   it('publishes the Design Lab catalog id through browser automation while retaining the legacy draft scope', () => {

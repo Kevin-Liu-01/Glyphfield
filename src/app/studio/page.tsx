@@ -1,3 +1,5 @@
+import './studio.css';
+
 import StudioApp from '@/components/StudioApp';
 import { SITE_URL, absoluteUrl, serializeJsonLd } from '@/lib/seo';
 

@@ -21,6 +21,12 @@ machine-readable resources, and global visual foundations.
 - `llms-full.txt/route.ts` concatenates the same processed docs corpus.
 - `openapi.json` returns `OPENAPI_DOCUMENT`; `api/search` powers docs search.
 - `globals.css` and `docs/docs.css` own shared chrome and documentation visuals.
+- `studio/studio.css` holds rules for Studio-only components (Design Lab, Shader Lab, the brand pages,
+  artboards, image crop, sticker maker, component library, project folders). Only `studio/page.tsx`
+  imports it, so the landing page and the docs never download it. Put new rules for those components
+  there; rules for anything the landing or docs render (the embedded Animation editor, search, shared
+  controls) stay in `globals.css`. A few global overrides are repeated at the right position in
+  `studio.css` so they still win inside the Studio; keep that order when editing either file.
 
 ## Patterns to follow / invariants
 

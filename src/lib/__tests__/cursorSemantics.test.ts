@@ -9,7 +9,7 @@ function source(path: string) {
 
 describe('interactive cursor semantics', () => {
   it('gives semantic controls a low-specificity pointer baseline', () => {
-    const styles = source('src/app/globals.css');
+    const styles = `${source('src/app/globals.css')}\n${source('src/app/studio/studio.css')}`;
 
     expect(styles).toMatch(
       /:where\(\s*a\[href\],[\s\S]*?button:not\(:disabled\),[\s\S]*?\[role='tab'\]:not\(\[aria-disabled='true'\]\),[\s\S]*?\[role='option'\]:not\(\[aria-disabled='true'\]\)[\s\S]*?\)\s*\{\s*cursor: pointer;/
@@ -20,7 +20,7 @@ describe('interactive cursor semantics', () => {
   });
 
   it('keeps project tabs and select options visibly clickable', () => {
-    const styles = source('src/app/globals.css');
+    const styles = `${source('src/app/globals.css')}\n${source('src/app/studio/studio.css')}`;
     const select = source('src/components/ui/StudioSelect.tsx');
 
     expect(styles).toMatch(
@@ -36,7 +36,7 @@ describe('interactive cursor semantics', () => {
 
   it('does not regress specialized canvas and resize affordances', () => {
     // The color proof's crosshair moved into the Color tokens CSS module.
-    const styles = `${source('src/app/globals.css')}\n${source('src/components/tools/color/ColorTool.module.css')}`;
+    const styles = `${source('src/app/globals.css')}\n${source('src/app/studio/studio.css')}\n${source('src/components/tools/color/ColorTool.module.css')}`;
 
     expect(styles).toContain('cursor: grab;');
     expect(styles).toContain('cursor: grabbing;');
