@@ -50,6 +50,7 @@ import BrandFontFaces from '@/components/BrandFontFaces';
 import GitHubStarButton from '@/components/GitHubStarButton';
 import SidebarDitherPanel from '@/components/SidebarDitherPanel';
 import StudioCommandPalette from '@/components/StudioCommandPalette';
+import StudioConfirmDialog from '@/components/StudioConfirmDialog';
 import StudioCreateProjectMenu from '@/components/StudioCreateProjectMenu';
 import StudioActionMenu from '@/components/ui/StudioActionMenu';
 import { StudioExportProgressProvider } from '@/components/StudioExportProgress';
@@ -1244,6 +1245,8 @@ export default function StudioApp() {
   const [pendingIdentities, setPendingIdentities] = useState<Record<string, BrandIdentity>>({});
   const [identitiesReady, setIdentitiesReady] = useState(false);
   const [duplicatingProject, setDuplicatingProject] = useState(false);
+  // The project the delete confirmation names; it closes if another project becomes active.
+  const [deleteConfirmationId, setDeleteConfirmationId] = useState<string | null>(null);
   const [projectError, setProjectError] = useState<string | null>(null);
   const duplicatePendingRef = useRef(false);
   const activateCreatedIdentityRef = useCommittedRef(activateCreatedIdentity);
@@ -2014,7 +2017,7 @@ export default function StudioApp() {
                 { id: 'duplicate', label: gt('Duplicate active project'), description: gt('Copy every workspace, asset, and saved checkpoint.'), icon: <Copy />, onSelect: copyIdentity },
                 { id: 'close-others', label: gt('Close other project tabs'), description: gt('Close tabs without deleting their work.'), icon: <PanelTopClose />, disabled: openIdentityIds.length <= 1, onSelect: closeOtherIdentities },
               ] },
-              { items: activeIdentity.builtIn ? [] : [{ id: 'delete', label: gt('Delete active project'), danger: true, icon: <Trash2 />, onSelect: removeIdentity }] },
+              { items: activeIdentity.builtIn ? [] : [{ id: 'delete', label: gt('Delete active project'), danger: true, icon: <Trash2 />, onSelect: () => setDeleteConfirmationId(activeIdentity.id) }] },
             ]} />
             <StudioErrorNotice error={projectError} onDismiss={() => setProjectError(null)} title='Could not duplicate project' />
             <ProjectFolderMenu
@@ -2079,6 +2082,19 @@ export default function StudioApp() {
           activeToolId={activeToolId}
           onClose={closeCommandPalette}
           onSelect={selectTool}
+        />
+      ) : null}
+      {deleteConfirmationId === activeIdentity.id && !activeIdentity.builtIn ? (
+        <StudioConfirmDialog
+          cancelLabel={gt('Cancel')}
+          confirmLabel={gt('Delete project')}
+          description={gt('{name} is removed from your projects in this browser. This cannot be undone.', { name: activeIdentity.name })}
+          onCancel={() => setDeleteConfirmationId(null)}
+          onConfirm={() => {
+            setDeleteConfirmationId(null);
+            removeIdentity();
+          }}
+          title={gt('Delete {name}?', { name: activeIdentity.name })}
         />
       ) : null}
       <StudioSaveToast
