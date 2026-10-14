@@ -110,11 +110,11 @@ function DocsThemeGallery() {
     <div className='docs-theme-gallery not-prose'>
       <figure>
         <figcaption><span>Studio / Light</span><small>1600 × 900</small></figcaption>
-        <Image alt='General Translation moodboard in Glyphfield Studio light mode' height={900} src='/screenshots/studio-gt-moodboard-light-2026.png' width={1600} />
+        <Image alt='General Translation moodboard in Glyphfield Studio light mode' height={900} src='/screenshots/studio-gt-moodboard-light-2026.webp' width={1600} />
       </figure>
       <figure>
         <figcaption><span>Studio / Dark</span><small>1600 × 900</small></figcaption>
-        <Image alt='General Translation moodboard in Glyphfield Studio dark mode' height={900} src='/screenshots/studio-gt-moodboard-dark-2026.png' width={1600} />
+        <Image alt='General Translation moodboard in Glyphfield Studio dark mode' height={900} src='/screenshots/studio-gt-moodboard-dark-2026.webp' width={1600} />
       </figure>
     </div>
   );

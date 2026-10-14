@@ -3,17 +3,21 @@
   "icon": "BookMarked",
   "pages": [
     "index",
+    "---Contracts---",
     "endpoints",
     "browser-api",
-    "social-previews",
-    "capability-matrix",
     "source-formats",
+    "capability-matrix",
     "version-compatibility",
+    "social-previews",
+    "---Studio---",
+    "shortcuts",
     "browser-support",
+    "accessibility",
+    "---Operations---",
     "self-hosting",
     "api-security",
     "troubleshooting",
-    "accessibility",
-    "shortcuts"
+    "licensing"
   ]
 }
