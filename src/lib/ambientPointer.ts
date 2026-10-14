@@ -1,19 +1,14 @@
 /**
  * A virtual cursor for pointer-driven Shaders.com effects. Upstream reads the pointer from
- * window mouse events, so interactive effects stay blank until someone moves the mouse.
- * While nobody is moving the real pointer, this traces a slow loop over the surface instead.
+ * window mouse events, so interactive effects stay blank until someone moves the mouse over them.
+ * While the real pointer is away from a surface, this traces a slow loop over it instead, and puts
+ * that position back after every real move elsewhere so the effect never jumps to the side panels.
  */
-const REAL_POINTER_HOLD_MS = 2_500;
+const REAL_POINTER_HOLD_MS = 1_500;
 
-let lastRealPointerAt = Number.NEGATIVE_INFINITY;
-let listening = false;
-
-function listenForRealPointer() {
-  if (listening || typeof window === 'undefined') return;
-  listening = true;
-  // Synthetic mouse events never produce pointer events, so any pointermove is a real person.
-  window.addEventListener('pointermove', () => { lastRealPointerAt = performance.now(); }, { capture: true, passive: true });
-}
+let lastRealPointer = { at: Number.NEGATIVE_INFINITY, x: 0, y: 0 };
+let driven: { element: HTMLElement; timeSeconds: number } | null = null;
+const relayedElements = new WeakSet<HTMLElement>();
 
 /** Normalized position on a slow two-frequency loop, kept away from the edges. */
 export function ambientPointerPosition(timeSeconds: number): { x: number; y: number } {
@@ -23,10 +18,14 @@ export function ambientPointerPosition(timeSeconds: number): { x: number; y: num
   };
 }
 
-/** Moves the shared pointer over `element`; returns false while a real pointer is in use. */
-export function driveAmbientPointer(element: HTMLElement, timeSeconds: number, force = false): boolean {
-  listenForRealPointer();
-  if (!force && performance.now() - lastRealPointerAt < REAL_POINTER_HOLD_MS) return false;
+/** True while a person has recently moved the real pointer over `bounds`. */
+export function realPointerOver(bounds: DOMRect, now: number): boolean {
+  if (now - lastRealPointer.at >= REAL_POINTER_HOLD_MS) return false;
+  const { x, y } = lastRealPointer;
+  return x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom;
+}
+
+function dispatchAmbient(element: HTMLElement, timeSeconds: number): boolean {
   const bounds = element.getBoundingClientRect();
   if (bounds.width < 1 || bounds.height < 1) return false;
   const { x, y } = ambientPointerPosition(timeSeconds);
@@ -35,4 +34,33 @@ export function driveAmbientPointer(element: HTMLElement, timeSeconds: number, f
     clientY: bounds.top + y * bounds.height,
   }));
   return true;
+}
+
+function onMouseMove(event: MouseEvent) {
+  // Synthetic events (ours) are untrusted; only a person's moves change who owns the pointer.
+  if (!event.isTrusted) return;
+  lastRealPointer = { at: performance.now(), x: event.clientX, y: event.clientY };
+  if (driven?.element.isConnected && !realPointerOver(driven.element.getBoundingClientRect(), lastRealPointer.at)) {
+    dispatchAmbient(driven.element, driven.timeSeconds);
+  }
+}
+
+/**
+ * Upstream registers its window listener when a renderer starts. Re-adding ours after that keeps
+ * it later in the listener order, so the ambient position is the last one upstream reads.
+ */
+function relayAfterUpstream(element: HTMLElement) {
+  if (relayedElements.has(element)) return;
+  relayedElements.add(element);
+  window.removeEventListener('mousemove', onMouseMove);
+  window.addEventListener('mousemove', onMouseMove, { passive: true });
+}
+
+/** Moves the shared pointer over `element`; returns false while a person's pointer is over it. */
+export function driveAmbientPointer(element: HTMLElement, timeSeconds: number, force = false): boolean {
+  if (typeof window === 'undefined') return false;
+  relayAfterUpstream(element);
+  driven = { element, timeSeconds };
+  if (!force && realPointerOver(element.getBoundingClientRect(), performance.now())) return false;
+  return dispatchAmbient(element, timeSeconds);
 }
