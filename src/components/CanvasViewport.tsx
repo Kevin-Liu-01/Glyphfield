@@ -510,7 +510,9 @@ export default function CanvasViewport({
         navigateCanvas(resizeCanvasNavigationPan({ ...previous, pan: panOffsetRef.current, zoom: zoomRef.current }, size), true);
       }
     };
-    resize();
+    // A mounting editor gets its size from the observer's first callback, after
+    // the browser's own layout, rather than forcing that layout inside the commit.
+    if (viewInitializedRef.current) resize();
     const observer = new ResizeObserver(resize);
     observer.observe(scrollElement);
     return () => observer.disconnect();
