@@ -11910,6 +11910,8 @@ html.dark .studio-app .studio-app-header > a img {
   border-radius: 0 !important;
 }
 
+/* Collapsing changes width at once (animating width would lay out and resize every
+   editor canvas each frame); the panel content fades back in on expand. */
 .resizable-sidebar {
   position: relative;
   min-width: 0;
@@ -11917,7 +11919,6 @@ html.dark .studio-app .studio-app-header > a img {
   flex: none;
   overflow: visible !important;
   isolation: isolate;
-  transition: width 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .resizable-sidebar-scroll {
@@ -11926,6 +11927,17 @@ html.dark .studio-app .studio-app-header > a img {
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  transition: opacity 160ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .resizable-sidebar-scroll {
+    transition: none;
+  }
+}
+
+.studio-app[data-studio-motion='reduced'] .resizable-sidebar-scroll {
+  transition: none;
 }
 
 .resizable-sidebar[data-resizing='true'] {

@@ -2,6 +2,7 @@
 
 import {
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -10,8 +11,6 @@ import {
   type Ref,
   type ReactNode,
 } from 'react';
-
-import { useMountEffect } from '@/hooks/useMountEffect';
 
 type ResizeEdge = 'left' | 'right';
 
@@ -70,12 +69,14 @@ export default function ResizableSidebar({
     startX: 0,
   });
 
-  useMountEffect(() => {
+  // Before paint, so a stored width or collapsed state never animates in
+  // (the width transition) each time a tool mounts.
+  useLayoutEffect(() => {
     setWidth(
       clamp(readStoredNumber(widthStorageKey, defaultWidth), minWidth, maxWidth)
     );
     setCollapsed(readStoredBoolean(collapsedStorageKey));
-  });
+  }, []);
 
   const style = {
     '--resizable-sidebar-expanded-width': `${width}px`,
