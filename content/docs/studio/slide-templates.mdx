@@ -4,35 +4,37 @@ description: Multi-slide decks with per-slide layouts, speaker notes, slide numb
 icon: Presentation
 ---
 
-Slide templates is a deck. A new deck has five slides built from the identity: a title slide with its promise as the subtitle, an agenda from its strategy pillars, its proof (figures as metrics, or customer logos as a proof wall, or a statement when it has neither), a quote in its voice, and a closing slide with its website.
+Slide templates (tool ID `slides`) builds decks. A new deck has five slides built from the identity: a title slide with its promise as the subtitle, an agenda from its strategy pillars, its proof (figures as metrics, or customer logos as a proof wall, or a statement when it has neither), a quote in its voice, and a closing slide with its website.
 
 <DocsMediaGrid>
-  <DocsMedia alt='General Translation title slide in the slide editor with the deck list and content inspector' caption='Title slide' meta='1600 × 900 · dark chrome' src='/screenshots/studio-gt-slides-dark-2026.png' />
+  <DocsMedia alt='General Translation title slide in the slide editor with the deck list and content inspector' caption='Title slide' meta='1600 × 900 · dark chrome' src='/screenshots/studio-gt-slides-dark-2026.webp' />
   <DocsMedia alt='Stripe metrics slide with two proof figures and their labels' caption='Metrics slide' meta='Stripe · light chrome' src='/screenshots/studio-stripe-slides-light-2026.png' />
 </DocsMediaGrid>
 
 ## Slides
 
-The **Slides** section lists every slide with a live thumbnail. Click a slide to edit it. **Add slide** inserts a slide after the current one in the chosen **New slide layout**; **Duplicate slide**, **Move slide up**, **Move slide down**, and **Delete slide** act on the current slide. Drag a thumbnail to reorder, or focus it and press Alt with an arrow key.
+The **Slides** section lists every slide with a live thumbnail. Click a slide to edit it. **Add slide** inserts a slide after the current one in the chosen **New slide layout** (default Statement); **Duplicate slide**, **Move slide up**, **Move slide down**, and **Delete slide** act on the current slide. Drag a thumbnail to reorder, or focus it and press Alt with an arrow key.
 
-Each slide has its own layout. The **Slide library** applies one of 14 layouts to the current slide:
+Each slide has its own layout. The **Slide library** applies one of 14 layouts to the current slide. The layout ID is the lowercase name.
 
-1. Title
-2. Section
-3. Agenda
-4. Split
-5. Metrics
-6. Quote
-7. Timeline
-8. Statement
-9. Comparison
-10. Process
-11. Chart
-12. Team
-13. Image
-14. Closing
+| Layout | ID | Content |
+| --- | --- | --- |
+| Title | `title` | Headline, subtitle, mark |
+| Section | `section` | A section break |
+| Agenda | `agenda` | Up to 5 numbered items |
+| Split | `split` | Copy beside an image or the brand device |
+| Metrics | `metrics` | Proof figures, or a proof wall |
+| Quote | `quote` | A line in the brand voice |
+| Timeline | `timeline` | Up to 4 steps |
+| Statement | `statement` | One large statement |
+| Comparison | `comparison` | The challenge against the promise |
+| Process | `process` | Up to 4 steps |
+| Chart | `chart` | A bar chart with its values and labels |
+| Team | `team` | Up to 3 people |
+| Image | `image` | A full image |
+| Closing | `closing` | Closing line and website |
 
-Metrics and Chart use the identity's numeric proof. An identity without at least two figures gets a proof wall on Metrics instead: its customer logos as one lockup, or its named customers in the display face, or its proof claims as a ruled list. Chart then pairs the chart with the identity's promise rather than an invented number. Comparison sets the identity's challenge against its promise, labelled at the foot of each panel.
+Metrics and Chart use the identity's numeric proof. An identity without at least two figures gets a proof wall on Metrics instead: its customer logos as one lockup, or its named customers in the display face, or its proof claims as a ruled list. Chart pairs the bar chart with the identity's promise. Its **Chart values** and **Chart labels** start as placeholder data (Q1–Q5: 42, 68, 55, 88, 100) for every identity; replace them with real figures. Comparison sets the identity's challenge against its promise, labelled at the foot of each panel.
 
 Switching layouts keeps the slide's text: the headline, list items, metrics, and labels move into the new layout, and anything the new layout has no place for comes back when you switch again.
 
@@ -43,11 +45,15 @@ Switching layouts keeps the slide's text: the headline, list items, metrics, and
 - **Speaker notes** are stored on the slide.
 - **Surface** chooses **Base white**, **Base dark**, **Grid**, or **Noise** for the current slide, and **Add background image** places an image behind it.
 
-Footers can show slide numbers with `{page}` and `{pages}` in any text layer, for example `{page} / {pages}`.
+Footers show slide numbers with `{page}` and `{pages}` in any text layer, for example `{page} / {pages}`; numbers are zero-padded. Templates put the wordmark, website, and slide number in the footer.
+
+## Type rules
+
+Slides follow the shared type scale in [Expression tools](/docs/studio/templates#type-spacing-and-logos). On a 16:9 slide each line of a title is 6–8% of the slide height (67 px on 1600 × 900), content headlines stay at or below 6% (50 px), display tracking is negative, kerning is on, and no layout has a label above its headline.
 
 ## Formats and export
 
-Formats: 16:9 (1600 × 900), 4:3 (1600 × 1200), and Square (1200 × 1200); a format change re-flows every slide. **Export PNG** renders the current slide. **More exports → Export PDF deck** renders every slide into one PDF with lossless page images.
+Formats: `16x9` (1600 × 900), `4x3` (1600 × 1200), and `square` (1200 × 1200); a format change re-flows every slide. **Export PNG** renders the current slide at 2×. **More exports → Export SVG** downloads the current slide as SVG. **More exports → Export PDF deck** renders every slide at 2× into one PDF with lossless, Flate-compressed page images at 0.75 pt per pixel, so a 16:9 slide is a 1200 × 675 pt page. Speaker notes are not included in the PDF. The file is `studio-slides.pdf`.
 
 ## Browser actions
 
@@ -61,3 +67,9 @@ Formats: 16:9 (1600 × 900), 4:3 (1600 × 1200), and Square (1200 × 1200); a fo
 | `slides.layer.reorder` / `slides.layer.select` / `slides.layer.align` | Stack, selection, and alignment |
 | `slides.format.set` / `slides.layout.apply` / `slides.template.reset` | Format, layout (`pageId` optional), and template |
 | `slides.history.undo` / `slides.history.redo` | History |
+
+`slides.slide.add` takes `{ layout?, index? }` (default layout `statement`) and returns `{ pageId }`. `slides.slide.duplicate` takes `{ pageId? }`; `slides.slide.move` `{ pageId, index }`; `slides.slide.remove` and `slides.slide.select` `{ pageId }`. A deck keeps at least one slide. `slides.export.png` and `slides.export.svg` export the active slide; select a slide first to export another.
+
+## HTTP
+
+`POST /api/generate` with `{ kind: 'template', template: 'slides', slideLayout?, format?, title, body? }` renders one slide as SVG. `body` fills list items, one per line. See [Generation API](/docs/agents/generate#templates).

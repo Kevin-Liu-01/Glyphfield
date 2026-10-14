@@ -30,12 +30,12 @@ JPG is an opaque Design Lab still. Transparent pixels are composited against the
 
 ## GIF
 
-GIF is palette-based motion and has no audio channel. Glyphfield protects important brand/text colors and can build a global or per-frame palette depending on the export configuration.
+GIF is palette-based motion and has no audio channel. Glyphfield protects important brand and text colors. Design Lab builds a global palette, or a per-frame palette at Best quality; Animation and Lottie use one global palette.
 
-Two loop modes exist:
+Design Lab has two loop modes; Animation and Lottie record the clip as it plays:
 
-- **Raw motion** records the requested shader or animation interval without seam correction. Use it for already periodic motion or intentional hard cuts.
-- **Seamless** captures overlap, blends the tail toward recorded head frames, and verifies closure against the seam anchor.
+- **Raw motion** records the requested interval without seam correction. Use it for already periodic motion or intentional hard cuts.
+- **Blended loop** captures overlap, blends the tail toward recorded head frames, and verifies closure against the seam anchor.
 
 The GIF loop flag only repeats playback; it does not make the last visual state match the first. Inspect the actual seam.
 

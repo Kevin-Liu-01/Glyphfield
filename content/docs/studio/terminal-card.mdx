@@ -4,25 +4,29 @@ description: Brand-themed code windows with file tabs, highlighted lines, and th
 icon: Braces
 ---
 
-Terminal card renders a code window in the identity's code font and a theme built from its colors. Each identity starts with real code from its product: `gt-next` for General Translation, a PaymentIntent for Stripe, a Worker for Cloudflare, `docs.json` for Mintlify, utility classes for Tailwind CSS.
+Terminal card (tool ID `terminal`) renders a code window in the identity's code font and a theme built from its colors. Each built-in identity starts with real code from its product: `gt-next` for General Translation, a PaymentIntent for Stripe, a Worker for Cloudflare, `docs.json` for Mintlify, utility classes for Tailwind CSS. Custom identities start from the General Translation sample.
 
 <DocsMediaGrid>
-  <DocsMedia alt='General Translation terminal card in the expression editor with two file tabs and a highlighted line' caption='Card layout' meta='1200 × 630 · dark chrome' src='/screenshots/studio-gt-terminal-dark-2026.png' />
+  <DocsMedia alt='General Translation terminal card in the expression editor with two file tabs and a highlighted line' caption='Card layout' meta='1200 × 630 · dark chrome' src='/screenshots/studio-gt-terminal-dark-2026.webp' />
   <DocsMedia alt='Stripe terminal card with long lines wrapped inside the code window' caption='Split layout with wrapped lines' meta='Stripe · light chrome' src='/screenshots/studio-stripe-terminal-light-2026.png' />
 </DocsMediaGrid>
 
 ## Content controls
 
 - **Card title** edits the title layer.
-- **Language** sets the active tab's language: TypeScript, TSX, JavaScript, Python, Bash, JSON, HTML, or CSS. An untouched sample switches with the language; edited code stays.
-- The **Source** section shows the window's tabs. **Show tab** buttons switch tabs, **Add file tab** and **Remove tab** manage them, **Tab name** renames the active one, and **Terminal source code** edits its code.
+- **Language** sets the active tab's language: TypeScript, TSX, JavaScript, Python, Bash, JSON, HTML, or CSS. When the tab still holds one of the three General Translation samples, switching to TypeScript, Python, or Bash swaps in that language's sample; other code stays.
+- The **Source** section shows the window's tabs. **Show tab** buttons switch tabs, **Add file tab** (named `file-N`, with sample code) and **Remove tab** manage them; the window keeps at least one tab, **Tab name** renames the active one, and **Terminal source code** edits its code.
 - **Highlighted lines** takes a list such as `2, 4-6`. Highlighted lines get a tinted band and an accent rule.
 - **Terminal title font**, **Title weight**, **Terminal code font**, and **Code weight** set the type roles.
-- **Terminal card background** places an identity image behind the card; **Asset opacity** controls it.
+- **Terminal card background** places an identity or proof image behind the card; **Asset opacity** controls it (default 14%).
 
-Select the code window for **Code theme** (Brand dark, Brand light, or Classic dark), **Window chrome** (file tabs, window, or none), **Show line numbers**, **Code size**, line height, and corner radius. Token colors come from the brand roles and are raised until they meet WCAG AA contrast against the window. Long lines wrap inside the window after a space or punctuation, with the continuation indented two spaces past the line's own indent and no new line number; a highlighted line keeps its band across its wrapped rows. Code shrinks only when the wrapped code is taller than the window, and never below 80% of its set size. Templates set code between the format's body and lead sizes (18 to 25px on a 1200 × 630 card).
+Select the code window for **Code theme** (Brand dark, Brand light, or Classic dark), **Window chrome** (file tabs, window, or none), **Show line numbers**, **Code size** (9–48 px), line height (100–240%), and corner radius (0–64). In the brand themes, token colors come from the brand roles and are adjusted until they reach 4.5:1 against the window (3:1 for comments and punctuation). Classic dark uses a fixed palette. Long lines wrap inside the window after a space or punctuation, with the continuation indented two spaces past the line's own indent and no new line number; a highlighted line keeps its band across its wrapped rows. Code shrinks only when the wrapped code is taller than the window, and never below 80% of its set size. Templates set code between the format's body and lead sizes (18 to 25px on a 1200 × 630 card).
 
-Layouts: **Card** (title row above a window that fills the rest of the card), **Split** (copy beside the window), **Focus** (the window alone with a small footer), and **Caption** (window above a caption). Formats are the same as OpenGraph.
+Layouts: **Card** (`card`; title row above a window that fills the rest of the card), **Split** (`split`; copy beside the window), **Focus** (`focus`; the window alone with a small footer), and **Caption** (`caption`; window above a caption). Formats are the same as OpenGraph.
+
+## Export
+
+**Export PNG** renders the card at 2×. **More exports → Export SVG** downloads a self-contained SVG with the code font embedded.
 
 ## Browser actions
 
@@ -36,4 +40,8 @@ Layouts: **Card** (title row above a window that fills the rest of the card), **
 | `terminal.format.set` / `terminal.layout.apply` / `terminal.template.reset` | Format, layout, and template |
 | `terminal.history.undo` / `terminal.history.redo` | History |
 
-`studio.set('Terminal source code', 'const ok = true;')` still edits the active tab, and source keeps flat `code` and `language` fields that mirror it.
+`terminal.tab.add` takes `{ name?, language?, code? }` (default name `file-N.ts`) and returns `{ tabId }`. `terminal.tab.update` takes `{ tabId, name?, language?, code?, highlight? }`, where `highlight` is a list of 1-based line numbers. `studio.set('Terminal source code', 'const ok = true;')` still edits the active tab, and source keeps flat `code` and `language` fields that mirror it.
+
+## HTTP
+
+`POST /api/generate` with `{ kind: 'template', template: 'terminal', language?, body? }` renders the card as SVG. `body` is the code, up to 4000 characters. See [Generation API](/docs/agents/generate#templates).

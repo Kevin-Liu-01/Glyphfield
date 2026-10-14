@@ -1,69 +1,146 @@
 ---
 title: Expression tools
-description: One layered editor for OpenGraph, Terminal card, Partnership lockup, Blog cover, and Slide templates, with brand templates for every identity.
+description: The shared layered editor behind OpenGraph, Terminal card, Partnership lockup, Blog cover, and Slide templates, its formats, type rules, controls, exports, and actions.
 icon: LayoutGrid
 ---
 
-OpenGraph, Terminal card, Partnership lockup, Blog cover, and Slide templates share one editor and one document format. Each tool starts from a brand template built from the active identity: its colors, type roles, logos, graphic device, products, proof, and voice. Everything you see on the artboard is a layer you can change.
+OpenGraph, Terminal card, Partnership lockup, Blog cover, and Slide templates share one editor and one document format. Each tool starts from a brand template built from the active identity: its colors, type roles, logos, graphic device, products, proof, and voice. Everything on the artboard is a layer that can be selected, moved, restyled, or removed.
 
 <DocsMediaGrid>
-  <DocsMedia alt='General Translation OpenGraph image built in the expression editor' caption='OpenGraph' meta='1200 × 630 · PNG / SVG' src='/screenshots/studio-gt-opengraph-dark-2026.png' />
-  <DocsMedia alt='General Translation expression and component system in Glyphfield' caption='Expression system' meta='Identity-aware output' src='/screenshots/studio-gt-components-dark-2026.png' />
+  <DocsMedia alt='General Translation OpenGraph image in the expression editor' caption='OpenGraph' meta='1200 × 630 · PNG / SVG' src='/screenshots/studio-gt-opengraph-dark-2026.webp' />
+  <DocsMedia alt='General Translation title slide in the slide editor' caption='Slide templates' meta='1600 × 900 · PNG / SVG / PDF' src='/screenshots/studio-gt-slides-dark-2026.webp' />
 </DocsMediaGrid>
 
-| Tool | Default size | Formats | Layouts | Page |
-|---|---|---|---|---|
-| OpenGraph | 1200 × 630 | OpenGraph, Wide, Square, Portrait, Story, LinkedIn, Lockup | Split, Statement, Full bleed, Centered, Editorial | [OpenGraph](/docs/studio/opengraph) |
-| Terminal card | 1200 × 630 | Same as OpenGraph | Card, Split, Focus, Caption | [Terminal card](/docs/studio/terminal-card) |
-| Partnership lockup | 1200 × 600 | Same as OpenGraph | Lockup, Centered, Hero lockup, Announcement | [Partnership lockup](/docs/studio/partnership-lockup) |
-| Blog cover | 1200 × 630 | Same as OpenGraph | Editorial, Feature image, Statement, Centered, Index | [Blog cover](/docs/studio/blog-cover) |
-| Slide templates | 1600 × 900 | 16:9, 4:3, Square | 14 slide layouts per slide | [Slide templates](/docs/studio/slide-templates) |
+## Tools
+
+| Tool | ID | Default format | Layouts | Page |
+| --- | --- | --- | --- | --- |
+| OpenGraph | `opengraph` | `opengraph` 1200 × 630 | `split`, `statement`, `media` (Full bleed), `centered`, `editorial` | [OpenGraph](/docs/studio/opengraph) |
+| Terminal card | `terminal` | `opengraph` 1200 × 630 | `card`, `split`, `focus`, `caption` | [Terminal card](/docs/studio/terminal-card) |
+| Partnership lockup | `partnership` | `lockup` 1200 × 600 | `lockup`, `centered`, `hero` (Hero lockup), `announcement` | [Partnership lockup](/docs/studio/partnership-lockup) |
+| Blog cover | `blog` | `opengraph` 1200 × 630 | `editorial`, `feature` (Feature image), `statement`, `centered`, `ledger` (Index) | [Blog cover](/docs/studio/blog-cover) |
+| Slide templates | `slides` | `16x9` 1600 × 900 | 14 layouts per slide | [Slide templates](/docs/studio/slide-templates) |
+
+Each identity has its own default layout and surface for each tool.
+
+## Formats
+
+| Social format ID | Size (px) | Slide format ID | Size (px) |
+| --- | --- | --- | --- |
+| `opengraph` | 1200 × 630 | `16x9` | 1600 × 900 |
+| `wide` | 1600 × 900 | `4x3` | 1600 × 1200 |
+| `square` | 1080 × 1080 | `square` | 1200 × 1200 |
+| `portrait` | 1080 × 1350 | | |
+| `story` | 1080 × 1920 | | |
+| `linkedin` | 1200 × 627 | | |
+| `lockup` | 1200 × 600 | | |
+
+OpenGraph, Terminal card, Partnership lockup, and Blog cover use the social formats. **Format** re-flows every page into its current layout at the new size; layers you added move and scale with the page.
+
+## Layout
+
+| Region | Contents |
+| --- | --- |
+| Tool header | **Save design**, **Saved designs**, **File**, **More exports** (**Export SVG**; **Export PDF deck** for slides), and **Export PNG** |
+| Left sidebar | Tool content sections (for example **Content**, **Source**, **Lockup**, **Slides**), **Add** (layer buttons), and **Layers** |
+| Canvas | The artboard in the shared canvas viewport, with Undo, Redo, and **Action history** |
+| Right inspector | The selected layer's sections, then **Format and layout**: **Format**, `Layout <name>` buttons, **Page surface**, and **Reset to brand template** |
 
 ## Type, spacing, and logos
 
-Every template sizes type from one modular scale per format (ratio 4:3) based on the artboard area. On a 1600 × 900 slide the title is 67px (7.4% of the height), content headlines 50px, list items 28px, body 21px, and footers 16px. Social formats run larger at the same proportions because they are read as thumbnails: a 1200 × 630 card sets its headline at 58px and its body at 18px.
+Every template sizes type from one modular scale per format, with a ratio of 4:3. The body size is √(width × height) × 0.0176 for slides and × 0.0212 for social formats, because social images are read as thumbnails.
 
-Tracking follows the size the text is set at: −0.022em at title size, −0.018em at headline size, tapering to 0 at body size. It is never positive, and code keeps its designed spacing. Text renders with kerning and the font's `kern` feature on, and with the optical size of its export size where the font has an optical-size axis. The canvas, the inline text editor, and exported SVG and PNG files use the same settings.
+| Step | 1600 × 900 slide | 1200 × 630 social image |
+| --- | --- | --- |
+| caption | 16 px | 14 px |
+| body | 21 px | 18 px |
+| lead | 28 px | 25 px |
+| subhead | 38 px | 33 px |
+| headline | 50 px | 44 px |
+| title | 67 px | 58 px |
+| hero | 89 px | 78 px |
 
-Templates put no labels above headlines. Metadata such as the website, the page number, a metric's label, or a comparison side goes in the footer or after its content.
-
-Logos are sized by the ink they show. Bundled logo files carry a measured ink box (`scripts/generate-logo-ink.mjs` writes it), and a mark's height falls as its width grows (height ∝ aspect^−0.4), so a square monogram and a long wordmark carry similar weight.
+- **Tracking** follows the size: −0.022 em at title size and above, −0.018 em at headline, −0.014 em at subhead, −0.008 em at lead, and 0 at body and below. Uppercase text gets half these values. Code keeps 0. Template tracking is never positive; the inspector allows manual tracking from −10% to +20%.
+- **Kerning** is on, with the `kern` feature, and the optical size axis follows the font size where the font has one. The canvas, the inline editor, SVG, and PNG use the same settings.
+- **Slide titles**: a 16:9 title is 6–8% of the slide height per line. Headlines on content layouts stay at or below 6% of the height. Tests in `src/lib/__tests__/expressionType.test.ts` enforce these rules.
+- **No labels above headlines.** Templates have no kicker, eyebrow, brand-name, or issue slots. Metadata such as the website, the page number, a metric's label, or a comparison side goes in the footer or after its content.
+- **Logos** are sized by the ink they show. Bundled logo files carry a measured ink box, and a mark's height falls as its width grows (height ∝ aspect^−0.4), so a square monogram and a long wordmark carry similar weight.
 
 ## Edit on the canvas
 
-- **Select** a layer by clicking it on the canvas or in the **Layers** list. Shift-click or Command-click adds layers to the selection.
-- **Move** by dragging. Layers snap to the artboard edges and center and to the edges and centers of other layers, with guides.
-- **Resize** from any edge or corner handle. **Rotate** with the Rotation slider or the 15° buttons in the Layer section.
-- **Nudge** with the arrow keys: one pixel, or ten with Shift.
-- **Type on the canvas**: double-click a text layer (or press Enter with it selected), type, then press Escape or click away.
-- **Delete** with Delete or Backspace, **duplicate** with Command-D, **select all** with Command-A, and restack with Command-] / Command-[ (add Shift for front or back). Right-click opens the selection menu.
-- **Undo and redo** with Command-Z and Shift-Command-Z, or the Undo and Redo buttons above the canvas. A drag, a slider drag, or a burst of typing is one step.
+- Click a layer on the canvas or in **Layers** to select it. Shift-click or ⌘/Ctrl-click adds layers. ⌘/Ctrl + A selects every unlocked layer. Escape clears the selection.
+- Drag to move. Layers snap to the artboard edges and center and to other layers' edges and centers, with guides.
+- Drag an edge or corner handle to resize. Rotate with the **Rotation** slider (±180°) or the ±15° buttons in the Layer section.
+- Arrow keys nudge 1 px; Shift + arrow nudges 10 px.
+- Double-click a text layer, or press Enter with it selected, to type on the canvas. Escape or a click outside finishes.
+- Delete or Backspace deletes; ⌘/Ctrl + D duplicates; ⌘/Ctrl + ] and ⌘/Ctrl + [ move forward and backward, with Shift for front and back. Right-click opens the selection menu.
+- ⌘/Ctrl + Z and Shift + ⌘/Ctrl + Z undo and redo. History keeps 120 steps; edits within 900 ms, such as a drag or a burst of typing, are one step.
 
-The **Layers** list shows the stack top first. Drag a row by its handle to restack it, or focus a row and press Alt with an arrow key. Each row has **Hide** and **Lock** buttons. A locked layer cannot be moved on the canvas but can still be styled from the inspector. The page background is a locked layer, so clicks on the page select content, not the page.
+**Layers** lists the stack top first. Drag a row by its handle, or focus it and press Alt + ↑ or ↓, to restack. Each row has **Hide** and **Lock** buttons. A locked layer cannot be moved on the canvas but stays editable in the inspector. The page background is a locked layer, so clicks on the page select content.
 
 ## Add layers
 
-The **Add** section adds text, an image from the identity library, a logo, a rectangle, a divider, a shader background, a texture, or the identity's brand device. **Upload image layer** adds a local file. A shader background uses the Shader Library's captured still for the selected material, so the canvas and the export match; **Brand duotone** maps it to the identity's colors.
+**Add** has **Add text layer**, **Add image layer** (from the identity library), **Add logo layer**, **Add shape layer**, **Add divider**, **Add shader background**, **Add texture layer**, **Add brand device**, and **Upload image layer** (a local file). Shader backgrounds and textures are inserted below the content. A shader background places the Shader Library's captured still of the chosen material, so the canvas and the export match.
 
-## Style with brand tokens
+Brand devices: `greetings` (Language field), `beam` (Knowledge beam), `waves` (Utility wave), `ledger` (Savings ledger), `horizon` (Network horizon), `convergence` (Convergence field), `field` (Programmable field), `window` (Focus window), `interruption` (Engineered interruption).
 
-Text layers take a **type role** (Display, Body, Accent, Code) from the identity, then size, weight, tracking, line height, alignment, casing, vertical alignment, and an optional **Shrink to fit the box**. Colors are brand roles (Ink, Paper, Emphasis, and the identity's other colors) or a custom color. Roles stay linked to the identity, so editing the identity's colors updates every layer that uses them. Images take a library source or upload, fit, treatment (natural, monochrome, duotone, brand duotone), zoom, pan, and corner radius. Logos take an artwork from the identity, a tone, and the shared logo effects.
+## Inspector
 
-## Formats and layouts
+| Section | Controls |
+| --- | --- |
+| Layer | **Layer name**, X, Y, W, H, Rotation ±180° with ±15° buttons, opacity, Hidden, Locked, Forward, Backward, To front, To back, six align buttons, Duplicate, Delete |
+| Text | Type role (Display, Body, Accent, Code), size 8–400 px, weight 100–550, tracking −10% to +20%, line height 70–240%, color, alignment, casing, vertical alignment, **Shrink text to fit**, **Upload layer font** |
+| Image | Library source or upload; fit (Fill frame, Fit inside, Stretch); treatment (Natural, Monochrome, Duotone, Brand duotone); zoom 50–300%; pan ±100%; corner radius 0–200 |
+| Logo | Artwork from the identity, tone, **Logo effects** (invert, dither, outline, shadow) |
+| Shape | Rectangle, ellipse, or line; fill; stroke; stroke width 0–24; radius 0–400 |
+| Shader | Material from the compact Shader Library (12 cards) and **Tint** (Original colors or Brand duotone) |
+| Texture | Grid, dots, lines, diagonal, or noise; spacing 4–160 |
+| Device | The brand device and its settings |
+| Code window | **Code theme** (Brand dark, Brand light, Classic dark), **Window chrome** (File tabs, Window, None), **Show line numbers**, code size 9–48, line height 100–240%, window radius 0–64 |
+| Chart | **Chart values**, **Chart labels**, bar color |
 
-**Format** changes the output size. Every page re-flows into its current layout at the new size, and layers you added move and scale with the page. **Layouts** re-flow the layers a template placed. Text, uploads, and any style you set by hand stay; content a layout has no slot for is kept and comes back when you switch back. **Reset to brand template** starts over from the identity's template.
+Colors are brand roles (Ink, Paper, Emphasis, and the identity's other colors) or a custom color. Roles stay linked to the identity, so changing an identity color updates every layer that uses it.
+
+## Layouts
+
+`Layout <name>` re-flows the layers a template placed. Text, uploads, and styles set by hand stay. Content a layout has no slot for is kept and returns when you switch back. **Reset to brand template** starts over from the identity's template.
 
 ## Export
 
-**Export PNG** renders the artboard (the active slide for Slide templates) at 2× in a PNG. **More exports** has **Export SVG** (a self-contained SVG with the images and font files embedded) and, for slides, **Export PDF deck**. Exports render from the same document as the canvas.
+| Action | Result |
+| --- | --- |
+| **Export PNG** | The artboard, or the active slide, rendered as SVG and rasterized at 2×, with the long edge capped at 4800 px |
+| **More exports → Export SVG** | A self-contained SVG with images and font files embedded |
+| **More exports → Export PDF deck** | Slides only: every slide in one PDF |
 
-## Source and versions
+PNG and SVG files are named `studio-<tool>.png` and `.svg`; slide exports add the slide number. Exports render from the same document as the canvas.
 
-Every tool stores a CanvasDocument schema 2 with expression source version 2: pages are artboards (one per slide), elements are layers, and `metadata.studio.state` holds the format and the layout and surface of each page, plus flat `title`, `body`, `code`, and `language` fields that mirror the first page's headline, list or supporting copy, and code. Editing those flat fields in source still works. Version-1 sources saved before the shared editor (flat tool state) migrate on open, including uploads, logo placement, partner settings, fonts, textures, and layer offsets. See [Source format reference](/docs/reference/source-formats).
+## Source format
+
+Each tool stores a CanvasDocument schema 2 with expression source version 2. Pages are artboards (one per slide), elements are layers with a `data.slot` role and brand color roles, and `metadata.studio` holds `{ sourceVersion: 2, toolId, state }`. `state` holds the format, each page's layout, surface, and stash of layout content, and flat `title`, `body`, `code`, and `language` fields that mirror the first page's headline, list or supporting copy, and code. Editing the flat fields in source still works.
+
+Applying source rejects a document of another tool or kind, or one with a newer `sourceVersion`. Text layers need a `textStyle` and code layers at least one tab. Embedded library assets are re-pointed to the identity's files. Version-1 sources (flat tool state from before the shared editor) migrate on open. See [Source formats](/docs/reference/source-formats).
 
 ## Browser API
 
-Every tool registers `{tool}.document.describe`, `{tool}.layer.add`, `{tool}.layer.update`, `{tool}.layer.remove`, `{tool}.layer.duplicate`, `{tool}.layer.reorder`, `{tool}.layer.select`, `{tool}.layer.align`, `{tool}.format.set`, `{tool}.layout.apply`, `{tool}.template.reset`, `{tool}.history.undo`, `{tool}.history.redo`, `{tool}.export.png`, and `{tool}.export.svg`, where `{tool}` is `opengraph`, `terminal`, `partnership`, `blog`, or `slides`. Each tool page lists its own actions. Read `document.describe` first; it returns the layer IDs, slots, formats, and layouts the other actions take.
+Every tool registers these actions, where `{tool}` is `opengraph`, `terminal`, `partnership`, `blog`, or `slides`:
+
+| Action | Input | Output |
+| --- | --- | --- |
+| `{tool}.document.describe` | None | `{ format, formats, layouts, activePageId, selection, pages: [{ id, name, layout, surface, width, height, notes, layers }] }`; layers are top first with id, kind, slot, bounds, visibility, and lock |
+| `{tool}.layer.add` | `{ kind: 'text' \| 'image' \| 'logo' \| 'shape' \| 'divider' \| 'shader' \| 'texture' \| 'device', content?, bounds?, fill?, libraryAssetId?, dataUrl?, materialId?, device?, shape?, variant? }` | `{ id }` |
+| `{tool}.layer.update` | `{ id, name?, content?, bounds?, opacity?, hidden?, locked?, fill?, fontRole?, fontSize?, fontWeight?, letterSpacing?, lineHeight?, align?, casing?, radius?, data? }` | `null` |
+| `{tool}.layer.remove`, `{tool}.layer.select` | `{ ids }` | `null` |
+| `{tool}.layer.duplicate` | `{ ids }` | `{ ids }` |
+| `{tool}.layer.reorder` | `{ id, to: 'forward' \| 'backward' \| 'front' \| 'back' \| number }` | `null` |
+| `{tool}.layer.align` | `{ ids, alignment }` | `null`; aligns to the artboard |
+| `{tool}.format.set` | `{ format }` | `null` |
+| `{tool}.layout.apply` | `{ layout, pageId? }` | `null` |
+| `{tool}.template.reset` | None | `null` |
+| `{tool}.history.undo`, `{tool}.history.redo` | None | `true`, or `false` when there is nothing to undo or redo |
+| `{tool}.export.png`, `{tool}.export.svg` | None | Export artifact of the active page |
+
+Read `document.describe` first; it returns the layer IDs, slots, formats, and layouts the other actions take. Each tool page lists its extra actions.
 
 ```js
 const studio = window.glyphfield.studio;
@@ -74,6 +151,13 @@ await studio.invoke('opengraph.format.set', { format: 'square' });
 const png = await studio.invoke('opengraph.export.png');
 ```
 
-## HTTP generation
+## HTTP
 
-`POST /api/generate` with `kind: template` renders the same brand templates as standalone SVG, with the brand fonts embedded: `template` is `slides`, `blog`, `partnership`, `opengraph`, or `terminal`, with optional `layout`, `format`, and `language`. See [Generate](/docs/agents/generate).
+`POST /api/generate` with `kind: "template"` renders the same brand templates as standalone SVG with the brand fonts embedded. `template` is `slides` (the default), `blog`, `partnership`, `opengraph`, or `terminal`, with optional `layout` (or `slideLayout` for slides), `format`, and `language`. It renders one page. See [Generation API](/docs/agents/generate#templates).
+
+## Limits
+
+- PNG export at 2×, long edge at most 4800 px.
+- Font weights 100–550 in the inspector.
+- History keeps 120 steps.
+- Fonts embedded in HTTP SVG are skipped when a font's data URL exceeds 560,000 characters.

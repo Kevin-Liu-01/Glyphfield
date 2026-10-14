@@ -4,50 +4,54 @@ description: Review, edit, and export the active identity as an editorial standa
 icon: BookOpenText
 ---
 
-Brand book turns the active identity record into an editorial standards document. Every page is built from the same strategy, logo files, typography, colours, graphic device, image library, voice, applications, and motion used by the rest of Studio, and every page holds one idea.
+Brand book (tool ID `brand-book`) turns the active identity into a 54-page editorial standards document. Every page is built from the same strategy, logo files, typography, colours, graphic device, image library, voice, applications, and motion used by the rest of Studio, and every page holds one idea.
 
 <DocsMedia
   alt='Glyphfield Brand Book overview showing a multi-page General Translation identity system'
   caption='The identity rendered as a navigable standards document'
   meta='Overview · 54 pages'
-  src='/screenshots/studio-gt-brand-book-dark-2026.png'
+  src='/screenshots/studio-gt-brand-book-dark-2026.webp'
 />
 
 ## Book structure
 
-Pages are 16:10 on a 12-column grid with consistent margins, a running head, and a folio. Each section opens with a full-bleed opener.
+Pages are 16:10 on a 12-column grid with consistent margins. A footer on each page carries the identity name, the section number and name, the page title, and the folio; the cover, section openers, device hero, and closing pages have no footer. Each section opens with a full-bleed opener page.
 
-1. **Introduction**: cover, contents, and how to use the book.
-2. **Strategy**: brand idea; challenge, promise, and outcome; mission and position; audience and personality; pillars and values.
-3. **Logo**: primary mark, logo family, clear space, minimum size, colourways, and misuse.
-4. **Colour**: palette with HEX, RGB, and OKLCH; proportion; every text pairing with its WCAG contrast; tonal ranges.
-5. **Typography**: display specimen, text specimen, pairing, the type scale, and the role of each face.
-6. **Graphic device**: the device, its construction, variations, the icon system, and device rules.
-7. **Imagery**: direction, the approved library, and the image treatment.
-8. **Voice**: principles, do and don't with real lines, the messaging hierarchy, and a sample email.
-9. **Applications**: layout grid, stationery, digital, social, events, and a contact sheet.
-10. **Motion**: easing curves, motion tokens, and the device in motion.
-11. **Closing**.
+| Section | Pages | Content |
+| --- | --- | --- |
+| Introduction | 3 | Cover, contents, and how to use the book |
+| Strategy | 1 + 5 | Brand idea; challenge, promise, and outcome; mission and position; audience and personality; pillars and values |
+| Logo | 1 + 6 | Primary mark, logo family, clear space, minimum size, colorways, misuse |
+| Colour | 1 + 4 | Palette with HEX, RGB, and OKLCH; proportion; every text pairing with its WCAG contrast; tonal ranges |
+| Typography | 1 + 5 | Display specimen, text specimen, pairing, type scale, the role of each face |
+| Graphic device | 1 + 5 | The device, its construction, variations, the icon system, device rules |
+| Imagery | 1 + 3 | Direction, the approved library, image treatment |
+| Voice | 1 + 4 | Principles, do and don't with real lines, messaging hierarchy, a sample email |
+| Applications | 1 + 6 | Layout grid, stationery, digital, social, events, a contact sheet |
+| Motion | 1 + 3 | Easing curves, motion tokens, the device in motion |
+| Closing | 1 | The tagline |
+
+"1 +" is the section opener. The nine middle sections can be reordered and hidden; the introduction and closing stay in place.
 
 ## Overview and reading modes
 
-**Overview** presents every page as a contact sheet. **Read** shows one page at a time with a page inspector. The left section index works in both views; arrow keys turn pages in Read.
+**Overview** shows every page as a contact sheet. Clicking a thumbnail opens that page in **Read**, which shows one page at a time with a page inspector. In Read, the left and right arrow keys turn pages and Escape returns to Overview. Read includes hidden pages and counts them. The left section index works in both views.
 
-The thumbnail size control changes the contact sheet only. It does not alter page dimensions, typography, or PDF output.
+**Page thumbnail size** (200–420 px, default 272) changes the contact sheet only. It does not change page dimensions, typography, or the PDF.
 
 ## Edit the book
 
 - **Text**: in Read, click any text on the page to edit it in place. The **Copy** section of the inspector lists the same fields.
-- **Pages**: the inspector shows or hides the page and sets its **Layout** variant, **Surface** colour role (paper, muted, ink, deep, or accent), and **Image** where the page shows one. **Reset page** returns it to the identity defaults.
-- **Sections**: hover a section in the left index to hide it or move it earlier or later. The inspector has the same controls for the current section. The introduction and closing stay in place.
+- **Pages**: the inspector has **Show page**, **Page layout** (the page's variants), **Page surface** (paper, muted, ink, deep, or accent), **Page image** where the page shows one, and `Page <slot> copy` fields of up to 1200 characters. **Reset page** returns the page to the identity defaults.
+- **Sections**: the left index has `Hide <section> section`, `Move <section> section earlier`, and `Move <section> section later`. The inspector has **Show section** and the same move buttons for the current section.
 
 Hidden pages and sections stay visible, dimmed, in Overview so you can restore them; they are left out of folios, the contents page, and the PDF. Edits are saved per project.
 
 Keep foundational changes in Brand identity. Use book edits for presentation and wording that belong to this document only.
 
 <DocsMediaGrid>
-  <DocsMedia alt='Brand Book in light Studio chrome' caption='Light reading environment' meta='Identity output unchanged' src='/screenshots/studio-gt-brand-book-light-2026.png' />
-  <DocsMedia alt='Brand Book in dark Studio chrome' caption='Dark reading environment' meta='Identity output unchanged' src='/screenshots/studio-gt-brand-book-dark-2026.png' />
+  <DocsMedia alt='Brand book contact sheet in light Studio chrome' caption='Overview in the light theme' meta='Identity output unchanged' src='/screenshots/studio-gt-brand-book-light-2026.webp' />
+  <DocsMedia alt='Brand book contact sheet in dark Studio chrome' caption='Overview in the dark theme' meta='Identity output unchanged' src='/screenshots/studio-gt-brand-book-dark-2026.webp' />
 </DocsMediaGrid>
 
 ## Edit the book as source
@@ -75,12 +79,19 @@ Select **File → Edit source code** to read or apply the book as JSON:
 - Pages may only appear under their own section. `variant` must be one of the page's `variants`, `tone` one of the five surfaces, and `assetId` an identity image (only on pages with `imageSlot: true`).
 - `copy` keys must be the page's editable slots; each value holds up to 1200 characters. Values equal to the identity defaults are not stored.
 - Sections and pages omitted from a document keep their current settings.
+- `schema` must be `glyphfield.brand-book` and `version` must be 1.
 
-The Browser API exposes the same document through `studio.readSource()` and `studio.applySource()`.
+## Browser API
+
+| Action | Input | Output |
+| --- | --- | --- |
+| `brand-book.print` | None | `null`; opens the browser print dialog for the visible pages |
+
+`readSource()` and `applySource()` read and apply the book document above.
 
 ## Export PDF
 
-**Export PDF** (`brand-book.print`) opens the browser print flow with one vector page per sheet at 16 × 10 in, edge to edge. Only visible pages print, in the edited order. Before exporting:
+**Export PDF** (`brand-book.print`) opens the browser print dialog with one page per sheet at 16 × 10 in, with no margins. Choose **Save as PDF** in the dialog to get a PDF. Only visible pages print, in the edited order. Before exporting:
 
 - Resolve missing logo or font assets.
 - Check light and dark mark use.

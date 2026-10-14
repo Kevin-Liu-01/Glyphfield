@@ -4,33 +4,37 @@ description: Lockups for two or more partners with optical balancing, separators
 icon: Component
 ---
 
-The partner lockup is one layer holding the active brand and any number of partners. Partners are logos from the identity's proof assets, other built-in identities, an uploaded file, or a written name. Without a real partner on file the template uses a written **Partner** placeholder rather than an invented brand.
+Partnership lockup (tool ID `partnership`) makes co-brand lockups. The partner lockup is one layer holding the active brand and any number of partners. Partners are logos from the identity's proof assets, other built-in identities, the Northstar sample partner, an uploaded file, or a written name. Without a real partner on file the template uses a written **Partner** placeholder rather than an invented brand.
 
 <DocsMedia
   alt='General Translation and Ramp partnership lockup in the expression editor'
   caption='Lockup layout: the partners lead, the headline follows'
   meta='1200 × 600 · optical sizing'
-  src='/screenshots/studio-gt-partnership-dark-2026.png'
+  src='/screenshots/studio-gt-partnership-dark-2026.webp'
 />
 
 Optical sizing balances partners on the ink they show. Bundled logos carry a measured ink box, so padding inside a logo file does not make that partner smaller.
 
 ## Content controls
 
-- **Title**, **GT headline font**, and **GT headline weight** edit the headline. A headline in the form "Brand × Partner" follows the partner you choose.
+- **Title**, **GT headline font**, and **GT headline weight** edit the headline. These labels read "GT" for every identity. A headline in the form "Brand × Partner" follows the partner you choose.
 - **Partner**, **Partner treatment** (Use logo or Write name), **Lockup name**, and **Replace partner logo** set the first partner.
 - **Partner headline font**, **Upload partner headline font**, and **Partner headline weight** style the partner's name in the headline and in a written lockup.
-- **Lockup spacing** sets the gap around each separator.
+- **Lockup spacing** sets the gap around each separator, 0–160 px. The API accepts 0–400.
 - In the **Lockup** section, **Add partner** and **Add written partner** add more partners; each extra partner has its own artwork picker, upload, and remove button.
 
 ## Alignment rules
 
 - **Sizing**: **Optical balance** gives every mark the same visual area, so a square mark and a long wordmark carry equal weight; **Equal height** and **Equal width** are also available.
-- **Separator**: ×, +, /, a thin rule, or none.
-- **Alignment** (start, center, end) places the lockup in its box, and **Vertical** aligns marks on their centers, tops, or baselines.
-- **Logo color**: one color (marks recolored to the text color) or original colors.
+- **Separator**: ×, +, /, **Rule** (`|`), or none.
+- **Alignment** (start, center, end) places the lockup in its box, and **Lockup vertical alignment** aligns marks on their centers, tops, or baselines (`bottom`).
+- **Lockup tone**: **One color** (`mono`, the default; marks recolored to the text color) or **Original colors** (`original`).
 
-The lockup scales down to fit its box. Layouts: **Lockup**, **Centered**, **Hero lockup**, and **Announcement**.
+The lockup scales down to fit its box. Layouts: **Lockup** (`lockup`), **Centered** (`centered`), **Hero lockup** (`hero`), and **Announcement** (`announcement`). The default format is `lockup` (1200 × 600); the other social formats apply.
+
+## Export
+
+**Export PNG** renders the lockup at 2×. **More exports → Export SVG** downloads a self-contained SVG with partner logos and fonts embedded.
 
 ## Browser actions
 
@@ -44,3 +48,9 @@ The lockup scales down to fit its box. Layouts: **Lockup**, **Centered**, **Hero
 | `partnership.layer.reorder` / `partnership.layer.select` / `partnership.layer.align` | Stack, selection, and alignment |
 | `partnership.format.set` / `partnership.layout.apply` / `partnership.template.reset` | Format, layout, and template |
 | `partnership.history.undo` / `partnership.history.redo` | History |
+
+`partnership.partner.add` takes `{ partnerId?, kind?: 'logo' \| 'text', label? }` and returns `{ id }`. `partnership.lockup.update` takes `{ separator?: '×' \| '+' \| '/' \| '\|' \| 'none', sizing?: 'optical' \| 'height' \| 'width', justify?: 'start' \| 'center' \| 'end', verticalAlign?: 'center' \| 'top' \| 'bottom', gap?, tone?: 'original' \| 'mono' }`.
+
+## HTTP
+
+`POST /api/generate` with `{ kind: 'template', template: 'partnership', partnerId?, partnerLogoDataUrl? }` renders the lockup as SVG. See [Generation API](/docs/agents/generate#templates).

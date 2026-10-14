@@ -4,10 +4,10 @@ description: Editorial covers set in the identity's headline voice, with feature
 icon: BookOpen
 ---
 
-Blog cover starts from one of the identity's voice phrases as the headline. Layouts: **Editorial** (the mark alone at the top, the headline anchored above the footer), **Feature image** (headline beside a library image or the brand device), **Statement**, **Centered**, and **Index** (logo and rule, headline, ruled footer). No layout puts a label above the headline.
+Blog cover (tool ID `blog`) makes editorial covers. It starts from one of the identity's voice phrases as the headline. Layouts: **Editorial** (`editorial`; the mark alone at the top, the headline anchored above the footer), **Feature image** (`feature`; headline beside a library image or the brand device), **Statement** (`statement`), **Centered** (`centered`), and **Index** (`ledger`; logo and rule, headline, ruled footer). No layout puts a label above the headline. General Translation defaults to Editorial; most other identities default to Feature image.
 
 <DocsMediaGrid>
-  <DocsMedia alt='General Translation editorial blog cover in the expression editor' caption='Editorial layout' meta='1200 × 630 · dark chrome' src='/screenshots/studio-gt-blog-dark-2026.png' />
+  <DocsMedia alt='General Translation editorial blog cover in the expression editor' caption='Editorial layout' meta='1200 × 630 · dark chrome' src='/screenshots/studio-gt-blog-dark-2026.webp' />
   <DocsMedia alt='Ramp blog cover with the campaign photograph beside the headline' caption='Feature image layout' meta='Ramp · light chrome' src='/screenshots/studio-ramp-blog-light-2026.png' />
 </DocsMediaGrid>
 
@@ -15,9 +15,14 @@ Blog cover starts from one of the identity's voice phrases as the headline. Layo
 
 - **Title**, **Typography role**, and **Font weight** edit the headline.
 - **Surface** chooses **Base white**, **Base dark**, **Grid**, or **Noise**. Grid and noise add a texture layer you can restyle or remove.
-- **Add background image** and **Brand background asset** place a full-bleed image behind the copy; **Background image opacity** controls it.
+- **Add background image** and **Brand background asset** place a full-bleed image behind the copy; **Background image opacity** controls it (default 28%).
+- **Page surface** in Format and layout sets any brand color role.
 
 Every layer is editable on the canvas; see [Expression tools](/docs/studio/templates). Formats are the same as OpenGraph.
+
+## Export
+
+**Export PNG** renders the cover at 2× (2400 × 1260 for the default format). **More exports → Export SVG** downloads a self-contained SVG.
 
 ## Browser actions
 
@@ -29,3 +34,7 @@ Every layer is editable on the canvas; see [Expression tools](/docs/studio/templ
 | `blog.layer.reorder` / `blog.layer.select` / `blog.layer.align` | Stack, selection, and alignment |
 | `blog.format.set` / `blog.layout.apply` / `blog.template.reset` | Format, layout, and template |
 | `blog.history.undo` / `blog.history.redo` | History |
+
+## HTTP
+
+`POST /api/generate` with `{ kind: 'template', template: 'blog', layout?, title, backgroundImageDataUrl? }` renders the cover as SVG. See [Generation API](/docs/agents/generate#templates).

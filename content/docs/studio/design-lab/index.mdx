@@ -1,0 +1,138 @@
+---
+title: Design Lab
+description: Compose text, marks, images, stickers, live shaders, and effect layers on an open canvas, then export artboards as PNG, JPG, GIF, MP4, or an editable project file.
+icon: Blocks
+---
+
+Design Lab is Glyphfield's layered composition tool. Its public tool ID is `material`. It combines the shared [Shader Library](/docs/studio/shader-library) with a portable layer document (CanvasDocument schema 2 with Design Lab metadata source version 4), direct canvas editing, saved checkpoints, still export, and browser-encoded GIF and MP4.
+
+Use it for posters, social images, key visuals, stickers, and short shader clips. Use [Animation](/docs/studio/animation) for multi-scene sequences with a timeline, and the [expression tools](/docs/studio/templates) for fixed-format social images and slides.
+
+<DocsMedia
+  alt='Glyphfield Design Lab with the Shader Library, an artboard over a live shader, the inspector, and the layer dock'
+  caption='Design Lab with the General Translation identity'
+  meta='Library · artboard · inspector · layer dock'
+  src='/screenshots/studio-gt-design-lab-dark-2026.webp'
+/>
+
+The Design Lab documentation has five pages:
+
+- This page covers the layout, the canvas and artboards, shortcuts, the Browser API summary, and limits.
+- [Layers and editing](/docs/studio/design-lab/layers) covers every layer kind, text formatting, crop, stickers, alignment, locks, and style copying.
+- [Effect layers](/docs/studio/design-lab/effects) covers the built-in converters and the Shaders.com image effects.
+- [Shaders and time](/docs/studio/design-lab/shaders) covers shader layers, preview quality, time selection, frame capture, and shader sequences.
+- [Export, saving, and source](/docs/studio/design-lab/export) covers the export dialog, saved designs, project files, the source document, and the export actions.
+
+## Layout
+
+| Region | Contents |
+| --- | --- |
+| Tool header | **Save checkpoint**, the **Saved designs** picker, the save status, **File**, **Export size preset**, and **Export** |
+| Artboard bar | Active artboard picker, **Artboard setup** (size), **Add**, **Duplicate active artboard**, **Delete active artboard**, **Frame selection**, **Canvas**, and **Artboard tutorial** |
+| Canvas toolbar | Zoom out, zoom slider, zoom percentage (**Reset to 100%**), zoom in, **Reset view**, **Fit canvas**, **Live shader preview quality**, **Keyboard shortcuts**, Undo, Redo, and **Action history** |
+| Left sidebar | The Shader Library: random pick, search, look buttons with counts, source filter, kind filter, and material cards |
+| Canvas | Artboards, loose layers, selection handles, the **Artboard map**, and the shader time strip below the canvas |
+| Right inspector | With nothing selected: **Composition**, **Artboards**, **Layers**, and **Developer handoff**. With a layer selected: that layer's controls |
+| Layer dock | Add buttons (Text, Shader, Effect, Mark, Sticker, Image) and one card per layer, front to back |
+
+Both sidebars collapse from their edge handles and resize by dragging the edge. Focused resize handles also accept the arrow keys. Widths and collapsed state are stored in this browser. On narrow screens the panels stack. The Browser API exposes **Collapse Shader library**, **Expand Shader library**, **Collapse Design Lab controls**, and **Expand Design Lab controls**.
+
+The save status shows one of Opening, Saving, Saving name, Unsaved changes, Saved, Autosave failed, Loading autosave, Preparing assets, Autosaved, or Autosaving. **File** contains **Open project file**, **Download project file**, and **Edit source code**. A failed file or export action shows an **Error** button that opens the full message.
+
+## Canvas and artboards
+
+The canvas is an open workspace. It holds loose layers anywhere, including at negative coordinates, and has no output size. An artboard is a named, sized output surface on the canvas. Only the layers inside the selected artboard are exported.
+
+- Choose **Canvas** in the artboard bar, or click empty canvas, to add loose layers. Loose layers use the same controls as artboard layers.
+- Drag a layer out of an artboard to make it loose. Drop a layer so its center is inside an artboard to move it into that artboard. The layer menu also offers **Move to canvas** and named artboard destinations.
+- Select loose layers and choose **Frame selection** to create an artboard around them. The artboard keeps the layers' on-canvas size and adds 48 px of padding.
+- Effect layers belong to an artboard. They cannot be added to the loose canvas.
+- Saved designs and project files keep the loose canvas and every artboard, including projects with no artboards.
+
+**Artboard setup** offers these presets and a custom size from 120 to 4096 px on each side:
+
+| Preset | Size (px) |
+| --- | --- |
+| Wide | 1600 × 900 |
+| Square | 1080 × 1080 |
+| OG Social | 1200 × 630 |
+| Banner | 1000 × 300 |
+| Portrait (4:5) | 1080 × 1350 |
+| Story (9:16) | 1080 × 1920 |
+| 3:4 | 1080 × 1440 |
+| 2:3 | 1080 × 1620 |
+| 1:2 | 1080 × 2160 |
+
+**Add** creates an empty artboard with the size and background color of the active artboard. **Duplicate active artboard** also copies its layers. The loose canvas has a fixed internal reference size of 1600 × 900; its layers are not bounded by it.
+
+### Navigate the canvas
+
+- Scroll to zoom around the pointer. Zoom ranges from 5% to 800% and opens at 40%.
+- Drag empty canvas to pan. Hold Space and drag, or drag with the middle mouse button, to pan over content.
+- Click an inactive artboard to select it, or drag its surface to move it. Double-click an inactive artboard to enter it. The artboard header always has a drag handle.
+- **Fit canvas** fits every artboard and loose layer. **Reset view** returns to the starting view. The percentage button resets to 100%.
+- Inactive artboards and loose-layer previews that are off screen release their shader renderers. Selection, editing, and export keep the active renderers.
+
+The **Artboard map** is a minimap in a bottom corner of the canvas. Click or drag inside it to pan. Its action row has **Fit all**, **Center** (centers the selected artboard at the current zoom), and **Tidy** (arranges artboards in a grid and fits them). Drag its header to move it; it docks in the nearest bottom corner on release. With the header focused, the left and right arrow keys dock it, and Escape cancels a drag. **Hide artboard map** collapses it.
+
+## Keyboard shortcuts
+
+Press **?** or choose **Keyboard shortcuts** in the canvas toolbar to open the shortcut sheet. Escape or **Close keyboard shortcuts** closes it. Single-letter keys work while the Design Lab has focus or the pointer is over it, and never while a text field, menu, or dialog has focus.
+
+| Keys | Action |
+| --- | --- |
+| T, S, M, I, K, E | Add a text layer, shader layer, brand mark, image, sticker, or effect layer |
+| ⌘/Ctrl + Z, Shift + ⌘/Ctrl + Z | Undo, redo |
+| ⌘/Ctrl + C, ⌘/Ctrl + V | Copy, paste layers |
+| Option/Alt + ⌘/Ctrl + C, Option/Alt + ⌘/Ctrl + V | Copy style, paste style |
+| ⌘/Ctrl + D | Duplicate the selection |
+| Delete or Backspace | Delete the selection |
+| ⌘/Ctrl + G, Shift + ⌘/Ctrl + G | Group, ungroup |
+| Shift + ⌘/Ctrl + L | Lock or unlock |
+| Shift + F10 | Open the layer or canvas menu |
+| Arrow keys | Nudge 1 px; with Shift, 10 px |
+| Option/Alt + A, H, D | Align left, horizontal center, right |
+| Option/Alt + W, V, S | Align top, vertical center, bottom |
+| Option/Alt + Shift + H, V | Distribute horizontally, vertically |
+| Space + drag | Pan |
+| Scroll | Zoom around the pointer |
+| ⌘/Ctrl + B, I, U | Bold, italic, underline while editing text |
+| Escape | Finish editing text |
+
+Option/Alt shortcuts read the physical key, so they work on keyboard layouts where Option produces another character. ⌘/Ctrl + D, ⌘/Ctrl + G, and Delete apply only while focus is inside the canvas. **Cut** is available in the layer menu. I and K open the image picker. E on the loose canvas shows a message instead of adding an effect.
+
+## Browser API
+
+The Browser API is `window.glyphfield.studio` while Design Lab is the active tool. Read `describe()` for the current action list and contracts. Design Lab adds these actions to the standard source and control actions:
+
+| Group | Actions |
+| --- | --- |
+| Workspace | `design.workspace.describe`, `design.workspace.activate`, `design.workspace.move`, `design.workspace.frameSelection` |
+| Layers | `design.layers.arrange`, `design.layers.lock`, `design.layers.copyStyle`, `design.layers.pasteStyle`, `design.text.format` |
+| Effect layers | `design.effects.describe`, `design.effects.add`, `design.effects.configure` |
+| Shader time | `design.frame.pause`, `design.frame.play`, `design.frame.seek`, `design.frame.capture`, `design.motion.describe` |
+| Shader sequence | `design.sequence.describe`, `design.sequence.configure`, `design.sequence.preview`, `design.sequence.stop` |
+| Export | `design.export`, `design.export.png`, `design.export.jpg`, `design.export.gif`, `design.export.mp4`, `design.export.shader-sequence.gif`, `design.export.shader-sequence.mp4`, `design.export.project` |
+
+Each subpage lists the inputs and outputs of its actions. The [Studio Browser API reference](/docs/reference/browser-api) covers lifecycle, controls, and errors.
+
+## HTTP
+
+`POST /api/generate` with `kind: "design-sequence"` returns a response-schema-1 envelope. Its `document` is a version-3 compatibility source for Design Lab, plus a resolved shader timeline and browser commands. Apply `response.document` with `applySource`, then re-read the normalized CanvasDocument before further edits. The server does not render Design Lab pixels. See [Generation API](/docs/agents/generate).
+
+## Limits and requirements
+
+| Item | Limit |
+| --- | --- |
+| Artboard size | 120–4096 px per side |
+| Export width | 320–3840 px, even numbers; height follows the artboard ratio |
+| Motion export | 1.2, 1.6, 2.4, or 4 seconds at 12, 15, 24, 30, or 60 FPS |
+| Imported image | 4,000,000 bytes; PNG, JPG, WebP, AVIF, GIF, BMP, or SVG |
+| Captured shader frame | PNG under 25 MB |
+| Project file | 128 MiB (134,217,728 bytes) |
+| Text size | 1–2048 px |
+| Live shaders | WebGL2 for Paper, Glyphfield, Fluid, and ShaderGradient materials; WebGPU for Shaders.com materials |
+| Image effects | WebGPU; exports stop with an error when it is unavailable |
+| MP4 | A browser video encoder; H.264 is preferred |
+
+Design Lab layers have no rotation control. Snapping while dragging aligns to the artboard edges and center and to the edges and centers of other layers within 6 screen pixels.

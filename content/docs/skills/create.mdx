@@ -6,7 +6,7 @@ icon: WandSparkles
 
 `$glyphfield-create` owns editable visual composition. Use it for Design Lab artboards containing text, marks, images, stickers, shader layers, converter effects, and saved designs.
 
-<DocsMedia alt='Design Lab showing a layered composition and the layer dock' caption='The create skill works in the real composition model' meta='CanvasDocument schema 2 · source 4' src='/screenshots/studio-gt-design-lab-dark-2026.png' />
+<DocsMedia alt='Design Lab showing a layered composition and the layer dock' caption='The create skill works in the real composition model' meta='CanvasDocument schema 2 · source 4' src='/screenshots/studio-gt-design-lab-dark-2026.webp' />
 
 ## Invoke it
 
@@ -32,6 +32,8 @@ Save the composition as “Launch signal”.
 - Start with no shader when the brand mark is strong enough; otherwise Gem Smoke is the preferred general-purpose material.
 - Keep shader layers behind authored content unless the composition intentionally masks or converts the result.
 - Give Bayer, ASCII, halftone, and posterize effects deliberate foreground and background colors.
+- For engraving, halftone, light leak, CRT, watercolor, chalk, and the other Shaders.com image effects, add an Effect layer with `design.effects.add { effectId }`. Check its `status` with `design.effects.describe`: image effects need WebGPU, and exports stop without it.
+- Use `design.layers.arrange` to align or distribute, `design.layers.lock` to protect finished layers, and `design.layers.copyStyle` / `design.layers.pasteStyle` to reuse an appearance. Design Lab layers have no rotation.
 - Preserve contrast between white artwork and white sticker borders with a fill, outline, alpha-aware shadow, surface, or border color.
 - Treat shader size as material zoom from `0.1` to `10`, not as canvas zoom.
 - Save the selected frame history and timeline state with the design.

@@ -6,14 +6,14 @@ icon: Download
 
 `$glyphfield-export` owns the terminal artifact. Use it whenever the request involves downloading, rendering, dimensions, transparency, motion loops, audio, or diagnosing a file that differs from its preview.
 
-<DocsMedia alt='Animation workspace with sequence timing and export controls' caption='Verify the renderer, not only the export action' meta='Frames · loops · text stability · audio' src='/screenshots/studio-gt-animation-dark-2026.png' />
+<DocsMedia alt='Animation workspace with sequence timing and export controls' caption='Verify the renderer, not only the export action' meta='Frames · loops · text stability · audio' src='/screenshots/studio-gt-animation-dark-2026.webp' />
 
 ## Choose the owning renderer
 
 | Output | Renderer |
 | --- | --- |
 | Template or background SVG | Deterministic HTTP generation |
-| Design Lab PNG, JPG, GIF, MP4 | Live Studio Canvas/WebGL renderer |
+| Design Lab PNG, JPG, GIF, MP4 | Live Studio Canvas, WebGL2, and WebGPU renderer for the selected artboard; loose canvas layers are not exported |
 | Animation GIF or audio-aware MP4 | Animation workspace |
 | Brand Book PDF | Browser print workflow |
 | Identity, canvas, or Lottie JSON | Owning Studio tool |
@@ -38,6 +38,9 @@ Call `studio.download(artifact)` only after verification and only when the user 
 ## Motion rules
 
 - Run GIF and MP4 exports serially because they share live canvases and browser encoders.
+- Design Lab motion runs at 12, 15, 24, 30, or 60 FPS for 1.2, 1.6, 2.4, or 4 seconds; Animation at 10–30 FPS; Lottie GIF at 25 FPS and MP4 at 30 FPS.
+- Image effect layers and Shaders.com materials need WebGPU. An export that includes them stops with an error naming the layer when WebGPU is missing.
+- Design Lab stills render shaders at about the export resolution regardless of the live preview quality; captured frames and project files copy the live preview.
 - Use `mode: "shader-sequence"` only for GIF or MP4.
 - A GIF has no audio; choose MP4 when the requested motion needs an audio track.
 - A loop flag is not proof of a seamless loop. Compare the last and first displayed frames and inspect the transition at normal playback speed.

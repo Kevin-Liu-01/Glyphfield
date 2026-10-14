@@ -4,14 +4,16 @@ description: Product components built from the brand tokens, in every state, lig
 icon: Component
 ---
 
-The Component library builds the identity's product interface from its tokens: the semantic color roles, the fonts, the radius and a density. Every component shows a live demo you can operate with the keyboard, each of its states, light and dark, and the code to ship it.
+The Component library (tool ID `buttons`) builds the identity's product interface from its tokens: the semantic color roles, the fonts, the radius and a density. Every component shows a live demo you can operate with the keyboard, each of its states, light and dark, and the code to ship it.
 
 <DocsMediaGrid>
-  <DocsMedia alt='General Translation component library in dark Studio chrome' caption='Dark component sheet' meta='Identity-aware states' src='/screenshots/studio-gt-components-dark-2026.png' />
-  <DocsMedia alt='General Translation component library in light Studio chrome' caption='Light component sheet' meta='Same component contract' src='/screenshots/studio-gt-components-light-2026.png' />
+  <DocsMedia alt='General Translation component library in dark Studio chrome' caption='Dark component sheet' meta='Identity-aware states' src='/screenshots/studio-gt-components-dark-2026.webp' />
+  <DocsMedia alt='General Translation component library in light Studio chrome' caption='Light component sheet' meta='Same component contract' src='/screenshots/studio-gt-components-light-2026.webp' />
 </DocsMediaGrid>
 
 ## Components
+
+The library has 36 components in 10 families. `components.list` returns each one's `id`.
 
 | Family | Components |
 | --- | --- |
@@ -30,18 +32,18 @@ Content comes from the identity: its products, proof, audiences, voice, domain a
 
 ## States
 
-Each component lists the states that apply to it and shows them next to the live demo: default, hover, focus visible, pressed, selected, disabled, loading and error. State replicas use the same markup and CSS as the demo, with the state forced, so what you review is what ships. **Disabled state** disables the live demo too.
+Each component lists the states that apply to it and shows them next to the live demo: default, hover, focus visible, pressed, selected, disabled, loading and error. Their IDs are `default`, `hover`, `focus`, `active`, `selected`, `disabled`, `loading`, and `error`. State replicas use the same markup and CSS as the demo, with the state forced, so what you review is what ships. **Disabled state** disables the live demo too.
 
 ## Settings
 
 - **Follow brand defaults**: density, radius, font and the light and dark colors come from the identity. Changing density, radius, font or a color turns it off.
-- **Component size** and **Density**: control heights, padding, gaps and text size.
-- **Corner radius**, **Border width** and **Elevation**.
-- **Surface mode**: the base background or the muted surface behind components.
+- **Component size** (Small, Default, Large) and **Component density** (Compact, Comfortable, Spacious): control heights, padding, gaps and text size.
+- **Corner radius** (0–32), **Border width** (0–4), and **Component elevation** (None, Soft, Strong).
+- **Component surface**: Base or Soft (the muted surface) behind components.
 - **Theme** (toolbar): light, dark or both. Light and dark use the identity's semantic roles; see [Color tokens](/docs/studio/colors#semantic-roles). With a custom palette, dark mode uses the text color as the canvas.
 - **Color system**: ten colors for a custom palette.
-- **Typography**: font role, weight, text scale and letter spacing.
-- **Shared media**: an identity asset behind the components, with its opacity.
+- **Typography**: **Component font role**, **Font weight** (100–550), **Text scale** (70–140%), and **Letter spacing** (−6 to 12).
+- **Shared media**: an identity asset (not a PDF) behind the components, with its opacity.
 
 Slider changes update the preview's CSS custom properties directly, so dragging never re-renders the components.
 
@@ -52,9 +54,9 @@ The code panel generates two files from the same settings:
 | Format | Files |
 | --- | --- |
 | React + Tailwind | `<Brand><Component>.tsx` with Tailwind CSS v4 utilities (`bg-primary`, `text-foreground`, `rounded-brand`, state variants such as `hover:`, `focus-visible:`, `aria-invalid:`, `peer-checked:`) and `theme.css` with the semantic roles for light and dark, the fonts and the radius |
-| HTML + CSS | `<component>.html` with `gf-*` classes and `components.css` with the same tokens as CSS custom properties and the component rules for every state |
+| HTML + CSS | `<component id>.html` (for example `toggles.html` for Switches and `dialogs.html` for Modals) with `gf-*` classes and `components.css` with the same tokens as CSS custom properties and the component rules for every state |
 
-The tokens come from the brand token serializers, the same ones the brand kit uses. The component root sets `font-kerning: normal` and automatic optical sizing, and no component stacks a small label above its heading. **Copy code** in the header copies both files; each file also has its own copy button.
+The tokens come from the brand token serializers, the same ones the brand kit uses. Generated code is the component's default state; the disabled setting is not applied to it. The `caution` color always comes from the identity, even with a custom palette. The component root sets `font-kerning: normal` and automatic optical sizing, and no component stacks a small label above its heading. **Copy code** in the header copies both files; each file also has its own copy button.
 
 ## Accessibility
 
@@ -64,13 +66,13 @@ Controls are native elements with labels: inputs are labelled with `for`, switch
 
 | Action | Result |
 | --- | --- |
-| `components.list` | Every component with its family, description and states |
+| `components.list` | `[{ id, label, family, description, states }]` for every component |
 | `components.code.read` | `{ pattern?, format?: 'react' \| 'html' }` → `{ pattern, files: [{ name, language, code }] }` |
 | `components.code.copy` | The same files copied to the clipboard as one text |
 
 ## Source
 
-**File → Edit source code** shows version 2: `pattern`, `family`, `label`, `supportingCopy`, `disabled`, `size`, `density`, `radius`, `borderWidth`, `elevation`, `surface`, `theme`, `codeFormat`, `useBrandDefaults`, `colors` (the ten custom colors), `typography { role, weight }`, `textScale`, `letterSpacing` and `asset { id, opacity }`. Version 1 sources still apply: `surface: "inverse"` becomes `theme: "dark"`. Settings saved by earlier versions, one draft per field, are migrated the first time the tool opens.
+**File → Edit source code** shows version 2: `pattern`, `family`, `label`, `supportingCopy`, `disabled`, `size`, `density`, `radius`, `borderWidth`, `elevation`, `surface`, `theme`, `codeFormat`, `useBrandDefaults`, `colors` (the ten custom colors), `typography { role, weight }`, `textScale`, `letterSpacing` and `asset { id, opacity }`. `family` must match the pattern. Ranges: `borderWidth` 0–4, `radius` 0–32, `letterSpacing` −6 to 12, `textScale` 70–140, `typography.weight` 100–900 (displayed up to 550), `asset.opacity` 0–100. Version 1 sources still apply: `surface: "inverse"` becomes `theme: "dark"`. Settings saved by earlier versions, one draft per field, are migrated the first time the tool opens.
 
 ## Product components in Brand elements
 
@@ -81,3 +83,16 @@ Brand elements contains individually configurable production applications such a
 The interface that edits these outputs is also a component system. Color input, canvas zoom, layer selection, direct manipulation, alignment, material finishes, selects, buttons, and browser persistence are reusable primitives rather than tool-local implementations.
 
 See [Editor systems and plugins](/docs/studio/editor-systems) for each component's states, state owner, reuse map, and third-party provider boundary, or [Source code editing](/docs/studio/source-editing) for the shared drawer workflow.
+
+## Keyboard shortcuts
+
+Live demos are keyboard operable. Tabs use the arrow keys, Home, and End.
+
+## HTTP
+
+The Component library has no HTTP route. `POST /api/generate` with `kind: "element-brief"` returns briefs for the product elements in Brand elements.
+
+## Limits
+
+- Font weights display up to 550.
+- Generated code reflects the default state.

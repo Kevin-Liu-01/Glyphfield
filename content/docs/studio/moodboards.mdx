@@ -1,67 +1,93 @@
 ---
 title: Moodboards
-description: Generate a complete design board from foundations and polished applications, then export it at production sizes.
+description: Compose the identity as an editable tile board in five compositions and export it as PNG, SVG, or identity JSON.
 icon: Images
 ---
 
-The Moodboard composes the active identity as a presentation board of tiles on a 12-column grid. Every tile is built from the identity itself: its graphic device, logo files, type, palette, voice, products, proof, and library images.
-
-| Board | Ratio | Use |
-| --- | --- | --- |
-| **Showcase** | 16:9 | Key visual, poster series, type, colour, imagery, social series, voice, and business cards |
-| **Campaign** | 16:9 | The identity in market: key visual, billboard, posters, social, email, event badge, website, and proof |
-| **System** | 4:5 | Logo, concept, type scale, colour proportion, device construction, imagery, voice, motion, proof, and applications |
-| **Specimen** | 4:5 | Display face, pairing, type scale, character set, voice in type, colour proportion, contrast pairs, and tonal ramps |
-| **Catalog** | 2:3 | Every tile plus every eligible source asset and every generated application |
+Moodboard (tool ID `design-board`) composes the active identity as a presentation board of tiles on a 12-column grid. Every tile is built from the identity: its graphic device, logos, type, palette, voice, products, proof, and library images. Tiles can be reordered, hidden, resized, recolored, and rewritten.
 
 <DocsMedia
-  alt='General Translation moodboard with identity foundations and application examples'
-  caption='Review the visual system as one connected board'
-  meta='Showcase composition'
-  src='/screenshots/studio-gt-moodboard-dark-2026.png'
+  alt='General Translation moodboard in the Showcase composition with the board and tile controls'
+  caption='The Showcase board for General Translation'
+  meta='Showcase · 16:9'
+  src='/screenshots/studio-gt-moodboard-light-2026.webp'
 />
 
-## Edit tiles
+## Compositions
 
-Select a tile on the board or in the **Tiles** list.
+| Board | ID | Ratio | Layout size | Default tiles |
+| --- | --- | --- | --- | --- |
+| Showcase | `showcase` | 16:9 | 1600 × 900 | Key visual, poster series, type, color, imagery, social series, voice, business cards |
+| Campaign | `campaign` | 16:9 | 1600 × 900 | Key visual, billboard, posters, social, email, event badge, website, proof |
+| System | `system` | 4:5 | 1600 × 2000 | Logo, concept, type scale, color proportion, device construction, imagery, voice, motion, proof, applications |
+| Specimen | `specimen` | 4:5 | 1600 × 2000 | Display face, pairing, type scale, character set, voice in type, color proportion, contrast pairs, tonal ramps |
+| Catalog | `catalog` | 2:3 | 1600 × 2400 | Every tile, plus indexes of all source assets (6 columns) and all generated applications (3 columns) |
 
-- **Reorder** by dragging a tile onto another tile, or with the arrow buttons in the list.
-- **Show or hide** a tile with its eye button. Remaining tiles reflow to fill the board.
-- **Layout** switches the tile's variant, for example a key visual led by the device, an image, or type alone.
-- **Size** sets the tile's width in grid columns (3, 4, 6, 8, or 12). Rows always fill the full width.
-- **Surface** picks the tile's colour role: paper, muted, ink, deep, or accent. Text colour follows for contrast.
-- **Image** swaps the library image on image-led tiles, or returns to the graphic device.
-- **Headline**, **Body**, and **Caption** edit the copy. With a tile selected, click its text on the board to edit it in place.
+Showcase and Campaign follow the identity's art direction, so their tile mix differs between identities.
 
-The **Board** section sets the board style, its title, and a light or dark board surface. **Reset board** and **Reset tile** return to the identity defaults. Edits are saved per project and board, and appear in every export.
+## Layout
 
-## Export sizes
+| Region | Contents |
+| --- | --- |
+| Tool header | **File** (**Export SVG**, **Download identity JSON**, **Edit source code**) and **Export PNG** |
+| Left sidebar | The identity name, **Board** (**Reset board**, **Board style**, **Board title**, **Board surface**), **Tiles**, **Export**, generated applications, and the central idea with its sources |
+| Canvas | The board in the shared canvas viewport. Each tile is a button labelled `Select <tile> tile` |
+| Inspector | The selected tile's settings |
+
+## Tiles
+
+Select a tile on the board or in the **Tiles** list. The list shows each tile's name, layout, and width, with these controls:
+
+- `Hide <tile> tile <id>` or `Show <tile> tile <id>` toggles the tile. Remaining tiles reflow.
+- `Select <tile> tile <id> in list` selects it.
+- `Move <tile> tile <id> earlier` and `Move <tile> tile <id> later` reorder it. Dragging a tile onto another on the board also reorders.
+
+The tile inspector has **Reset tile**, **Tile layout** (the tile's variant), **Tile size** (3, 4, 6, 8, or 12 columns; rows always fill the width), **Tile surface** (Paper, Muted, Ink, Deep, Accent; text color follows for contrast), **Tile image** (the graphic device or a library image, on image tiles), and **Tile headline**, **Tile body**, and **Tile caption** (up to 600 characters each). With a tile selected, its text on the board is editable in place through `Edit <tile> headline`, **body**, or **caption**. Escape clears the selection.
+
+| Tile kind | Layouts |
+| --- | --- |
+| Key visual (`cover`) | device, image, type |
+| Poster | device, image, type |
+| Billboard | device, image |
+| Graphic device | field, construction, crops |
+| Logo | pair, single, clearspace |
+| Typography (`type`) | glyph, scale, phrases, pairing, charset |
+| Colour (`palette`) | proportion, swatches, pairs, tints |
+| Imagery | single, pair, triptych |
+| Statement | concept, promise |
+| Voice | quote, dodont |
+| Proof | figures, list |
+| Motion | curve, frames |
+| Social post (`social`) | post, story |
+| Email | message, inbox |
+| Website (`web`) | hero, product |
+| Event badge (`badge`) | lanyard, card |
+| Business card (`card`) | pair, front |
+
+Image tiles are billboard, key visual, imagery, poster, social, and website.
+
+## Export
+
+| Action | Result |
+| --- | --- |
+| **Export PNG** | The board as PNG, at the size shown in the Export section |
+| **File → Export SVG** | A standalone SVG of the 1600 px wide layout with brand fonts and images embedded |
+| **File → Download identity JSON** | The complete active `BrandIdentity` |
+
+**Output size** offers Standard (1600 px wide), Retina (2400, the default), High (3200), Ultra (4800), and Custom (**Custom width** 800–4800 in steps of 100). The preset sets the export width; the height follows the board ratio. The PNG is then rendered at a pixel ratio between 1 and 2, chosen so that its long edge does not exceed 4800 px unless the preset itself is larger. The resulting PNG sizes are:
 
 | Preset | 16:9 boards | 4:5 boards | Catalog |
 | --- | --- | --- | --- |
-| Standard | 1600 × 900 | 1600 × 2000 | 1600 × 2400 |
-| Retina | 2400 × 1350 | 2400 × 3000 | 2400 × 3600 |
-| High resolution | 3200 × 1800 | 3200 × 4000 | 3200 × 4800 |
+| Standard | 3200 × 1800 | 3200 × 4000 | 3200 × 4800 |
+| Retina | 4800 × 2700 | 3840 × 4800 | 3200 × 4800 |
+| High | 4800 × 2700 | 3840 × 4800 | 3200 × 4800 |
 | Ultra | 4800 × 2700 | 4800 × 6000 | 4800 × 7200 |
-| Custom | 800–4800 px wide | 800–4800 px wide | 800–4800 px wide |
 
-PNG export rasterises at up to twice the layout size, capped at 4800 px on the long edge; the Export section shows the exact pixel size before you export. **File → Export SVG** packages the same board as a vector SVG. Both formats embed every brand font file and library image, so the output matches the preview.
+The Export section shows the exact pixel size before export. Both PNG and SVG embed every brand font and library image, so the output matches the preview.
 
-## Identity JSON
+## Source format
 
-Use **Identity JSON** to download the complete active `BrandIdentity`. The file contains the shared foundation record and is useful for backups, handoff, inspection, and agent-side transformation.
-
-## Review workflow
-
-1. Complete Brand identity.
-2. Review the board at 100% zoom.
-3. Check logo reversal, small type, and application spacing.
-4. Export Standard for routine sharing or Retina/High for presentation.
-5. Use Ultra only when the additional raster dimensions are needed.
-
-## Edit board configuration as source
-
-Select **File → Edit source code** to edit the boards without replacing the preview. Version 2 source lists every board and its tiles:
+**File → Edit source code** shows `glyphfield.moodboard` version 2:
 
 ```json
 {
@@ -75,21 +101,33 @@ Select **File → Edit source code** to edit the boards without replacing the pr
       "title": "Brand showcase",
       "surface": "light",
       "tiles": [
-        { "id": "cover", "kind": "cover", "hidden": false, "variant": "device", "span": 8, "tone": "deep", "assetId": "", "copy": { "headline": "Financial infrastructure for the internet.", "body": "…", "caption": "stripe.com" } }
+        { "id": "cover", "kind": "cover", "label": "Key visual", "variants": ["device", "image", "type"], "hidden": false, "variant": "device", "span": 8, "tone": "deep", "assetId": "", "copy": { "headline": "Financial infrastructure for the internet.", "body": "…", "caption": "stripe.com" } }
       ]
     }
   }
 }
 ```
 
-- `composition` accepts `showcase`, `campaign`, `system`, `specimen`, or `catalog`.
-- Tile order is the order of `tiles`. A partial list moves the listed tiles first; omitted tiles keep their settings.
-- `variant` must be one of the tile's `variants`; `span` is 3, 4, 6, 8, or 12; `tone` is `paper`, `muted`, `ink`, `deep`, or `accent`; `assetId` must be an eligible library image or empty for the graphic device.
-- Copy fields hold up to 600 characters. Values equal to the identity defaults are not stored, so untouched copy keeps following later identity edits.
-- Version 1 documents (`composition`, `exportPresetId`, `customWidth` only) still apply and keep the current tile edits.
+- `composition` is `showcase`, `campaign`, `system`, `specimen`, or `catalog`. Board keys must be one of these.
+- Tile order is the order of `tiles`. A partial list moves the listed tiles first; omitted tiles keep their settings. Tile IDs must be unique.
+- `variant` must be one of the tile's `variants`; `span` is 3, 4, 6, 8, or 12; `tone` is `paper`, `muted`, `ink`, `deep`, or `accent`; `assetId` is an eligible library image or empty for the graphic device.
+- `title` holds up to 120 characters and copy fields up to 600. Values equal to the identity defaults are not stored, so untouched copy keeps following later identity edits.
+- Version 1 documents (`composition`, `exportPresetId`, `customWidth`) still apply and keep the current tile edits.
 
-Board source configures presentation only. Identity content, assets, fonts, and art direction continue to come from Brand identity. See [Source code editing](/docs/studio/source-editing) for the shared Apply and Reset behavior.
+Board source configures presentation only. Content, assets, fonts, and art direction come from Brand identity.
 
 ## Browser API
 
-`moodboard.export.png` returns the PNG, `moodboard.export.svg` the standalone SVG, and `moodboard.export.identity` the identity JSON. Each tile on the board is a control labelled `Select <tile> tile`; list controls are labelled `Hide <tile> tile <id>`, `Move <tile> tile <id> earlier`, and `Move <tile> tile <id> later`.
+| Action | Input | Output |
+| --- | --- | --- |
+| `moodboard.export.png` | None | Export artifact with the PNG |
+| `moodboard.export.svg` | None | Export artifact with the SVG |
+| `moodboard.export.identity` | None | Export artifact with the identity JSON |
+
+Tile controls use the labels above. In the Specimen board several tiles share a kind, so **Select Typography tile** matches more than one tile; use the list labels with the tile ID instead.
+
+## Limits
+
+- PNG long edge up to 4800 px, except Ultra on 4:5 and Catalog boards (6000 and 7200 px).
+- SVG always uses the 1600 px wide layout.
+- Board title 120 characters; tile copy 600 characters.

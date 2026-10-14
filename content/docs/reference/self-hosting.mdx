@@ -6,11 +6,11 @@ icon: MonitorCog
 
 Glyphfield is a Next.js application with dynamic API, OpenGraph, Markdown, and full-corpus routes. It is not configured as a static export. A complete deployment must run the Next.js server and preserve normal browser access to Canvas, WebGL, storage, files, and downloads.
 
-<DocsMedia alt='Glyphfield documentation and Studio system represented by the General Translation identity workspace' caption='One deployment serves docs, discovery, API, and Studio' meta='Next.js · local-first browser state' src='/screenshots/studio-gt-identity-dark-2026.png' />
+<DocsMedia alt='Glyphfield documentation and Studio system represented by the General Translation identity workspace' caption='One deployment serves docs, discovery, API, and Studio' meta='Next.js · local-first browser state' src='/screenshots/studio-gt-identity-dark-2026.webp' />
 
 ## Install and run
 
-The lockfile is the dependency authority. No project-wide Node engine is declared, so use a current Node release compatible with the checked-in Next.js version and pin it in your deployment environment.
+The lockfile is the dependency authority. `package.json` pins `packageManager: pnpm@11.15.1`; enable Corepack so that version is used. pnpm 10 cannot install the lockfile with `--frozen-lockfile` because of its patched dependencies. On Vercel, set `ENABLE_EXPERIMENTAL_COREPACK=1`. No Node engine is declared; use a current Node release compatible with the checked-in Next.js version and pin it in your deployment environment.
 
 ```bash
 corepack enable

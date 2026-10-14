@@ -1,0 +1,57 @@
+---
+title: Licensing
+description: What the MIT license covers, which bundled marks, pictures, fonts, and code keep their own terms, and how to credit them.
+icon: ShieldCheck
+---
+
+Glyphfield is released under the [MIT License](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/LICENSE). The license covers Glyphfield's source code and its original artwork, including the Starter identity and the artwork under `public/templates`. It does not cover the assets bundled with the reference identities, the reference-brand font files, or third-party code and packages, which keep their own terms.
+
+## What keeps its own terms
+
+| Material | Location | Terms |
+| --- | --- | --- |
+| Reference brand marks, product media, photography, and press-kit files | `public/brands/<brand>` | The owner's terms. Each asset record stores its owner, source URL, intended use, and redistribution status. See [Brand research assets](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/public/brands/ASSET-NOTICE.md) |
+| General Translation marks and brand-system artwork (glyph globes, globe and mark, glyph and horizon fields, speed marks, the How GT works still, the signal Gem Smoke, the multilingual advance field) | `public/brands/gt/logos`, `public/brands/gt/library` | © General Translation, Inc., included with permission for Glyphfield's General Translation identity. Not covered by the MIT license and not reusable outside that identity without General Translation's permission |
+| General Translation onboarding email panels | `public/examples/email-lifecycle/cards` | Same terms as the GT artwork |
+| General Translation artifact pictures | `public/brands/gt/library` | Each keeps its original's license; see the table below |
+| Reference-brand font files | `public/fonts/brands` | Each typeface keeps its owner's or foundry's terms. See [Reference brand webfonts](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/public/fonts/brands/README.md) |
+| Adapted open-source code and bundled packages | Throughout `src` and dependencies | Their own licenses. See [Third-party notices](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/THIRD_PARTY_NOTICES.md) |
+
+The reference identities (Basement, General Translation, Ramp, Mintlify, Tailwind CSS, Vite+, Cloudflare, Stripe) are included for design study and interoperability. Their inclusion does not imply endorsement, and the MIT license grants no rights to third-party trademarks. Research-only assets must not be exported or redistributed as standalone stock assets; replace them with owned or licensed files before commercial use.
+
+## General Translation artifact pictures
+
+The ten artifact pictures are General Translation's screens of public-domain and Creative Commons originals: each picture is reduced to a tone grid and printed through an 8 × 8 Bayer matrix. A screen of a public-domain original stays public domain. A screen of a CC BY-SA 4.0 original is an adaptation released under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+
+| File | Original | Credit | License |
+| --- | --- | --- | --- |
+| `blue-marble.png` | Blue Marble, Western Hemisphere | NASA, Reto Stöckli, 2007 | Public domain |
+| `rosetta-stone.png` | The Rosetta Stone | Photograph: Hans Hillewaert | CC BY-SA 4.0 |
+| `marginal-gloss.png` | Alexandreis with gloss, page 69 | MS f Med. 23, Boston Public Library | Public domain |
+| `great-wave.png` | The Great Wave off Kanagawa | Katsushika Hokusai, about 1831 | Public domain |
+| `telegraph-cables.png` | Eastern Telegraph cables, 1901 | Eastern Telegraph Company, 1901 | Public domain |
+| `devanagari-manuscript.png` | Prashna Upanishad manuscript page | Photograph: Ms Sarah Welch | CC BY-SA 4.0 |
+| `karahisari-calligraphy.png` | Karalama (calligraphy exercise) | Ahmed Karahisari, 16th century | Public domain |
+| `cuneiform-tablet.png` | Proto-cuneiform tablet, image DP293245 | The Metropolitan Museum of Art, Open Access | Public domain |
+| `bowen-compass.png` | Mariner's Compass and Armillary Sphere | Emanuel Bowen, 1748 | Public domain |
+| `louisbourg-lighthouse.png` | Louisbourg Lighthouse, waves breaking in a fall storm | Photograph: Ken Heaton | CC BY-SA 4.0 |
+
+Show the credit with a picture wherever you publish it, and release adaptations of the three CC BY-SA 4.0 screens under the same license. Each asset record in the identity carries its credit, license, and source link. [Third-party notices](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/THIRD_PARTY_NOTICES.md#general-translation-artifact-pictures) links every original.
+
+## Third-party code and assets
+
+[Third-party notices](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/THIRD_PARTY_NOTICES.md) lists:
+
+- WebGL Fluid Simulation (MIT), adapted for Fluid Energy.
+- Paper Shaders (Apache 2.0), the `@paper-design/shaders-react` package.
+- The Shaders.com WebGPU components, `shaders` 4.0.1 (MIT). The separately licensed paid Shaders.com editor presets and sections are not redistributed.
+- HoloCloth, GMHoloSticker, and HoloSticker (MIT) and FoilStickerShader (Unlicense), whose techniques the holographic surfaces and sticker finishes adapt.
+- The visual references for the original design studies (Evil Rabbit Shaders, GRADIENTOOL, Grainient). No code or assets from these sites are bundled.
+- The workflow references for the shader editor (glslCanvas, glslEditor, Paper Shaders, Pixel Play, WebGL Shader Editor).
+- Open PBR surface maps from Poly Haven and ambientCG (CC0 1.0), fetched on demand and not committed.
+
+npm dependencies, such as ShaderGradient, Three.js, gifenc, mediabunny, dotLottie, PrismJS, and Fumadocs, are installed under their own licenses.
+
+## Exported artifacts
+
+An export contains whatever the composition uses. A file made with a reference identity can contain that brand's marks, pictures, and fonts, and those keep their owners' terms. A file made with your own identity and Glyphfield's original artwork carries no Glyphfield restriction. Lottie files from LottieFiles keep their individual licenses; check each one before use.

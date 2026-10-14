@@ -1,49 +1,47 @@
 ---
-title: Color, typography, and tactile backgrounds
-description: Build identity foundations and deterministic tactile surfaces, then use them inside Design Lab and every expression tool.
+title: Tactile backgrounds
+description: Generate deterministic SVG gradients, grain, dither, patterns, and physical surface textures from the active identity, without WebGL.
 icon: Palette
 ---
 
-Glyphfield no longer treats physical material, sticker, cloth, shader, type, and artwork as unrelated labs. Design Lab is the composition surface; Color tokens and Typography define reusable foundations; deterministic background generation supplies portable SVG recipes when a live shader is unnecessary.
+A tactile background is a standalone SVG made by `POST /api/generate` with `kind: "background"`. It needs no browser and no WebGL, so the same request always returns the same file. Use it when a live shader is not required, for example as a fixed background in a web page or as an image layer in Design Lab.
 
 <DocsMediaGrid>
-  <DocsMedia alt='Design Lab composition using material, type, and brand mark layers' caption='Combined composition' meta='Type · mark · shader · effects' src='/screenshots/studio-gt-design-lab-light-2026.png' />
-  <DocsMedia alt='Design Lab composition with material and artwork controls' caption='Rapid exploration' meta='Same brand foundations' src='/screenshots/studio-gt-playground-dark-2026.png' />
+  <DocsMedia alt='Design Lab composition with a material, type, and brand mark' caption='Background behind a composition' meta='Design Lab' src='/screenshots/studio-gt-design-lab-light-2026.webp' />
+  <DocsMedia alt='OpenGraph editor with the General Translation identity' caption='Background in a social image' meta='Expression tools' src='/screenshots/studio-gt-opengraph-light-2026.webp' />
 </DocsMediaGrid>
 
-## Color tokens
+## Settings
 
-Color tokens presents the active identity's semantic colors as large swatches with editable HEX and OKLCH values. Opacity remains independent from the color value. **Copy tokens** produces CSS custom properties while retaining the HEX reference used by SVG and Canvas renderers.
+All settings are optional. Read `GET /api/generate` for the current contract.
 
-Use Color tokens to:
+| Setting | Values |
+| --- | --- |
+| `width`, `height` | 64–4096 px; at most 12,000,000 pixels in total |
+| `style` | `gradient`, `grain-gradient`, `dither`, `pattern` |
+| `gradient` | `linear`, `radial`, `mesh`, `orbit`, `wave`, `bloom` |
+| `colorA`, `colorB`, `colorC` | Six-digit HEX; default to the identity colors |
+| `angle` | −360 to 360 |
+| `focalX`, `focalY` | 0–100 |
+| `grain` | 0–100 |
+| `relief` | 0–80 |
+| `bandCount`, `bandDepth`, `bandGap` | 3–24, 0–100, 0–64 |
+| `lightingEnabled` | `false` gives flat bands without gradient lighting |
+| `ditherMatrix`, `ditherShape` | Bayer 2, 4, or 8; `dots` or `squares` |
+| `pattern`, `patternOpacity`, `spacing` | `none`, `dots`, `lines`, `grid`, `fibers`, `speckles`, `topographic`, `crosshatch`; 0–100; 8–256 px |
+| `surfaceMaterial` | `none`, `kerf-wood`, `woven-wire`, `perforated-metal`, `carved-stone`, `embossed-paper`, `brushed-metal`, `hammered-foil`, `corrugated-polymer`, `cork-composite`, `frosted-glass`, `iridescent-film`, `holo-cloth`, `linen-weave`, `felted-wool`, `pebbled-leather`, `crackle-glaze`, `sandblasted-plaster`, `graphite`, `carbon-twill` |
+| `surfaceScale`, `surfaceAngle` | 12–140, 0–180 |
+| `surfaceDepth`, `surfaceRoughness`, `surfaceMetallic`, `surfaceIrregularity`, `surfaceTextureAmount` | 0–100 |
+| `surfaceOpenArea` | 0–92 |
+| `surfaceLibraryAssetId` | Empty, or one of the CC0 references below |
+| `logoTone`, `logoColor` | `black` or `white`; six-digit HEX |
+| `logoScale`, `logoOpacity`, `logoX`, `logoY` | 5–90, 0–100, −50 to 50, −50 to 50 |
 
-- Check ink/paper contrast before composing.
-- Inspect perceptual lightness in OKLCH.
-- Establish emphasis and status roles.
-- Confirm a palette works across both light and dark surfaces.
-- Supply the same three-color starting point to the Shader Library.
+## CC0 surface references
 
-Commit foundational changes in Brand identity when every artifact should inherit them. Tool-local color edits remain part of that artifact.
+`surfaceLibraryAssetId` selects one of eleven CC0 references from Poly Haven and ambientCG: `polyhaven-velour-velvet`, `ambientcg-fabric-061`, `ambientcg-leather-037`, `polyhaven-oak-veneer`, `polyhaven-plywood`, `polyhaven-marble`, `polyhaven-metal-plate`, `ambientcg-metal-063`, `polyhaven-beige-wall`, `polyhaven-rubber-tiles`, and `ambientcg-paper-006`. `GET /api/surface-textures/{assetId}/{map}` serves their `color`, `displacement`, `metalness`, `normal`, and `roughness` maps with `X-Surface-License` and `X-Surface-Provider` headers. It serves only these assets and maps; it is not a general proxy. `/api/catalog` publishes the recipes, references, and attribution under `surfaceLibrary`.
 
-## Typography
-
-Typography compares Display, Body, Accent, and Code roles, weights, spacing, and hierarchy in one specimen. A custom OTF, TTF, WOFF, or WOFF2 file can be loaded into the current browser with the FontFace API.
-
-Uploaded font files are not sent to Glyphfield's HTTP generator. Preserve the authorized font separately or convert a final browser composition to an embedded/raster output when exact typography must travel.
-
-## Deterministic tactile backgrounds
-
-`POST /api/generate` with `kind: "background"` creates portable SVG from the same background recipe vocabulary published in `/api/catalog`:
-
-- Linear, radial, mesh, orbit, wave, and bloom gradients.
-- Grain and relief.
-- Bayer dither with 2×2, 4×4, or 8×8 matrices.
-- Dot, line, grid, fiber, speckle, topographic, and crosshatch patterns.
-- Wood, wire, perforated metal, stone, paper, metal, foil, polymer, cork, glass, linen, felt, leather, ceramic, plaster, and carbon-inspired tactile structures.
-- Texture amount, scale, angle, irregularity, depth, roughness, metallic response, and open area.
-- Optional logo placement and tone.
-
-The catalog also publishes CC0 Open PBR references from sources such as Poly Haven and ambientCG. Those entries provide provenance and visual reference. Deterministic SVG generation remains the portable output and does not require WebGL.
+## Example
 
 ```bash
 curl -fsS -X POST http://localhost:3012/api/generate \
@@ -59,18 +57,24 @@ curl -fsS -X POST http://localhost:3012/api/generate \
       "surfaceMaterial": "embossed-paper",
       "surfaceDepth": 36,
       "surfaceRoughness": 72,
-      "colorA": "#F5F5F2",
-      "colorB": "#181818",
-      "colorC": "#7058FF"
+      "colorA": "#F4F4F4",
+      "colorB": "#070707",
+      "colorC": "#2F5CE0"
     },
     "output": "raw"
   }' -o tactile-background.svg
 ```
 
-## Put the foundation into Design Lab
+With `output: "raw"` the response is `image/svg+xml`. With `output: "json"` (the default) the SVG is in `artifact.content`.
 
-Use a generated SVG as an authorized image/background layer, or choose a live shader directly from the shared library. Add text, multiple marks, images, stickers, and converter layers above it. Every layer has its own visibility, transform, ordering, and opacity.
+## Use a background in the Studio
 
-For white artwork on a white sticker border, adjust the mark treatment separately from the cut line: apply an alpha-aware outline, shadow, alternate mark color, or contrasting surface while preserving the sticker's white physical edge.
+Add the SVG to a Design Lab artboard as an image layer, or to an expression tool as an image or background. A live shader from the [Shader Library](/docs/studio/shader-library) is the moving alternative. Foundations for the colors come from [Color tokens](/docs/studio/colors) and [Brand identity](/docs/studio/brand-settings).
 
-Use [Design Lab](/docs/studio/design-lab) for full composition, [Shader Library](/docs/studio/shader-library) for live material behavior, and [Background generation](/docs/agents/generate) for deterministic SVG.
+## Limits
+
+- 64–4096 px per side and 12,000,000 pixels in total; larger requests return `invalid_dimensions` or `pixel_limit`.
+- Request bodies up to 5 MB. Remote image URLs are not fetched.
+- The SVG is deterministic: the same request returns the same file.
+
+See [Generation API](/docs/agents/generate) for the request envelope and errors.
