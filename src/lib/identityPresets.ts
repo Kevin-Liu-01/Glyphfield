@@ -888,7 +888,7 @@ const RAMP_BRAND_IDENTITY: BrandIdentity = {
       { avoid: 'Revolutionizing the future of finance with AI.', context: 'Customer proof', write: 'Ramp customers have saved $12B+ and 27M+ hours.' },
       { avoid: 'Action required: please review pending items in your account.', context: 'Product notification', write: '3 receipts are missing. Snap them now so the month closes on time.' },
       { avoid: 'Our innovative platform empowers finance teams to achieve more.', context: 'Feature headline', write: 'Receipts, coded and matched before your team asks.' },
-    ], avoid: ['Abstract fintech futurism', 'Benefits without a quantified result', 'Complexity dressed up as expertise', 'Hype words such as revolutionary or seamless'], phrases: ['Setting finance free to build healthier businesses.', 'Modernize finance and help every business thrive.', 'We win when customers win.'], principles: ['Lead with the number', 'Use the fewest words that carry the point', 'Speak like an operator, not a bank', 'Make the next action obvious'] },
+    ], avoid: ['Abstract fintech futurism', 'Benefits without a quantified result', 'Complexity dressed up as expertise', 'Hype words such as revolutionary or seamless'], phrases: ['Modernize finance and help every business thrive.', 'We win when customers win.'], principles: ['Lead with the number', 'Use the fewest words that carry the point', 'Speak like an operator, not a bank', 'Make the next action obvious'] },
   website: 'ramp.com',
 };
 
