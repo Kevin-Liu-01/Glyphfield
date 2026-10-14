@@ -10,7 +10,7 @@ import { landingRenderQualityStore } from '@/lib/landingRenderQuality';
 
 const renderer = vi.hoisted(() => ({ create: vi.fn(), release: vi.fn() }));
 
-vi.mock('@/components/LiveMaterialCanvas', () => ({
+vi.mock('@/components/LazyLiveMaterialCanvas', () => ({
   default: ({ enabled = true, frameRate, maxPixelCount, paused, renderScale }: LiveMaterialCanvasProps) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     useEffect(() => {

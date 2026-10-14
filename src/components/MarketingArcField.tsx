@@ -2,7 +2,7 @@
 
 import { useRef } from 'react';
 
-import LiveMaterialCanvas from '@/components/LiveMaterialCanvas';
+import LazyLiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import ShaderSkeleton from '@/components/ShaderSkeleton';
 import { useDeferredRuntime } from '@/hooks/useDeferredRuntime';
 import { useLandingRenderQuality } from '@/hooks/useLandingRenderQuality';
@@ -25,6 +25,7 @@ export default function MarketingArcField({
   maxPixelCount,
   paperShaderOverrides,
   persistAfterReady = false,
+  poster = false,
   renderScale = 0.5,
   settings,
 }: {
@@ -35,6 +36,8 @@ export default function MarketingArcField({
   maxPixelCount?: number;
   paperShaderOverrides?: Readonly<Record<string, unknown>>;
   persistAfterReady?: boolean;
+  /** Paint the still from landing-posters.css until the live shader has drawn. */
+  poster?: boolean;
   renderScale?: number;
   settings: LiveMaterialSettings;
 }) {
@@ -71,10 +74,10 @@ export default function MarketingArcField({
       ref={containerRef}
       aria-hidden='true'
     >
-      <ShaderSkeleton />
+      <FieldBackdrop poster={poster} />
       {runtimeMounted ? (
         <div className='marketing-v5-field-runtime'>
-          <LiveMaterialCanvas
+          <LazyLiveMaterialCanvas
             activeWhileMounted
             // Keep the prepared context and native phase while nearby. Disabling
             // the renderer here would defer GPU compilation until the active edge.
@@ -91,4 +94,9 @@ export default function MarketingArcField({
       {isPaperShader ? null : <div className='marketing-v5-field-grain' />}
     </div>
   );
+}
+
+/** The still under the live shader: the field's poster, or the shared loading skeleton. */
+function FieldBackdrop({ poster }: { poster: boolean }) {
+  return poster ? <span className='marketing-v5-field-poster' /> : <ShaderSkeleton />;
 }

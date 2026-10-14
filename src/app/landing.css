@@ -1007,6 +1007,24 @@ html.dark .marketing-page-v5 .marketing-mini-motion-workspace {
   to { opacity: 1; }
 }
 
+/* Hero shaders paint a blurred still of their first frame (landing-posters.css) at
+   once, then fade to the live canvas when it has drawn. A failed renderer keeps the still. */
+.marketing-v5-field-poster {
+  position: absolute;
+  inset: -32px;
+  background: var(--marketing-field-poster) center / cover no-repeat;
+  filter: blur(14px);
+}
+
+.marketing-v5-arc-field:has(> .marketing-v5-field-poster) .marketing-v5-field-runtime {
+  animation: none;
+  transition: opacity 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.marketing-v5-arc-field:has(> .marketing-v5-field-poster) .marketing-v5-field-runtime:has([data-live-material-ready='false'], [data-live-material-ready='error']) {
+  opacity: 0;
+}
+
 .marketing-v5-field-grain {
   position: absolute;
   z-index: 5;
@@ -2007,6 +2025,17 @@ html.dark .marketing-page-v5 .marketing-v5-capability-grid article:hover::after 
   -webkit-mask-position: center;
   -webkit-mask-repeat: no-repeat;
   -webkit-mask-size: contain;
+}
+
+/* The mark shows its poster from landing-posters.css until the live shader draws. */
+.marketing-v5-hero-mark {
+  background-image: var(--marketing-field-poster);
+  background-position: center;
+  background-size: cover;
+}
+
+.marketing-v5-hero-mark .shader-skeleton {
+  visibility: hidden;
 }
 
 .marketing-v5-shader-text {

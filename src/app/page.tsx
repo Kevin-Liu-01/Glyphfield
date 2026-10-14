@@ -1,4 +1,5 @@
 import './landing.css';
+import './landing-posters.css';
 
 import Image from 'next/image';
 import Link from 'next/link';
@@ -294,6 +295,7 @@ export default async function HomePage() {
               materialId={SHADER_LIBRARY_SCENES.heroField.materialId}
               maxPixelCount={900_000}
               persistAfterReady
+              poster
               renderScale={1}
               settings={SHADER_LIBRARY_SCENES.heroField.settings}
             />
