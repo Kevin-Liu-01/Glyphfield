@@ -33,7 +33,7 @@ describe('StudioRange', () => {
     );
     expect(sharedRangeStyles).toContain('--studio-range-thumb-border: var(--studio-range-accent);');
     expect(sharedRangeStyles).not.toContain('#5b7cff');
-    expect(styles.match(/--studio-highlight-color: hsl\(var\(--primary\)\);/g)).toHaveLength(3);
+    expect(styles.match(/--studio-highlight-color: hsl\(var\(--primary\)\);/g)).toHaveLength(4);
   });
 });
 

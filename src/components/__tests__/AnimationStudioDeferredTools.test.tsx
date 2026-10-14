@@ -88,8 +88,9 @@ describe('Animation Studio on-demand source and export tools', () => {
     root = createRoot(container);
     // Keep the cold editor dependency graph in setup, not the interaction's
     // deadline. Each test still evaluates a fresh graph to detect eager tools.
+    // That cold import alone takes about 7 s, so setup gets its own limit.
     ({ default: AnimationStudio } = await import('@/components/AnimationStudio'));
-  });
+  }, 30_000);
 
   afterEach(() => {
     act(() => root.unmount());
