@@ -56,6 +56,10 @@ function InlineText({ context, element, onEditEnd, onEditText, page }: Pick<Laye
     display: 'block',
     fontFamily: context.fontFamily(style.fontId, style.fontFamily),
     fontSize: `${(style.fontSize / page.width) * 100}cqw`,
+    fontFeatureSettings: style.casing === 'uppercase' ? "'kern' 1, 'cpsp' 1" : "'kern' 1",
+    fontKerning: 'normal',
+    // Optical size follows the export size, as in the rendered layer, not the zoomed size.
+    fontVariationSettings: `'opsz' ${style.fontSize}`,
     fontWeight: style.fontWeight,
     height: '100%',
     letterSpacing: `${style.letterSpacing}em`,
