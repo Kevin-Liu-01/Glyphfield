@@ -45,7 +45,9 @@ Every card contains a live preview, material name, source badge, and selected st
 
 Choosing a source filter narrows the current quality-sorted catalog and its category counts; it does not change how the shader is rendered or edited.
 
-A second filter narrows by kind: **Backgrounds** fill an artboard on their own, **Image effects** transform a source image (blur, halftone, distortions, transitions), **Interactive** materials respond to the pointer, and **Shapes** are primitives for compositing. Search matches every word you type against the name, description, source, look and kind, so `interactive smoke` or `image effects blur` both work.
+A second filter narrows by kind: **Backgrounds** fill an artboard on their own, **Interactive** materials respond to the pointer, and **Shapes** are primitives for compositing. Search matches every word you type against the name, description, source, look and kind, so `interactive smoke` or `shapes ring` both work.
+
+Shaders.com image effects (blurs, halftones, distortions, adjustments, transitions) transform the pixels beneath them, so the library does not list them. Apply one in Design Lab as an [Effect layer](/docs/studio/design-lab#image-effects-on-effect-layers). A saved design that used one as a shader layer still opens and renders as before.
 
 Stateful and interactive materials (Smoke, Ink Flow, Boids, Reaction Diffusion and others) simulate a few seconds before they first appear, so they open already developed. Until you move the pointer over them, interactive materials follow a slow virtual cursor; move over the canvas to take control.
 

@@ -18,44 +18,56 @@ import {
   ArrowUp,
   Copy,
   Crop,
+  DistributeHorizontal,
+  DistributeVertical,
   Eye,
   EyeOff,
   Files,
   Group,
   Layers3,
+  Lock,
+  PaintBrush,
   Scissors,
   Trash2,
   Ungroup,
 } from '@/components/ui/SolidIcons';
 
 import type { CanvasLayerAlignment } from '@/lib/canvasInteraction';
+import { canArrangeUnits, type DesignLabArrangement } from '@/lib/designLabArrange';
 
 export type CanvasSelectionMenuPosition = StudioContextMenuPosition;
 
 type CanvasSelectionMenuProps = {
+  /** Layers and whole groups in the selection; enables align and distribute. */
+  arrangeUnitCount?: number;
   canCrop?: boolean;
   canGroup: boolean;
   canPaste?: boolean;
+  canPasteStyle?: boolean;
   canUngroup: boolean;
   count: number;
   cropEditing?: boolean;
   groupName?: string;
   placementSection?: StudioContextMenuSection;
   onAlign: (alignment: CanvasLayerAlignment) => void;
+  onArrange?: (arrangement: DesignLabArrangement) => void;
   onBringForward: () => void;
   onBringToFront?: () => void;
   onClose: () => void;
   onCopy?: () => void;
+  onCopyStyle?: () => void;
   onCrop?: () => void;
   onCut?: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
   onGroup: () => void;
   onPaste?: () => void;
+  onPasteStyle?: () => void;
   onResetCrop?: () => void;
   onSelectAll?: () => void;
   onSendBackward: () => void;
   onSendToBack?: () => void;
+  onToggleLock?: () => void;
   onToggleVisibility?: () => void;
   onUngroup: () => void;
   position: CanvasSelectionMenuPosition | null;
@@ -113,6 +125,18 @@ function editMenuSection({
   return { items };
 }
 
+function styleMenuSection({
+  canPasteStyle = false,
+  onCopyStyle,
+  onPasteStyle,
+}: Pick<CanvasSelectionMenuProps, 'canPasteStyle' | 'onCopyStyle' | 'onPasteStyle'>): StudioContextMenuSection | null {
+  if (!onCopyStyle && !onPasteStyle) return null;
+  const items: StudioContextMenuItem[] = [];
+  if (onCopyStyle) items.push({ icon: <PaintBrush aria-hidden='true' />, id: 'copy-style', label: 'Copy style', onSelect: onCopyStyle, shortcut: '⌥⌘C' });
+  if (onPasteStyle) items.push({ disabled: !canPasteStyle, icon: <PaintBrush aria-hidden='true' />, id: 'paste-style', label: 'Paste style', onSelect: onPasteStyle, shortcut: '⌥⌘V' });
+  return { items, label: 'Style' };
+}
+
 function organizeMenuSection(props: Pick<CanvasSelectionMenuProps, 'canGroup' | 'canUngroup' | 'onGroup' | 'onUngroup'>): StudioContextMenuSection {
   return {
     items: [
@@ -145,12 +169,46 @@ function alignMenuSection(onAlign: CanvasSelectionMenuProps['onAlign']): StudioC
   };
 }
 
+const ARRANGEMENTS = [
+  { icon: <AlignHorizontalJustifyStart aria-hidden='true' />, label: 'Align left edges', shortcut: '⌥A', value: 'left' },
+  { icon: <AlignHorizontalJustifyCenter aria-hidden='true' />, label: 'Align horizontal centers', shortcut: '⌥H', value: 'horizontal-center' },
+  { icon: <AlignHorizontalJustifyEnd aria-hidden='true' />, label: 'Align right edges', shortcut: '⌥D', value: 'right' },
+  { icon: <AlignVerticalJustifyStart aria-hidden='true' />, label: 'Align top edges', shortcut: '⌥W', value: 'top' },
+  { icon: <AlignVerticalJustifyCenter aria-hidden='true' />, label: 'Align vertical centers', shortcut: '⌥V', value: 'vertical-center' },
+  { icon: <AlignVerticalJustifyEnd aria-hidden='true' />, label: 'Align bottom edges', shortcut: '⌥S', value: 'bottom' },
+  { icon: <DistributeHorizontal aria-hidden='true' />, label: 'Distribute horizontally', shortcut: '⌥⇧H', value: 'distribute-horizontal' },
+  { icon: <DistributeVertical aria-hidden='true' />, label: 'Distribute vertically', shortcut: '⌥⇧V', value: 'distribute-vertical' },
+] as const satisfies readonly {
+  icon: ReactNode;
+  label: string;
+  shortcut: string;
+  value: DesignLabArrangement;
+}[];
+
+function arrangeMenuSection(onArrange: CanvasSelectionMenuProps['onArrange'], unitCount: number): StudioContextMenuSection | null {
+  if (!onArrange || unitCount < 2) return null;
+  return {
+    items: ARRANGEMENTS.map((arrangement) => ({
+      disabled: !canArrangeUnits(arrangement.value, unitCount),
+      icon: arrangement.icon,
+      id: `arrange-${arrangement.value}`,
+      label: arrangement.label,
+      onSelect: () => onArrange(arrangement.value),
+      shortcut: arrangement.shortcut,
+    })),
+    label: 'Align selection',
+  };
+}
+
 function finalMenuSection({
   onDelete,
+  onToggleLock,
   onToggleVisibility,
   selectionVisible = true,
-}: Pick<CanvasSelectionMenuProps, 'onDelete' | 'onToggleVisibility' | 'selectionVisible'>): StudioContextMenuSection {
+}: Pick<CanvasSelectionMenuProps, 'onDelete' | 'onToggleLock' | 'onToggleVisibility' | 'selectionVisible'>): StudioContextMenuSection {
   const items: StudioContextMenuItem[] = [];
+  // Locked layers cannot be selected on the canvas; unlock them from the layer list.
+  if (onToggleLock) items.push({ icon: <Lock aria-hidden='true' />, id: 'lock', label: 'Lock selection', onSelect: onToggleLock, shortcut: '⇧⌘L' });
   if (onToggleVisibility) items.push({
     checked: selectionVisible,
     icon: selectionVisible ? <Eye aria-hidden='true' /> : <EyeOff aria-hidden='true' />,
@@ -163,8 +221,10 @@ function finalMenuSection({
 }
 
 export default function CanvasSelectionMenu({
+  arrangeUnitCount = 0,
   canGroup,
   canPaste = true,
+  canPasteStyle = false,
   canUngroup,
   canCrop = false,
   count,
@@ -172,20 +232,24 @@ export default function CanvasSelectionMenu({
   groupName,
   placementSection,
   onAlign,
+  onArrange,
   onBringForward,
   onBringToFront,
   onClose,
   onCopy,
+  onCopyStyle,
   onCrop,
   onCut,
   onDelete,
   onDuplicate,
   onGroup,
   onPaste,
+  onPasteStyle,
   onResetCrop,
   onSelectAll,
   onSendBackward,
   onSendToBack,
+  onToggleLock,
   onToggleVisibility,
   onUngroup,
   position,
@@ -201,10 +265,12 @@ export default function CanvasSelectionMenu({
         ...(placementSection ? [placementSection] : []),
         imageMenuSection({ canCrop, cropEditing, onCrop, onResetCrop }),
         editMenuSection({ canPaste, onCopy, onCut, onDuplicate, onPaste, onSelectAll }),
+        ...[styleMenuSection({ canPasteStyle, onCopyStyle, onPasteStyle })].filter((section) => section !== null),
         organizeMenuSection({ canGroup, canUngroup, onGroup, onUngroup }),
         orderMenuSection({ onBringForward, onBringToFront, onSendBackward, onSendToBack }),
+        ...[arrangeMenuSection(onArrange, arrangeUnitCount)].filter((section) => section !== null),
         alignMenuSection(onAlign),
-        finalMenuSection({ onDelete, onToggleVisibility, selectionVisible }),
+        finalMenuSection({ onDelete, onToggleLock, onToggleVisibility, selectionVisible }),
       ]}
     />
   );

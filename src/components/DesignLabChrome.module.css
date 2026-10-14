@@ -1,0 +1,115 @@
+/* Keyboard shortcuts: a quiet reference sheet over the canvas, two columns of
+   grouped rows with right-aligned key chords. */
+.shortcuts {
+  position: absolute;
+  z-index: 32;
+  top: 60px;
+  right: 12px;
+  display: grid;
+  width: min(560px, calc(100% - 24px));
+  max-height: calc(100% - 132px);
+  gap: 14px;
+  overflow: auto;
+  padding: 14px 16px 16px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  color: hsl(var(--foreground));
+  background: hsl(var(--raised-background) / .98);
+  box-shadow: var(--studio-shadow-xl);
+}
+
+.shortcuts:focus {
+  outline: none;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.title {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.close {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 6px;
+  color: hsl(var(--muted-foreground));
+}
+
+.close:hover {
+  color: hsl(var(--foreground));
+  background: hsl(var(--muted));
+}
+
+.close svg {
+  width: 12px;
+  height: 12px;
+}
+
+.groups {
+  column-gap: 24px;
+  columns: 2;
+}
+
+.group {
+  break-inside: avoid;
+  padding-bottom: 14px;
+}
+
+.group h3 {
+  margin: 0 0 4px;
+  color: hsl(var(--muted-foreground));
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.group dl {
+  margin: 0;
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  border-top: 1px solid hsl(var(--border));
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.row:first-child {
+  border-top: 0;
+}
+
+.row dt {
+  min-width: 0;
+}
+
+.row dd {
+  margin: 0;
+}
+
+.row kbd {
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: pre;
+}
+
+@media (max-width: 720px) {
+  .groups {
+    columns: 1;
+  }
+}

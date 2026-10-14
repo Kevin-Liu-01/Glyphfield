@@ -244,6 +244,42 @@ describe('Design Lab canvas document adapter', () => {
     expect(restored.workspace).toEqual(designLabInput().workspace);
   });
 
+  it('round-trips an image effect on an Effect layer as additive settings', () => {
+    const input = designLabInput();
+    input.effectLayers = [{
+      id: 'effect-bayer',
+      name: 'Halftone',
+      opacity: 0.8,
+      settings: { cellSize: 2, effectId: 'shader-effects-halftone', effectProps: { frequency: 40 }, kind: 'bayer' },
+      visible: true,
+    }];
+    const restored = parseDesignLabCanvasDocument(serializeDesignLabCanvasDocument(input));
+    expect((restored.composition as { effectLayers: object[] }).effectLayers[0]).toMatchObject({
+      id: 'effect-bayer',
+      opacity: 0.8,
+      settings: { effectId: 'shader-effects-halftone', effectProps: { frequency: 40 }, kind: 'bayer' },
+    });
+  });
+
+  it('maps a layer lock to the portable element lock and back', () => {
+    const input = designLabInput();
+    input.textLayers = input.textLayers.map((layer) => ({ ...layer, locked: true }));
+    const document = createDesignLabCanvasDocument(input);
+    expect(document.elements['text-title']).toMatchObject({ locked: true });
+    expect(document.elements['shader-background']).toMatchObject({ locked: false });
+    const restored = designLabSourceFromCanvasDocument(document);
+    const composition = restored.composition as { shaderLayers: object[]; textLayers: object[] };
+    expect(composition.textLayers[0]).toMatchObject({ locked: true });
+    expect(composition.shaderLayers[0]).not.toHaveProperty('locked');
+
+    // Agents lock layers through the canonical element field.
+    const unlocked = applyCanvasMutation(document, { elementId: 'text-title', locked: false, type: 'set-lock' });
+    const relocked = applyCanvasMutation(unlocked, { elementId: 'shader-background', locked: true, type: 'set-lock' });
+    const edited = designLabSourceFromCanvasDocument(relocked).composition as { shaderLayers: object[]; textLayers: object[] };
+    expect(edited.textLayers[0]).not.toHaveProperty('locked');
+    expect(edited.shaderLayers[0]).toMatchObject({ locked: true });
+  });
+
   it('upgrades legacy full-canvas shaders with an explicit adjustable frame', () => {
     const input = designLabInput();
     const legacyShader = { ...input.shaderLayers[0] } as Record<string, unknown>;

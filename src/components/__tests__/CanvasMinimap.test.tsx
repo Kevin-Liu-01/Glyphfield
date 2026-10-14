@@ -4,7 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import CanvasMinimap, { type CanvasMinimapHandle } from '../CanvasMinimap';
 
-vi.mock('gt-next', () => ({ useGT: () => (message: string) => message }));
+vi.mock('gt-next', () => ({ useGT: () => (message: string) => message, useLocale: () => 'en-US', useVersionId: () => 'test' }));
 
 describe('lightweight canvas minimap', () => {
   let host: HTMLDivElement;

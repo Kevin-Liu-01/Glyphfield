@@ -7,6 +7,7 @@ import {
   memo,
   startTransition,
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -988,6 +989,11 @@ export default function StudioApp() {
   };
   const filteredTools = useMemo(() => filterStudioTools(STUDIO_TOOLS, query), [query]);
   const activeTool = STUDIO_TOOLS.find(({ id }) => id === activeToolId);
+  // Navigation follows a tool click at once; the workspace switches in a
+  // deferred, interruptible render so mounting or waking an editor never
+  // blocks the click's frame.
+  const workspaceToolId = useDeferredValue(activeToolId);
+  const workspaceTool = STUDIO_TOOLS.find(({ id }) => id === workspaceToolId);
   const resolvedIdentities = useMemo(
     () => identities.map((identity) => pendingIdentities[identity.id] ?? identity),
     [identities, pendingIdentities]
@@ -1831,8 +1837,8 @@ export default function StudioApp() {
                     <StudioWorkspacePanels
                       active={projectIsActive}
                       activeIdentity={identity}
-                      activeTool={activeTool}
-                      activeToolId={activeToolId}
+                      activeTool={workspaceTool ?? activeTool}
+                      activeToolId={workspaceToolId}
                       hasPendingIdentityChanges={Boolean(pendingIdentities[identity.id])}
                       onIdentityChange={updateIdentity}
                       onIdentitySave={saveIdentityImmediately}

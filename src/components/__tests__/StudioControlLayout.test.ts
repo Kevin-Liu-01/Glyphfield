@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+import { readDesignLabSource } from '@/lib/__tests__/designLabSource';
 
 function source(path: string) {
   return readFileSync(join(process.cwd(), path), 'utf8');
@@ -51,7 +52,7 @@ describe('shared Studio control layout', () => {
 
   it('uses one compact typography and interaction contract across both Studio header rows', () => {
     const button = source('src/components/ui/Button.tsx');
-    const designLab = source('src/components/ShaderLabStudio.tsx');
+    const designLab = readDesignLabSource();
     const studio = source('src/components/StudioApp.tsx');
     const styles = source('src/app/globals.css');
 
@@ -117,7 +118,7 @@ describe('shared Studio control layout', () => {
   });
 
   it('uses the same size menu in Design Lab without changing legacy square drafts', () => {
-    const designLab = source('src/components/ShaderLabStudio.tsx');
+    const designLab = readDesignLabSource();
     const styles = source('src/app/globals.css');
 
     expect(designLab).toContain('<StudioArtboardBar');
@@ -136,7 +137,7 @@ describe('shared Studio control layout', () => {
   });
 
   it('keeps the Design Lab shader search attached to its header without a divider', () => {
-    const designLab = source('src/components/ShaderLabStudio.tsx');
+    const designLab = readDesignLabSource();
     const styles = source('src/app/globals.css');
 
     expect(designLab).toContain("className='shader-lab-v2-panel-heading'");
@@ -277,7 +278,7 @@ describe('shared Studio control layout', () => {
     const animation = source('src/components/TimelinePanel.tsx');
     const animationControls = source('src/components/StudioControls.tsx');
     const sequenceTooltip = source('src/components/AnimationSequenceTooltipPreview.tsx');
-    const designLab = source('src/components/ShaderLabStudio.tsx');
+    const designLab = readDesignLabSource();
     const tooltip = source('src/components/ui/StudioPreviewTooltip.tsx');
     const styles = source('src/app/globals.css');
 

@@ -157,11 +157,15 @@ export function shaderLabCategory(material: Pick<LiveMaterialOption, 'engine' | 
 
 export type ShaderLabKind = 'all' | 'backgrounds' | 'image-effects' | 'interactive' | 'shapes';
 
-/** What a material is for, independent of its look: a full background, an effect applied to an image, a pointer-driven simulation, or a shape primitive. */
+/**
+ * What a library material is for, independent of its look: a full background,
+ * a pointer-driven simulation, or a shape primitive. Image effects transform
+ * the pixels beneath them, so Design Lab offers them as Effect layers and the
+ * libraries leave them out.
+ */
 export const SHADER_LAB_KINDS: readonly { id: ShaderLabKind; label: string }[] = [
   { id: 'all', label: 'All kinds' },
   { id: 'backgrounds', label: 'Backgrounds' },
-  { id: 'image-effects', label: 'Image effects' },
   { id: 'interactive', label: 'Interactive' },
   { id: 'shapes', label: 'Shapes' },
 ];
@@ -173,6 +177,27 @@ export function shaderLabKind(material: Pick<LiveMaterialOption, 'id'>): Exclude
   if (effect.category === 'Shapes') return 'shapes';
   return effect.requiresChild ? 'image-effects' : 'backgrounds';
 }
+
+/**
+ * Whether a material belongs in the shader libraries. Every Shaders.com
+ * component that needs a child image (including the pointer-driven ones)
+ * runs on a Design Lab Effect layer instead.
+ */
+export function isShaderLibraryMaterial(material: Pick<LiveMaterialOption, 'id'>): boolean {
+  return getShaderEffect(material.id)?.requiresChild !== true;
+}
+
+const SHADER_LIBRARY_OPTIONS = DISCOVERABLE_LIVE_MATERIAL_OPTIONS.filter(isShaderLibraryMaterial);
+
+/** Materials the shader libraries list. */
+export const SHADER_LIBRARY_MATERIAL_COUNT = SHADER_LIBRARY_OPTIONS.length;
+
+/**
+ * Every material a saved source may reference, including image effects that
+ * older documents applied as shader layers. Validators use this, not the
+ * library listing, so those documents keep loading.
+ */
+export const SHADER_LAB_LOADABLE_MATERIAL_IDS: ReadonlySet<string> = new Set(DISCOVERABLE_LIVE_MATERIAL_OPTIONS.map(({ id }) => id));
 
 export type ShaderLabSource = 'all' | LiveMaterialOption['engine'];
 
@@ -190,7 +215,7 @@ const SHADER_LAB_SOURCE_LABELS: Readonly<Record<LiveMaterialOption['engine'], st
 /** Source filter options; the native Shaders.com collection is separate from Glyphfield's studies of it. */
 export const SHADER_LAB_SOURCES: readonly { id: ShaderLabSource; label: string }[] = [
   { id: 'all', label: 'All sources' },
-  ...[...new Set(DISCOVERABLE_LIVE_MATERIAL_OPTIONS.map(({ engine }) => engine))]
+  ...[...new Set(SHADER_LIBRARY_OPTIONS.map(({ engine }) => engine))]
     .map((engine) => ({ id: engine, label: SHADER_LAB_SOURCE_LABELS[engine] })),
 ];
 
@@ -201,7 +226,7 @@ export function shaderLabMaterials(
   kind: ShaderLabKind = 'all'
 ): readonly LiveMaterialOption[] {
   const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
-  const filtered = DISCOVERABLE_LIVE_MATERIAL_OPTIONS.filter((material) => {
+  const filtered = SHADER_LIBRARY_OPTIONS.filter((material) => {
     if (source !== 'all' && material.engine !== source) return false;
     if (category !== 'all' && shaderLabCategory(material) !== category) return false;
     if (kind !== 'all' && shaderLabKind(material) !== kind) return false;
@@ -247,7 +272,7 @@ export function shaderLabMaterials(
 }
 
 export function shaderLabCategoryCount(category: ShaderLabCategory, source: ShaderLabSource = 'all', kind: ShaderLabKind = 'all'): number {
-  return DISCOVERABLE_LIVE_MATERIAL_OPTIONS.filter((material) => (source === 'all' || material.engine === source)
+  return SHADER_LIBRARY_OPTIONS.filter((material) => (source === 'all' || material.engine === source)
     && (category === 'all' || shaderLabCategory(material) === category)
     && (kind === 'all' || shaderLabKind(material) === kind)).length;
 }

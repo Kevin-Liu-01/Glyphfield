@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  memo,
   useEffect,
   useEffectEvent,
   useLayoutEffect,
@@ -14,7 +15,7 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react';
-import { T, useGT } from 'gt-next';
+import { T } from 'gt-next';
 import { History, Maximize2, Minus, Plus, RotateCcw, RotateCw, ScanLine } from '@/components/ui/SolidIcons';
 
 import { Button } from '@/components/ui/Button';
@@ -24,10 +25,12 @@ import StudioContextMenu, {
   type StudioContextMenuPosition,
 } from '@/components/ui/StudioContextMenu';
 import StudioRange from '@/components/ui/StudioRange';
+import { useCachedGT } from '@/hooks/useCachedGT';
 import { useCanvasSelectionDismiss } from '@/hooks/useCanvasSelectionDismiss';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
+import { useStableHandlers } from '@/hooks/useStableHandlers';
 import { isCanvasTextEditingTarget } from '@/lib/canvasInteraction';
 import CanvasMinimap, { type CanvasMinimapHandle } from './CanvasMinimap';
 import { canvasNavigationBounds, centerCanvasNavigation, fitCanvasNavigation, resizeCanvasNavigationPan,
@@ -38,9 +41,10 @@ function hasNavigationItems(items: readonly CanvasNavigationItem[] | undefined) 
   return Boolean(items?.length);
 }
 
-function OptionalCanvasMinimap(props: Omit<ComponentProps<typeof CanvasMinimap>, 'items'> & { items?: readonly CanvasNavigationItem[] }) {
+// Memoized with stable handlers: stage edits re-render the viewport, not its map.
+const OptionalCanvasMinimap = memo(function OptionalCanvasMinimap(props: Omit<ComponentProps<typeof CanvasMinimap>, 'items'> & { items?: readonly CanvasNavigationItem[] }) {
   return props.items?.length ? <CanvasMinimap {...props} items={props.items} /> : null;
-}
+});
 
 import {
   clampCanvasZoom,
@@ -121,6 +125,86 @@ function useCanvasHistoryDismiss(
   }, [dismissRef, open, surfaceRef, triggerRef]);
 }
 
+type CanvasViewportToolbarHandlers = {
+  changeZoom: (value: number) => void;
+  fitCanvas: () => void;
+  resetView: () => void;
+  stepZoom: (delta: number) => void;
+  toggleHistory: () => void;
+};
+
+/** Zoom, view and history controls; skips viewport commits that do not change them. */
+const CanvasViewportToolbar = memo(function CanvasViewportToolbar({
+  actionHistory,
+  constrainedZoom,
+  handlers,
+  historyOpen,
+  historyTriggerRef,
+  maxZoom,
+  minZoom,
+  toolbarActions,
+  zoomValueRef,
+}: {
+  actionHistory?: CanvasActionHistory;
+  constrainedZoom: number;
+  handlers: CanvasViewportToolbarHandlers;
+  historyOpen: boolean;
+  historyTriggerRef: RefObject<HTMLButtonElement | null>;
+  maxZoom: number;
+  minZoom: number;
+  toolbarActions?: ReactNode;
+  zoomValueRef: RefObject<HTMLButtonElement | null>;
+}) {
+  const gt = useCachedGT();
+  return (
+    <div className='canvas-viewport-toolbar' data-canvas-selection-preserve role='group' aria-label={gt('Canvas zoom')}>
+      <Button aria-label={gt('Zoom out')} disabled={constrainedZoom <= minZoom} onClick={() => handlers.stepZoom(-10)} size='icon-sm' title={gt('Zoom out')} type='button' variant='ghost'>
+        <Minus aria-hidden='true' />
+      </Button>
+      <label className='canvas-zoom-range'>
+        <span className='sr-only'><T>Canvas zoom</T></span>
+        <StudioRange max={maxZoom} min={minZoom} onChange={(event) => handlers.changeZoom(Number(event.target.value))} step={5} value={constrainedZoom} />
+      </label>
+      <button className='canvas-zoom-value' ref={zoomValueRef} onClick={() => handlers.changeZoom(100)} title={gt('Reset to 100%')} type='button'>{`${constrainedZoom}%`}</button>
+      <Button aria-label={gt('Zoom in')} disabled={constrainedZoom >= maxZoom} onClick={() => handlers.stepZoom(10)} size='icon-sm' title={gt('Zoom in')} type='button' variant='ghost'>
+        <Plus aria-hidden='true' />
+      </Button>
+      <span className='canvas-toolbar-divider' />
+      <Button aria-label={gt('Reset view')} onClick={handlers.resetView} size='icon-sm' title={gt('Reset view')} type='button' variant='ghost'>
+        <ScanLine aria-hidden='true' />
+      </Button>
+      <Button aria-label={gt('Fit canvas')} onClick={handlers.fitCanvas} size='icon-sm' title={gt('Fit canvas')} type='button' variant='ghost'>
+        <Maximize2 aria-hidden='true' />
+      </Button>
+      {toolbarActions}
+      {actionHistory ? (
+        <>
+          <span className='canvas-toolbar-divider' />
+          <Button aria-keyshortcuts='Meta+Z Control+Z' aria-label={gt('Undo')} disabled={!actionHistory.canUndo} onClick={actionHistory.onUndo} size='icon-sm' title={gt('Undo')} type='button' variant='ghost'>
+            <RotateCcw aria-hidden='true' />
+          </Button>
+          <Button aria-keyshortcuts='Meta+Shift+Z Control+Shift+Z' aria-label={gt('Redo')} disabled={!actionHistory.canRedo} onClick={actionHistory.onRedo} size='icon-sm' title={gt('Redo')} type='button' variant='ghost'>
+            <RotateCw aria-hidden='true' />
+          </Button>
+          <Button
+            aria-expanded={historyOpen}
+            aria-haspopup='dialog'
+            aria-label={gt('Action history')}
+            onClick={handlers.toggleHistory}
+            ref={historyTriggerRef}
+            size='icon-sm'
+            title={gt('Action history')}
+            type='button'
+            variant='ghost'
+          >
+            <History aria-hidden='true' />
+          </Button>
+        </>
+      ) : null}
+    </div>
+  );
+});
+
 export default function CanvasViewport({
   actionHistory,
   autoFit = false,
@@ -171,7 +255,7 @@ export default function CanvasViewport({
   toolbarActions?: ReactNode;
   toolId: string;
 }) {
-  const gt = useGT();
+  const gt = useCachedGT();
   const viewportRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -536,6 +620,19 @@ export default function CanvasViewport({
     applyStageTransform(initialPan.x, initialPan.y);
   }
 
+  const toolbarHandlers = useStableHandlers<CanvasViewportToolbarHandlers>({
+    changeZoom: (value) => changeZoom(value),
+    fitCanvas: () => fitCanvas(),
+    resetView: () => resetView(),
+    stepZoom: (delta) => changeZoom(zoomRef.current + delta),
+    toggleHistory: () => setHistoryOpen((open) => !open),
+  });
+  const minimapHandlers = useStableHandlers({
+    centerSelectedArtboard: () => centerSelectedArtboard(),
+    fitAllArtboards: () => fitAllArtboards(),
+    navigateCanvas: (pan: { x: number; y: number }, commit: boolean) => navigateCanvas(pan, commit),
+  });
+
   function openViewMenu(event: ReactMouseEvent<HTMLDivElement>) {
     const target = event.target;
     if (
@@ -579,53 +676,19 @@ export default function CanvasViewport({
       }}
       ref={viewportRef}
     >
-      <div className='canvas-viewport-toolbar' data-canvas-selection-preserve role='group' aria-label={gt('Canvas zoom')}>
-        <Button aria-label={gt('Zoom out')} disabled={constrainedZoom <= minZoom} onClick={() => changeZoom(zoomRef.current - 10)} size='icon-sm' title={gt('Zoom out')} type='button' variant='ghost'>
-          <Minus aria-hidden='true' />
-        </Button>
-        <label className='canvas-zoom-range'>
-          <span className='sr-only'><T>Canvas zoom</T></span>
-          <StudioRange max={maxZoom} min={minZoom} onChange={(event) => changeZoom(Number(event.target.value))} step={5} value={constrainedZoom} />
-        </label>
-        <button className='canvas-zoom-value' ref={zoomValueRef} onClick={() => changeZoom(100)} title={gt('Reset to 100%')} type='button'>{`${constrainedZoom}%`}</button>
-        <Button aria-label={gt('Zoom in')} disabled={constrainedZoom >= maxZoom} onClick={() => changeZoom(zoomRef.current + 10)} size='icon-sm' title={gt('Zoom in')} type='button' variant='ghost'>
-          <Plus aria-hidden='true' />
-        </Button>
-        <span className='canvas-toolbar-divider' />
-        <Button aria-label={gt('Reset view')} onClick={resetView} size='icon-sm' title={gt('Reset view')} type='button' variant='ghost'>
-          <ScanLine aria-hidden='true' />
-        </Button>
-        <Button aria-label={gt('Fit canvas')} onClick={fitCanvas} size='icon-sm' title={gt('Fit canvas')} type='button' variant='ghost'>
-          <Maximize2 aria-hidden='true' />
-        </Button>
-        {toolbarActions}
-        {actionHistory ? (
-          <>
-            <span className='canvas-toolbar-divider' />
-            <Button aria-keyshortcuts='Meta+Z Control+Z' aria-label={gt('Undo')} disabled={!actionHistory.canUndo} onClick={actionHistory.onUndo} size='icon-sm' title={gt('Undo')} type='button' variant='ghost'>
-              <RotateCcw aria-hidden='true' />
-            </Button>
-            <Button aria-keyshortcuts='Meta+Shift+Z Control+Shift+Z' aria-label={gt('Redo')} disabled={!actionHistory.canRedo} onClick={actionHistory.onRedo} size='icon-sm' title={gt('Redo')} type='button' variant='ghost'>
-              <RotateCw aria-hidden='true' />
-            </Button>
-            <Button
-              aria-expanded={historyOpen}
-              aria-haspopup='dialog'
-              aria-label={gt('Action history')}
-              onClick={() => setHistoryOpen((open) => !open)}
-              ref={historyTriggerRef}
-              size='icon-sm'
-              title={gt('Action history')}
-              type='button'
-              variant='ghost'
-            >
-              <History aria-hidden='true' />
-            </Button>
-          </>
-        ) : null}
-      </div>
+      <CanvasViewportToolbar
+        actionHistory={actionHistory}
+        constrainedZoom={constrainedZoom}
+        handlers={toolbarHandlers}
+        historyOpen={historyOpen}
+        historyTriggerRef={historyTriggerRef}
+        maxZoom={maxZoom}
+        minZoom={minZoom}
+        toolbarActions={toolbarActions}
+        zoomValueRef={zoomValueRef}
+      />
       <OptionalCanvasMinimap ref={minimapRef} items={navigationItems} view={navigationView}
-        onPan={navigateCanvas} onFitAll={fitAllArtboards} onCenterSelected={centerSelectedArtboard} onArrange={onArrangeArtboards} />
+        onPan={minimapHandlers.navigateCanvas} onFitAll={minimapHandlers.fitAllArtboards} onCenterSelected={minimapHandlers.centerSelectedArtboard} onArrange={onArrangeArtboards} />
       {actionHistory && historyOpen ? (
         <aside aria-label={gt('Action history')} className='canvas-action-history' data-canvas-selection-preserve ref={historySurfaceRef} role='dialog'>
           <header>
@@ -725,7 +788,7 @@ export default function CanvasViewport({
           {children}
         </div>
       </div>
-      <StudioContextMenu
+      {viewMenuPosition ? <StudioContextMenu
         detail={`${constrainedZoom}% zoom`}
         label={gt('Canvas view')}
         onClose={() => setViewMenuPosition(null)}
@@ -746,7 +809,7 @@ export default function CanvasViewport({
             ],
           },
         ]}
-      />
+      /> : null}
     </div>
   );
 }

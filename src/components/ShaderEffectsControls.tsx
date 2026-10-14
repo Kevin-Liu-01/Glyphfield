@@ -105,8 +105,11 @@ function NativeControl({ name, control, value, onChange }: { name: string; contr
   return <StructuredControl label={ariaLabel} value={value} onChange={onChange} />;
 }
 
-/** `value` holds only explicit edits; everything else shows its default or palette-seeded value. */
-export default function ShaderEffectsControls({ materialId, palette, value, onChange }: { materialId: string; palette: ShaderEffectPalette; value?: ShaderEffectProps; onChange: (value: ShaderEffectProps) => void }) {
+/**
+ * `value` holds only explicit edits; everything else shows its default or palette-seeded value.
+ * `layerSource` is for Design Lab Effect layers, whose source is the layers beneath, so no image upload is offered.
+ */
+export default function ShaderEffectsControls({ layerSource = false, materialId, palette, value, onChange }: { layerSource?: boolean; materialId: string; palette: ShaderEffectPalette; value?: ShaderEffectProps; onChange: (value: ShaderEffectProps) => void }) {
   const gt = useCachedGT();
   const effect = getShaderEffect(materialId);
   const loaded = useShaderEffectsProps();
@@ -114,12 +117,13 @@ export default function ShaderEffectsControls({ materialId, palette, value, onCh
   if (!loaded) return <p className='text-xs leading-5 text-muted-foreground' role='status'><T>Loading effect settings…</T></p>;
   const explicit = value ?? {};
   const props = loaded.resolveShaderEffectProps(materialId, { ...palette, effectProps: explicit });
-  const controls = loaded.visibleShaderEffectControls(materialId, props);
+  const controls = loaded.visibleShaderEffectControls(materialId, props)
+    .filter(([, control]) => !layerSource || ![control.type].flat().includes('local-image'));
   const groups = [...new Set(controls.map(([, control]) => control.group ?? 'Effect'))];
   return <div className='flex flex-col gap-4'>
     <p className='text-xs leading-5 text-muted-foreground'>
       {gt('Shaders.com · {category} · WebGPU', { category: effect.category })}
-      {effect.requiresChild ? ` ${gt('Applies to your image, or to a sample mapped onto the shader colors when no image is attached.')}` : ''}
+      {layerSource ? ` ${gt('Applies to the layers beneath this effect.')}` : effect.requiresChild ? ` ${gt('Applies to your image, or to a sample mapped onto the shader colors when no image is attached.')}` : ''}
     </p>
     {groups.map((group) => <details open key={group} className='border-t border-border pt-3'><summary className='cursor-pointer text-xs font-medium'>{group}</summary><div className='flex flex-col gap-4 pt-4'>
       {controls.filter(([, control]) => (control.group ?? 'Effect') === group).map(([name, control]) => <NativeControl key={name} name={name} control={control} value={props[name]} onChange={(next) => onChange(loaded.validateShaderEffectProps(materialId, { ...explicit, [name]: next }))} />)}

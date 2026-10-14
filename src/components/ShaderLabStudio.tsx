@@ -1,107 +1,57 @@
 'use client';
 
-import ShaderEffectsControls from './ShaderEffectsControls';
-import { getShaderEffect, loadShaderEffectsProps } from '@/lib/shaderEffects';
+import { loadShaderEffectsProps, type ShaderEffectProps } from '@/lib/shaderEffects';
 import {
-  AlignCenter,
-  AlignLeft,
-  AlignRight,
   ArrowDown,
-  ArrowRight,
   ArrowUp,
-  Check,
-  ChevronDown,
-  CircleGauge,
-  Clapperboard,
-  Clock3,
-  Code2,
   Copy,
-  Crop,
-  Download,
   Eye,
   EyeOff,
-  ExternalLink,
-  FileImage,
   Files,
-  Film,
   Frame,
-  Gauge,
-  Grid3X3,
-  ImageDown,
   ImagePlus,
-  Info,
   Layers3,
   LayoutGrid,
-  MonitorUp,
+  Lock,
+  LockOpen,
   Move,
-  Pause,
-  Play,
+  PaintBrush,
   Plus,
-  Repeat2,
-  RotateCcw,
-  Ruler,
   Scissors,
   Search,
   Sparkles,
-  Sticker,
-  TextB,
-  TextItalic,
-  TextStrikethrough,
-  TextUnderline,
   Trash2,
-  Type,
-  WandSparkles,
-  WrapText,
   X,
-  Zap,
-  ZoomIn,
-  ZoomOut,
 } from '@/components/ui/SolidIcons';
-import { memo, useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type DragEvent as ReactDragEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject, type SetStateAction, type WheelEvent as ReactWheelEvent } from 'react';
+import { memo, startTransition, useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type DragEvent as ReactDragEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject, type SetStateAction } from 'react';
 import { flushSync } from 'react-dom';
 
 import CanvasViewport, { type CanvasActionHistory } from '@/components/CanvasViewport';
-import CanvasEditableText from '@/components/CanvasEditableText';
-import { clearTextStyleProperties, editTextRuns, formatTextRange, INLINE_TEXT_KEYS, textStyleSegments, validateTextStyleRuns, type InlineTextStyle, type ResolvedTextStyle, type TextSelectionRange, type TextStyleRun } from '@/lib/richText';
-import { ArtboardSetupFields } from '@/components/ArtboardSizeMenu';
+import { clearTextStyleProperties, editTextRuns, formatTextRange, INLINE_TEXT_KEYS, textStyleSegments, validateTextStyleRuns, type InlineTextStyle, type ResolvedTextStyle, type TextSelectionRange } from '@/lib/richText';
 import { arrangeCanvasFrames, translateCanvasFrame } from '@/lib/canvasViewport';
 import { canvasInsertionColors } from '@/lib/canvasInsertionColors';
 import CanvasSelectionMenu, { type CanvasSelectionMenuPosition } from '@/components/CanvasSelectionMenu';
 import CanvasSelectionClip, { canvasSelectionLocalBounds, paintCanvasSelectionBounds, trackCanvasSelectionNavigation } from '@/components/CanvasSelectionClip';
 import AuthenticShaderPreview from '@/components/AuthenticShaderPreview';
-import ShaderSkeleton from '@/components/ShaderSkeleton';
-import ShaderFrameImage from '@/components/ShaderFrameImage';
-import ShaderTimeExplorer from '@/components/ShaderTimeExplorer';
-import RestoredLiveMaterialCanvas from '@/components/RestoredLiveMaterialCanvas';
 import { beginShaderFrameCapture, shaderFrameMatches, shaderFrameRecipeKey, type CapturedShaderFrame, type ShaderFrameCaptureRequest } from '@/lib/captureShaderFrames';
 import { captureComposedEffectFrames } from '@/lib/captureEffectFrames';
 import { pauseShaderFrames } from '@/lib/pauseShaderFrames';
-import { previewSelectedTextStyle, selectedCanvasLayerElement } from '@/lib/designLabCanvasPreview';
+import { selectedCanvasLayerElement } from '@/lib/designLabCanvasPreview';
 import { checkpointCanvasHistory, redoCanvasCheckpointHistory, undoCanvasCheckpointHistory } from '@/lib/canvasCheckpointHistory';
 import { assertCompositionEffectCaptureReady, resolveCompositionEffectPreview } from '@/lib/compositionEffectPreview';
-import { applyEffectFrameCaptures, effectFrameMatches } from '@/lib/effectFrameDocument';
+import { applyEffectFrameCaptures } from '@/lib/effectFrameDocument';
 import { withCapturedShaderImages, type CapturedShaderImage } from '@/lib/withCapturedShaderImages';
 import { importShaderFrameAssets, normalizeShaderFrameSnapshot, type ShaderFrameSnapshot } from '@/lib/shaderFrameAssets';
 import { applyShaderFrameCaptures, prepareShaderFrameDocumentSource } from '@/lib/shaderFrameDocument';
 import { getShaderMotionCapabilities } from '@/lib/shaderMotionCapabilities';
 import { drawShaderFramePresentation, normalizeShaderFramePresentation, preloadShaderFramePresentation } from '@/lib/shaderFramePresentation';
-import AssetConversionLibrary from '@/components/AssetConversionLibrary';
-import StudioRange from '@/components/ui/StudioRange';
-import RangeControl from '@/components/DesignLabRangeControl';
-import StudioFontSizeControl from '@/components/StudioFontSizeControl';
 import {
   DEFAULT_DESIGN_LAB_FONT_SIZE,
   designLabTextDecorationLine,
-  designLabFontSizeUpdate,
   resolveDesignLabFontSize,
-  resolveDesignLabFontSizeCqw,
   validateDesignLabTextTypography,
 } from '@/lib/designLabTypography';
-import StudioCheckbox from '@/components/ui/StudioCheckbox';
-import CompositionEffectThumbnail from '@/components/CompositionEffectThumbnail';
-import { DesignVersionHeaderControls, DesignVersionProvider } from '@/components/DesignVersionControls';
-import StudioArtboardBar from '@/components/StudioArtboardBar';
-import EditableCanvasLayer from '@/components/EditableCanvasLayer';
+import { DesignVersionProvider } from '@/components/DesignVersionControls';
 import {
   alignCanvasSelection,
   canvasLayerDimensions,
@@ -112,42 +62,29 @@ import {
   normalizeCanvasLayerTransform,
   type CanvasLayerAlignment,
   type CanvasLayerBounds,
-  type CanvasLayerGeometry,
   type CanvasSelectionItem,
   type CanvasLayerTransform,
 } from '@/lib/canvasInteraction';
-import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
-import StudioFileMenu from '@/components/StudioFileMenu';
+import { type ExportPreviewAsset } from '@/components/ExportPreview';
 import { designLabProjectIdentity, namespaceDesignLabProjectIdentity, prepareDesignLabProjectFile, type DesignLabProjectIdentity } from '@/lib/designLabProjectFile';
 import BrandFontFaces from '@/components/BrandFontFaces';
 import ImageAssetModal, { type ImageAssetPlacementMode, type ImageImportRequest, type PendingImageImport } from '@/components/ImageAssetModal';
-import ImageCropEditorOverlay from '@/components/ImageCropEditorOverlay';
-import { LabInspectorSection, LabPanelHeading, StudioSidebar } from '@/components/LabWorkspace';
-import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
+import { LabPanelHeading, StudioSidebar } from '@/components/LabWorkspace';
 import { LiveMaterialSourceTag } from '@/components/LiveMaterialSourceLabel';
-import LogoAppearanceControls from '@/components/LogoAppearanceControls';
-import LogoAppearancePreview, { AppearanceFilteredContent } from '@/components/LogoAppearancePreview';
-import { ConditionalRender, OptionalRender } from '@/components/RenderControl';
 import SourceCodeDrawer from '@/components/SourceCodeDrawer';
 import { useStudioExportProgress } from '@/components/StudioExportProgress';
-import StudioRangeLabel from '@/components/StudioRangeLabel';
-import StudioToolHeader, { StudioToolbarGroup } from '@/components/StudioToolHeader';
-import StudioErrorNotice from '@/components/ui/StudioErrorNotice';
-import TextEffectThumbnail from '@/components/TextEffectThumbnail';
-import { Button } from '@/components/ui/Button';
-import ColorControl from '@/components/ui/ColorControl';
 import StudioContextMenu, {
   contextMenuPositionFromElement,
   contextMenuPositionFromEvent,
   type StudioContextMenuPosition,
 } from '@/components/ui/StudioContextMenu';
-import StudioPreviewTooltip from '@/components/ui/StudioPreviewTooltip';
 import ShaderLibraryFilters from '@/components/ShaderLibraryFilters';
-import StudioSelect from '@/components/ui/StudioSelect';
 import { useRenderQuality } from '@/hooks/useLandingRenderQuality';
 import { studioRenderQualityStore } from '@/lib/landingRenderQuality';
 import { useDeferredRuntime } from '@/hooks/useDeferredRuntime';
 import { useMountEffect } from '@/hooks/useMountEffect';
+
+export { ShaderZoomControl } from '@/components/DesignLabInspector';
 
 function canvasSelectionAnnouncement(count: number, groupName?: string): string {
   if (count === 0) return 'Canvas selection cleared.';
@@ -195,25 +132,16 @@ import {
   resolveBrandTypographyWeight,
   type BrandAsset,
   type BrandIdentity,
-  type BrandTypography,
 } from '@/lib/brandIdentity';
-import {
-  canvasTextCharacters,
-  trackedTextWidth,
-  type CanvasTextAlign,
-  type CanvasTextWrap,
-} from '@/lib/canvasText';
-import { canvasTextTypography, layoutNativeCanvasText } from '@/lib/canvasTextLayout';
+import { canvasTextCharacters, trackedTextWidth } from '@/lib/canvasText';
+import { layoutNativeCanvasText } from '@/lib/canvasTextLayout';
 import {
   canvasToImageBlob,
   encodeCanvasGif,
   encodeCanvasMp4,
   resolveMotionFrame,
   resolveExportDimensions,
-  resolveSeamlessLoopOverlapFrames,
-  type MotionLoopMode,
   type MotionLoopReport,
-  type MotionExportQuality,
   type MotionFrame,
   type StillImageFormat,
 } from '@/lib/canvasExport';
@@ -225,7 +153,6 @@ import {
   STUDIO_ARTBOARD_PRESETS,
   studioArtboardPresetForSize,
   type StudioArtboardDimensions,
-  type StudioArtboardPresetId,
 } from '@/lib/artboardSizes';
 import {
   DESIGN_LAB_CLIPBOARD_MIME,
@@ -250,10 +177,8 @@ import {
 } from '@/lib/compositionEffects';
 import {
   DEFAULT_LIVE_MATERIAL_SETTINGS,
-  LIVE_MATERIAL_PALETTES,
   brandMaterialPalette,
   getLiveMaterial,
-  isPaperLiveMaterialId,
   normalizeLiveMaterialId,
   type LiveMaterialId,
   type LiveMaterialOption,
@@ -275,7 +200,6 @@ import {
   previewLiveMaterialTime,
   readLiveMaterialPresentation,
   requestLiveMaterialRedraw,
-  type LiveMaterialFrameState,
 } from '@/lib/liveMaterialPreview';
 import { createLiveMaterialFramePacer, liveMaterialInstancePixelBudget } from '@/lib/liveMaterialRenderBudget';
 import { waitForLiveMaterialReady } from '@/lib/liveMaterialReadiness';
@@ -312,18 +236,7 @@ import {
 import {
   savedDesignStorageKey,
 } from '@/lib/savedDesigns';
-import {
-  clampShaderZoom,
-  formatShaderZoom,
-  shaderZoomFromSlider,
-  shaderZoomToSlider,
-  SHADER_ZOOM_MAX,
-  SHADER_ZOOM_MIN,
-  SHADER_ZOOM_SLIDER_MAX,
-  SHADER_ZOOM_SLIDER_MIN,
-  SHADER_ZOOM_SLIDER_STEP,
-  stepShaderZoom,
-} from '@/lib/shaderZoom';
+import { clampShaderZoom } from '@/lib/shaderZoom';
 import {
   buildShaderSequenceTimeline,
   DEFAULT_SHADER_SEQUENCE_SETTINGS,
@@ -335,10 +248,8 @@ import {
 } from '@/lib/shaderSequence';
 import {
   DEFAULT_STICKER_FINISH,
-  STICKER_FINISH_PRESETS,
   drawStickerFinishOverlay,
   normalizeStickerFinish,
-  stickerFinishSwatch,
   type StickerFinishSettings,
 } from '@/lib/surfaceSticker';
 import { downloadStudioArtifact, registerStudioAutomation } from '@/lib/studioAutomation';
@@ -347,156 +258,119 @@ import type { StudioTool, StudioToolId } from '@/lib/studioCatalog';
 import {
   applyTextEffectMask,
   createTextEffectGradient,
-  DEFAULT_TEXT_EFFECT,
   resolveTextEffectSettings,
   textEffectCssStyle,
-  TEXT_EFFECT_PRESETS,
   type TextEffectSettings,
 } from '@/lib/textEffects';
 
-import { DESIGN_CANVAS_ID, DESIGN_CANVAS_DIMENSIONS, designSurfaceSize, designLayerGeometry, designLayerWorldBounds, reparentDesignLayer, packDesignWorkspace, unpackDesignWorkspace } from '@/lib/designWorkspace';
+import { DESIGN_CANVAS_ID, DESIGN_CANVAS_DIMENSIONS, designSurfaceSize, designLayerWorldBounds, reparentDesignLayer, packDesignWorkspace, unpackDesignWorkspace } from '@/lib/designWorkspace';
 import CanvasRenderBoundary from '@/components/CanvasRenderBoundary';
-
-type ShaderRatio = StudioArtboardPresetId | 'custom';
-type ShaderBlendMode = 'multiply' | 'normal' | 'overlay' | 'screen';
-type ShaderLayerId = `shader-${string}`;
-type EffectLayerId = `effect-${string}`;
-type LogoLayerId = `logo-${string}`;
-type TextLayerId = `text-${string}`;
-type AssetLayerId = `asset-${string}`;
-type ContentLayerId = LogoLayerId | TextLayerId | AssetLayerId;
-type CanvasLayerId = ShaderLayerId | ContentLayerId;
-type CompositionLayerId = ShaderLayerId | EffectLayerId | ContentLayerId;
-type CompositionLayerGroupId = `group-${string}`;
-
-type CompositionLayerGroup = {
-  id: CompositionLayerGroupId;
-  layerIds: CanvasLayerId[];
-  name: string;
-};
-
-type ShaderApplication = {
-  blendMode: ShaderBlendMode;
-  frameState?: LiveMaterialFrameState;
-  frameSnapshot?: ShaderFrameSnapshot;
-  materialId: LiveMaterialId;
-  opacity: number;
-  settings: LiveMaterialSettings;
-  shaderSize: number;
-};
-
-type CompositionShaderLayer = ShaderApplication & {
-  id: ShaderLayerId;
-  name: string;
-  transform: CanvasLayerTransform;
-  visible: boolean;
-};
-
-type CompositionEffectLayer = {
-  frameSnapshot?: ShaderFrameSnapshot;
-  id: EffectLayerId;
-  name: string;
-  opacity: number;
-  settings: CompositionEffectSettings;
-  visible: boolean;
-};
-
-
-type CompositionLogoLayer = {
-  appearance?: LogoAppearanceSettings;
-  color?: string;
-  convertedAssetId?: string;
-  id: LogoLayerId;
-  name: string;
-  opacity?: number;
-  transform: CanvasLayerTransform;
-  url: string;
-  visible: boolean;
-};
-
-type CompositionAsset = {
-  appearance?: LogoAppearanceSettings;
-  id: AssetLayerId;
-  imageCrop?: ImageCropSettings;
-  kind?: ImageAssetPlacementMode;
-  libraryAssetId?: string;
-  name: string;
-  opacity?: number;
-  stickerFinish?: StickerFinishSettings;
-  transform: CanvasLayerTransform;
-  url: string;
-  visible: boolean;
-};
-
-type CompositionTextLayer = {
-  runs?: TextStyleRun[];
-  align: CanvasTextAlign;
-  color?: string;
-  fontRole?: BrandTypography['role'];
-  fontSize?: number;
-  fontStyle?: 'normal' | 'italic';
-  id: TextLayerId;
-  kind?: 'sticker' | 'text';
-  lineHeight: number;
-  name: string;
-  opacity?: number;
-  outlineColor?: string;
-  outlineEnabled?: boolean;
-  outlineWidth?: number;
-  shadowBlur?: number;
-  shadowColor?: string;
-  shadowEnabled?: boolean;
-  shadowOffsetX?: number;
-  shadowOffsetY?: number;
-  shadowOpacity?: number;
-  strikethrough?: boolean;
-  textEffect?: TextEffectSettings;
-  tracking: number;
-  transform: CanvasLayerTransform;
-  underline?: boolean;
-  value: string;
-  visible: boolean;
-  weight: number;
-  wrap: CanvasTextWrap;
-};
-
-type LayerGeometry = {
-  baseHeight: number;
-  baseWidth: number;
-  baseX: number;
-  baseY: number;
-};
-
-function resolveTextRunStyle(layer: CompositionTextLayer, identity: BrandIdentity, canvasHeight: number, style: InlineTextStyle): ResolvedTextStyle {
-  const appearance = resolvedTextAppearance(layer);
-  const fontRole = style.fontRole ?? appearance.fontRole;
-  return {
-    color: style.color ?? appearance.color,
-    fontFamily: `${JSON.stringify(brandTypographyFamily(identity, fontRole))}, Arial, sans-serif`,
-    fontSize: style.fontSize === undefined ? resolveDesignLabFontSize(layer, canvasHeight) : style.fontSize * layer.transform.scale,
-    fontStyle: style.fontStyle ?? layer.fontStyle ?? 'normal',
-    fontWeight: resolveBrandTypographyWeight(identity, fontRole, style.weight ?? layer.weight),
-    tracking: style.tracking ?? layer.tracking,
-    underline: style.underline ?? layer.underline ?? false,
-    strikethrough: style.strikethrough ?? layer.strikethrough ?? false,
-  };
-}
-
-type TextAppearanceSettings = {
-  color: string;
-  fontRole: BrandTypography['role'];
-  opacity: number;
-  outlineColor: string;
-  outlineEnabled: boolean;
-  outlineWidth: number;
-  shadowBlur: number;
-  shadowColor: string;
-  shadowEnabled: boolean;
-  shadowOffsetX: number;
-  shadowOffsetY: number;
-  shadowOpacity: number;
-  textEffect: TextEffectSettings;
-};
+import {
+  colorWithOpacity,
+  DEFAULT_EXPORT_SETTINGS,
+  DEFAULT_LAYER_TRANSFORM,
+  designExportSettingsSignature,
+  normalizeDesignExportSettings,
+  RATIO_OPTIONS,
+  DEFAULT_TEXT_APPEARANCE,
+  DEFAULT_TEXT_LAYER_TRANSFORM,
+  isAssetLayerId,
+  isCanvasLayerId,
+  isContentLayerId,
+  isEffectLayerId,
+  isLogoLayerId,
+  isShaderLayerId,
+  isTextLayerId,
+  layerGeometry,
+  layerKind,
+  resolvedLogoAppearance,
+  resolvedTextAppearance,
+  resolvedTextTransform,
+  resolveTextRunStyle,
+  STICKER_IMAGE_APPEARANCE,
+  STICKER_TEXT_APPEARANCE,
+  textShadowStyle,
+  type AssetLayerId,
+  type CanvasLayerId,
+  type CompositionAsset,
+  type CompositionEffectLayer,
+  type CompositionLayerGroup,
+  type CompositionLayerGroupId,
+  type CompositionLayerId,
+  type CompositionLogoLayer,
+  type CompositionShaderLayer,
+  type CompositionTextLayer,
+  type ContentLayerId,
+  type DesignArtboard,
+  type DesignExportFormat,
+  type DesignExportSettings,
+  type DesignMotionMode,
+  type DesignRatioOption,
+  type DesignArtboardId,
+  type DesignArtboardSnapshot,
+  type DesignShaderSequenceSettings,
+  type EffectLayerId,
+  type LogoLayerId,
+  type ShaderApplication,
+  type ShaderLayerId,
+  type ShaderRatio,
+  type TextAppearanceSettings,
+  type TextLayerId,
+} from '@/lib/designLabModel';
+import { applyImageCropPreviewStyles, stickerFinishCssVariables } from '@/components/DesignLabCanvasContent';
+import {
+  DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT,
+  DesignLabArtboardFrame,
+  DesignLabArtboardPreviewLayer,
+  DesignLabStageLayer,
+  previewStageLayerCrop,
+  type DesignLabArtboardActions,
+  type DesignLabLiveMaterialState,
+  type DesignLabStageActions,
+} from '@/components/DesignLabStage';
+import { useStableHandlers } from '@/hooks/useStableHandlers';
+import { useLocalValueStore } from '@/hooks/useValueStore';
+import { arrangeCanvasUnits, canArrangeUnits, isDesignLabArrangement, type DesignLabArrangement } from '@/lib/designLabArrange';
+import {
+  DESIGN_LAB_IMAGE_EFFECT_CATEGORIES,
+  DESIGN_LAB_IMAGE_EFFECTS,
+  assertDesignLabEffectProps,
+  assertDesignLabEffectSettings,
+  designLabImageEffect,
+  planImageEffectPasses,
+  resolveImageEffectOutputs,
+  type DesignLabImageEffectId,
+  type DesignLabImageEffectStatus,
+} from '@/lib/designLabImageEffects';
+import { createImageEffectProcessorPool, imageEffectFailureStatus, type ImageEffectProcessorPool } from '@/lib/designLabImageEffectRuntime';
+import { applyDesignLabLayerStyle, extractDesignLabLayerStyle, type DesignLabLayerStyle, type DesignLabStyledLayer } from '@/lib/designLabStyle';
+import { resolveDesignLabShortcut, type DesignLabShortcutCommand } from '@/lib/designLabShortcuts';
+import {
+  DesignLabInspectorPanel,
+  type DesignLabInspectorActions,
+  type DesignLabInspectorArtboard,
+  type DesignLabTextSelection,
+} from '@/components/DesignLabInspector';
+import {
+  DESIGN_LAB_LONG_LAYER_LIST,
+  DesignLabDockLayer,
+  DesignLabInspectorLayer,
+  DesignLabLayerDockPanel,
+  type DesignLabLayerDockActions,
+  type DesignLabLayerRowActions,
+  type DesignLabLayerRowProps,
+} from '@/components/DesignLabLayerDock';
+import {
+  DesignLabArtboardToolbar,
+  DesignLabHeader,
+  DesignLabMotionStrip,
+  DesignLabPreviewQualityToggle,
+  DesignLabShortcutsButton,
+  DesignLabShortcutsPanel,
+  type DesignLabArtboardToolbarActions,
+  type DesignLabHeaderActions,
+  type DesignLabMotionStripActions,
+} from '@/components/DesignLabChrome';
 
 type TextEffectRenderScratch = {
   fill: HTMLCanvasElement;
@@ -504,21 +378,6 @@ type TextEffectRenderScratch = {
   shadow: HTMLCanvasElement;
 };
 
-type DesignExportSettings = {
-  durationMs: number;
-  fps: number;
-  gifLoop: MotionLoopMode;
-  quality: MotionExportQuality;
-  width: number;
-};
-
-type DesignRatioOption = StudioArtboardDimensions & {
-  label: string;
-  value: ShaderRatio;
-};
-
-type DesignExportFormat = 'gif' | 'jpg' | 'mp4' | 'png';
-type DesignMotionMode = 'sequence' | 'standard';
 type DesignAutomationExportInput = {
   download?: boolean;
   format: 'gif' | 'jpg' | 'mp4' | 'png';
@@ -533,44 +392,6 @@ type DesignExportRequest = {
   format: DesignExportFormat;
   motionMode?: DesignMotionMode;
   settingsSignature: string;
-};
-
-type DesignShaderSequenceSettings = ShaderSequenceSettings & {
-  sequenceOffset: number;
-  targetLayerId: ShaderLayerId | null;
-};
-
-type DesignArtboardId = `artboard-${string}`;
-
-type DesignArtboardTimeline = {
-  frame: number;
-  paused: boolean;
-  timeMs?: number;
-};
-
-type DesignArtboardSnapshot = {
-  assets: CompositionAsset[];
-  backgroundColor: string;
-  dimensions: StudioArtboardDimensions;
-  effectLayers: CompositionEffectLayer[];
-  groups: CompositionLayerGroup[];
-  layerOrder: CompositionLayerId[];
-  layerShaders: Partial<Record<ContentLayerId, ShaderApplication>>;
-  logos: CompositionLogoLayer[];
-  ratio: ShaderRatio;
-  shaderLayers: CompositionShaderLayer[];
-  shaderSequence: DesignShaderSequenceSettings;
-  textLayers: CompositionTextLayer[];
-  timeline: DesignArtboardTimeline;
-};
-
-type DesignArtboard = {
-  displayScale?: number;
-  id: DesignArtboardId;
-  name: string;
-  snapshot: DesignArtboardSnapshot;
-  x: number;
-  y: number;
 };
 
 type DesignArtboardWorkspaceSource = {
@@ -834,7 +655,7 @@ const DESIGN_ARTBOARD_TOUR_STEPS = [
   },
 ] as const;
 
-function DesignArtboardTour({
+const DesignArtboardTour = memo(function DesignArtboardTour({
   onClose,
   onNext,
   step,
@@ -858,7 +679,7 @@ function DesignArtboardTour({
       </footer>
     </aside>
   );
-}
+});
 
 function artboardSnapshotSignature(snapshot: DesignArtboardSnapshot): string {
   return immutableJsonSignature(snapshot);
@@ -881,370 +702,7 @@ type ShaderSequenceCapture = {
   materialId: LiveMaterialId;
 };
 
-const RATIO_OPTIONS: readonly { height: number; label: string; value: StudioArtboardPresetId; width: number }[] = (
-  STUDIO_ARTBOARD_PRESETS.map(({ height, id, label, width }) => ({ height, label, value: id, width }))
-);
-
-const DEFAULT_EXPORT_SETTINGS: DesignExportSettings = {
-  durationMs: 1_600,
-  fps: 30,
-  gifLoop: 'seamless',
-  quality: 'balanced',
-  width: 960,
-};
-const EXPORT_WIDTH_PRESETS = [
-  { label: 'Compact', width: 640 },
-  { label: 'Standard', width: 960 },
-  { label: 'Large', width: 1_280 },
-  { label: 'Full', width: 1_920 },
-] as const;
-const EXPORT_QUALITY_OPTIONS: readonly { description: string; label: string; value: MotionExportQuality }[] = [
-  { description: 'Quick preview', label: 'Fast', value: 'fast' },
-  { description: 'Everyday export', label: 'Balanced', value: 'balanced' },
-  { description: 'Most detail', label: 'Best', value: 'best' },
-];
-
-function normalizeDesignExportSettings(settings?: Partial<DesignExportSettings>): DesignExportSettings {
-  return {
-    durationMs: settings?.durationMs && [1_200, 1_600, 2_400, 4_000].includes(settings.durationMs)
-      ? settings.durationMs
-      : DEFAULT_EXPORT_SETTINGS.durationMs,
-    fps: settings?.fps && [12, 15, 24, 30, 60].includes(settings.fps)
-      ? settings.fps
-      : DEFAULT_EXPORT_SETTINGS.fps,
-    gifLoop: settings?.gifLoop === 'raw' ? 'raw' : 'seamless',
-    quality: settings?.quality && EXPORT_QUALITY_OPTIONS.some(({ value }) => value === settings.quality)
-      ? settings.quality
-      : DEFAULT_EXPORT_SETTINGS.quality,
-    width: Number.isFinite(settings?.width) && (settings?.width ?? 0) > 0
-      ? settings!.width!
-      : DEFAULT_EXPORT_SETTINGS.width,
-  };
-}
-
-function designExportSettingsSignature(ratio: ShaderRatio, settings: DesignExportSettings): string {
-  return [ratio, settings.width, settings.quality, settings.durationMs, settings.fps, settings.gifLoop].join(':');
-}
-
-function DesignExportControls({
-  format,
-  onChange,
-  ratioOption,
-  settings,
-}: {
-  format: DesignExportFormat;
-  onChange: (patch: Partial<DesignExportSettings>) => void;
-  ratioOption: DesignRatioOption;
-  settings: DesignExportSettings;
-}) {
-  const dimensions = resolveExportDimensions({
-    aspectHeight: ratioOption.height,
-    aspectWidth: ratioOption.width,
-    width: settings.width,
-  });
-  const frameCount = Math.max(2, Math.round(settings.durationMs / (1_000 / settings.fps)));
-  const loopOverlapFrames = resolveSeamlessLoopOverlapFrames({
-    durationMs: settings.durationMs,
-    fps: settings.fps,
-    height: dimensions.height,
-    width: dimensions.width,
-  });
-  const motion = format === 'gif' || format === 'mp4';
-
-  return (
-    <div className='shader-lab-v2-output-controls'>
-      <div className='shader-lab-v2-export-overview' aria-label='Current output settings'>
-        <div>
-          <MonitorUp aria-hidden='true' />
-          <span><small>Output size</small><strong>{dimensions.width} × {dimensions.height}</strong></span>
-        </div>
-        <div>
-          {motion ? <Film aria-hidden='true' /> : <FileImage aria-hidden='true' />}
-          {motion
-            ? <span><small>Animation · {frameCount} frames</small><strong>{settings.durationMs / 1_000}s · {settings.fps} FPS</strong></span>
-            : <span><small>Static image</small><strong>{format.toUpperCase()} · {settings.quality}</strong></span>}
-        </div>
-      </div>
-      <div className='shader-lab-v2-export-presets' aria-label='Export size presets'>
-        {EXPORT_WIDTH_PRESETS.map((preset) => {
-          const presetDimensions = resolveExportDimensions({
-            aspectHeight: ratioOption.height,
-            aspectWidth: ratioOption.width,
-            width: preset.width,
-          });
-          return (
-            <button
-              aria-pressed={dimensions.width === presetDimensions.width}
-              key={preset.width}
-              onClick={() => onChange({ width: preset.width })}
-              type='button'
-            >
-              <strong>{preset.label}</strong>
-              <small>{presetDimensions.width}×{presetDimensions.height}</small>
-            </button>
-          );
-        })}
-      </div>
-      <label className='shader-lab-v2-export-width'>
-        <span><Ruler aria-hidden='true' />Custom width</span>
-        <span>
-          <input
-            aria-label='Export width in pixels'
-            max={3_840}
-            min={320}
-            onBlur={() => onChange({ width: dimensions.width })}
-            onChange={(event) => {
-              const width = event.currentTarget.valueAsNumber;
-              if (Number.isFinite(width)) onChange({ width });
-            }}
-            step={2}
-            type='number'
-            value={settings.width}
-          />
-          <i>px</i>
-        </span>
-      </label>
-      <div className='shader-lab-v2-export-quality'>
-        <span><CircleGauge aria-hidden='true' />Quality</span>
-        <div>
-          {EXPORT_QUALITY_OPTIONS.map((option) => {
-            const QualityIcon = option.value === 'fast' ? Zap : option.value === 'balanced' ? CircleGauge : Sparkles;
-            return (
-              <button
-                aria-pressed={settings.quality === option.value}
-                key={option.value}
-                onClick={() => onChange({ quality: option.value })}
-                title={option.description}
-                type='button'
-              >
-                <QualityIcon aria-hidden='true' />
-                <span><strong>{option.label}</strong><small>{option.description}</small></span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-      {motion ? (
-        <div className='shader-lab-v2-export-motion'>
-          <label>
-            <span><Clock3 aria-hidden='true' />Duration</span>
-            <StudioSelect
-              ariaLabel='Export duration'
-              onValueChange={(value) => onChange({ durationMs: Number(value) })}
-              options={[
-                { label: '1.2 seconds', value: '1200' },
-                { label: '1.6 seconds', value: '1600' },
-                { label: '2.4 seconds', value: '2400' },
-                { label: '4 seconds', value: '4000' },
-              ]}
-              value={String(settings.durationMs)}
-            />
-          </label>
-          <label>
-            <span><Film aria-hidden='true' />Frame rate</span>
-            <StudioSelect
-              ariaLabel='Export frame rate'
-              onValueChange={(value) => onChange({ fps: Number(value) })}
-              options={[12, 15, 24, 30, 60].map((fps) => ({ label: `${fps} FPS`, value: String(fps) }))}
-              value={String(settings.fps)}
-            />
-          </label>
-        </div>
-      ) : null}
-      {format === 'gif' ? (
-        <div className='shader-lab-v2-export-quality shader-lab-v2-export-loop'>
-          <span><Repeat2 aria-hidden='true' />GIF loop</span>
-          <div>
-            <button
-              aria-pressed={settings.gifLoop === 'seamless'}
-              onClick={() => onChange({ gifLoop: 'seamless' })}
-              title='Blend and verify the closing frame for a smooth loop.'
-              type='button'
-            >Blended loop</button>
-            <button
-              aria-pressed={settings.gifLoop === 'raw'}
-              onClick={() => onChange({ gifLoop: 'raw' })}
-              title='Repeat captured frames without correcting the seam.'
-              type='button'
-            >Raw motion</button>
-          </div>
-          <small>{settings.gifLoop === 'seamless'
-            ? `Crossfade close · ${loopOverlapFrames}-frame overlap; not a native shader period`
-            : 'Unmodified clip · repeating it may show a visible seam'}</small>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function DesignExportWorkspace({
-  disabled,
-  format,
-  onChange,
-  onFormatChange,
-  ratioOption,
-  settings,
-}: {
-  disabled: boolean;
-  format: DesignExportFormat;
-  onChange: (patch: Partial<DesignExportSettings>) => void;
-  onFormatChange: (format: DesignExportFormat) => void;
-  ratioOption: DesignRatioOption;
-  settings: DesignExportSettings;
-}) {
-  const formats: readonly { description: string; icon: typeof ImageDown; label: string; value: DesignExportFormat }[] = [
-    { description: 'Transparent image', icon: ImageDown, label: 'PNG', value: 'png' },
-    { description: 'Smaller image', icon: FileImage, label: 'JPG', value: 'jpg' },
-    { description: 'Looping motion', icon: Film, label: 'GIF', value: 'gif' },
-    { description: 'Video', icon: Clapperboard, label: 'MP4', value: 'mp4' },
-  ];
-
-  return (
-    <div className='shader-export-workspace' aria-busy={disabled}>
-      <div className='shader-export-format' aria-label='Export format'>
-        {formats.map((option) => {
-          const FormatIcon = option.icon;
-          return (
-            <button
-              aria-pressed={format === option.value}
-              disabled={disabled}
-              key={option.value}
-              onClick={() => onFormatChange(option.value)}
-              type='button'
-            >
-              <FormatIcon aria-hidden='true' />
-              <span><strong>{option.label}</strong><small>{option.description}</small></span>
-            </button>
-          );
-        })}
-      </div>
-      <DesignExportControls
-        format={format}
-        onChange={onChange}
-        ratioOption={ratioOption}
-        settings={settings}
-      />
-    </div>
-  );
-}
-
-function ShaderSequenceControls({
-  disabled,
-  durationMs,
-  materialIds,
-  onChange,
-  onExport,
-  onPreview,
-  onShuffle,
-  previewing,
-  settings,
-  targetOptions,
-}: {
-  disabled: boolean;
-  durationMs: number;
-  materialIds: readonly LiveMaterialId[];
-  onChange: (patch: Partial<DesignShaderSequenceSettings>) => void;
-  onExport: () => void;
-  onPreview: () => void;
-  onShuffle: () => void;
-  previewing: boolean;
-  settings: DesignShaderSequenceSettings;
-  targetOptions: readonly { label: string; value: ShaderLayerId }[];
-}) {
-  const introCount = Math.max(0, materialIds.length - 1);
-  const occurrences = new Map<LiveMaterialId, number>();
-  const sequenceItems = materialIds.map((materialId) => {
-    const occurrence = (occurrences.get(materialId) ?? 0) + 1;
-    occurrences.set(materialId, occurrence);
-    return { key: `${materialId}:${occurrence}`, materialId };
-  });
-  return (
-    <div className='shader-lab-v2-sequence-builder'>
-      <div className='shader-lab-v2-sequence-summary'>
-        <span><Clapperboard aria-hidden='true' /><strong>Shader cuts</strong></span>
-        <code>{(durationMs / 1_000).toFixed(1)}s</code>
-      </div>
-      <p>Keep the composition locked while one background runs through {introCount} cuts and lands on its current shader.</p>
-      <div className='shader-lab-v2-sequence-strip studio-scroll-area' aria-label='Shader cut sequence' role='list'>
-        {sequenceItems.map(({ key, materialId }, index) => {
-          const material = getLiveMaterial(materialId);
-          const final = index === materialIds.length - 1;
-          return (
-            <StudioPreviewTooltip
-              description={final
-                ? `The sequence lands on ${material.name} and holds for ${(settings.finalHoldMs / 1_000).toFixed(1)} seconds.`
-                : `${material.name} appears as cut ${index + 1} in the ${settings.pace} shader progression.`}
-              eyebrow={final ? 'Final hold' : `Shader cut ${String(index + 1).padStart(2, '0')}`}
-              key={key}
-              meta={`${index + 1} of ${materialIds.length} · ${settings.pace} pacing`}
-              preview={<img alt='' src={shaderPreviewAssetPath(materialId)} />}
-              title={material.name}
-            >
-              <span aria-label={`${index + 1}. ${material.name}${final ? ', final hold' : ''}`} data-final={final ? 'true' : 'false'} role='listitem' tabIndex={0}>
-                <img alt='' src={shaderPreviewAssetPath(materialId)} />
-                <i>{final ? 'Hold' : String(index + 1).padStart(2, '0')}</i>
-              </span>
-            </StudioPreviewTooltip>
-          );
-        })}
-      </div>
-      <label className='shader-lab-v2-sequence-field'>
-        <span>Background layer</span>
-        <StudioSelect
-          ariaLabel='Shader sequence background layer'
-          disabled={targetOptions.length === 0}
-          onValueChange={(value) => onChange({ targetLayerId: value as ShaderLayerId })}
-          options={targetOptions}
-          value={settings.targetLayerId ?? targetOptions[0]?.value ?? ''}
-        />
-      </label>
-      <div className='shader-lab-v2-export-motion'>
-        <label>
-          <span><Film aria-hidden='true' />Cuts</span>
-          <StudioSelect
-            ariaLabel='Shader sequence cut count'
-            onValueChange={(value) => onChange({ cutCount: Number(value) })}
-            options={[8, 9, 10, 11, 12].map((count) => ({ label: `${count} shaders`, value: String(count) }))}
-            value={String(settings.cutCount)}
-          />
-        </label>
-        <label>
-          <span><Clock3 aria-hidden='true' />Final hold</span>
-          <StudioSelect
-            ariaLabel='Shader sequence final hold'
-            onValueChange={(value) => onChange({ finalHoldMs: Number(value) })}
-            options={[3_000, 4_000, 5_000, 6_000].map((holdMs) => ({ label: `${holdMs / 1_000} seconds`, value: String(holdMs) }))}
-            value={String(settings.finalHoldMs)}
-          />
-        </label>
-      </div>
-      <div className='shader-lab-v2-sequence-pace' aria-label='Shader cut pacing'>
-        {([
-          { label: 'Accelerating', value: 'accelerating' },
-          { label: 'Even', value: 'even' },
-        ] as const).map((option) => (
-          <button aria-pressed={settings.pace === option.value} key={option.value} onClick={() => onChange({ pace: option.value })} type='button'>{option.label}</button>
-        ))}
-      </div>
-      <div className='shader-lab-v2-sequence-actions'>
-        <button disabled={disabled || targetOptions.length === 0} onClick={onShuffle} type='button'>
-          <Repeat2 aria-hidden='true' />
-          <span>New cuts</span>
-        </button>
-        <button disabled={disabled || targetOptions.length === 0} onClick={onPreview} type='button'>
-          {previewing ? <Pause aria-hidden='true' /> : <Play aria-hidden='true' />}
-          <span>{previewing ? 'Stop preview' : 'Preview cuts'}</span>
-        </button>
-        <button disabled={disabled || targetOptions.length === 0} onClick={onExport} type='button'>
-          <Download aria-hidden='true' />
-          <span>Export MP4</span>
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function CanvasSelectionAssemblyOverlay({
+const CanvasSelectionAssemblyOverlay = memo(function CanvasSelectionAssemblyOverlay({
   bounds,
   canvasHeight,
   canvasWidth,
@@ -1337,25 +795,18 @@ function CanvasSelectionAssemblyOverlay({
       </div>
     </CanvasSelectionClip>
   );
-}
+});
 
-const DEFAULT_LAYER_TRANSFORM: CanvasLayerTransform = { scale: 1, x: 0, y: 0 };
 const DEFAULT_CANVAS_SHADER_ID = 'shader-canvas-1' as const satisfies ShaderLayerId;
-const DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT = 120_000;
-// Captures lift the device-ratio cap; the export pixel count then sets the canvas size.
-const DESIGN_LAB_CAPTURE_SUPERSAMPLE = 8;
+const DESIGN_LAB_INITIAL_PAN = { x: 0, y: -40 };
+/** Image effects re-run on the GPU per preview frame; 10 fps keeps motion beneath them readable. */
+const IMAGE_EFFECT_PREVIEW_FRAME_RATE = 10;
 // High renders live shaders near device resolution; Auto drops to the draft
 // budget after sustained slow frames. Exports always use output resolution.
 const DESIGN_LAB_PREVIEW_PIXEL_BUDGETS = {
   high: { maxPerInstance: 2_400_000, minPerInstance: 240_000, totalBudget: 4_800_000 },
   low: { maxPerInstance: DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT, minPerInstance: 48_000, totalBudget: 300_000 },
 } as const;
-const DESIGN_LAB_PREVIEW_QUALITY_OPTIONS = [
-  { label: 'Auto', value: 'auto' },
-  { label: 'High', value: 'high' },
-  { label: 'Draft', value: 'low' },
-] as const;
-const DESIGN_LAB_PREVIEW_FRAME_RATE = 60;
 const SHADER_LIBRARY_INITIAL_CARD_COUNT = 12;
 const SHADER_LIBRARY_CARD_BATCH_SIZE = 24;
 const DEFAULT_DESIGN_SHADER_SEQUENCE_SETTINGS: DesignShaderSequenceSettings = {
@@ -1372,251 +823,6 @@ const DEFAULT_DESIGN_LAB_LAYER_ORDER = [
   DEFAULT_LOGO_LAYER_ID,
 ] as const satisfies readonly CompositionLayerId[];
 const DEFAULT_DESIGN_LAB_SELECTED_LAYER_ID = DEFAULT_CANVAS_SHADER_ID;
-const DEFAULT_TEXT_LAYER_TRANSFORM: CanvasLayerTransform = {
-  ...DEFAULT_LAYER_TRANSFORM,
-  heightScale: 1,
-  widthScale: 1,
-};
-const DEFAULT_TEXT_APPEARANCE: TextAppearanceSettings = {
-  color: '#FFFFFF',
-  fontRole: 'Display',
-  opacity: 1,
-  outlineColor: '#000000',
-  outlineEnabled: false,
-  outlineWidth: 1,
-  shadowBlur: 18,
-  shadowColor: '#000000',
-  shadowEnabled: false,
-  shadowOffsetX: 0,
-  shadowOffsetY: 8,
-  shadowOpacity: 35,
-  textEffect: { ...DEFAULT_TEXT_EFFECT },
-};
-const STICKER_IMAGE_APPEARANCE: LogoAppearanceSettings = {
-  ...DEFAULT_LOGO_APPEARANCE,
-  borderColor: '#FFFFFF',
-  borderEnabled: true,
-  borderOpacity: 100,
-  borderWidth: 7,
-  shadowBlur: 18,
-  shadowColor: '#000000',
-  shadowEnabled: true,
-  shadowOffsetX: 0,
-  shadowOffsetY: 10,
-  shadowOpacity: 34,
-};
-const STICKER_TEXT_APPEARANCE: Partial<TextAppearanceSettings> = {
-  outlineColor: '#FFFFFF',
-  outlineEnabled: true,
-  outlineWidth: 7,
-  shadowBlur: 18,
-  shadowColor: '#000000',
-  shadowEnabled: true,
-  shadowOffsetX: 0,
-  shadowOffsetY: 10,
-  shadowOpacity: 34,
-};
-
-function isTextLayerId(layerId: CompositionLayerId | null): layerId is TextLayerId {
-  return layerId?.startsWith('text-') ?? false;
-}
-
-function isShaderLayerId(layerId: CompositionLayerId | null): layerId is ShaderLayerId {
-  return layerId?.startsWith('shader-') ?? false;
-}
-
-function isEffectLayerId(layerId: CompositionLayerId | null): layerId is EffectLayerId {
-  return layerId?.startsWith('effect-') ?? false;
-}
-
-function isLogoLayerId(layerId: CompositionLayerId | null): layerId is LogoLayerId {
-  return layerId?.startsWith('logo-') ?? false;
-}
-
-function isAssetLayerId(layerId: CompositionLayerId | null): layerId is AssetLayerId {
-  return layerId?.startsWith('asset-') ?? false;
-}
-
-function isContentLayerId(layerId: CompositionLayerId | null): layerId is ContentLayerId {
-  return isLogoLayerId(layerId) || isTextLayerId(layerId) || isAssetLayerId(layerId);
-}
-
-function isCanvasLayerId(layerId: CompositionLayerId | null): layerId is CanvasLayerId {
-  return isShaderLayerId(layerId) || isContentLayerId(layerId);
-}
-
-function CanvasLayerKindIcon({ layerId, sticker = false }: { layerId: CompositionLayerId; sticker?: boolean }) {
-  if (sticker) return <Sticker aria-hidden='true' />;
-  if (isShaderLayerId(layerId)) return <Sparkles aria-hidden='true' />;
-  if (isEffectLayerId(layerId)) return <Grid3X3 aria-hidden='true' />;
-  if (isTextLayerId(layerId)) return <Type aria-hidden='true' />;
-  if (isLogoLayerId(layerId)) return <Layers3 aria-hidden='true' />;
-  return <ImagePlus aria-hidden='true' />;
-}
-
-function isStickerLayer(
-  assetLayer: CompositionAsset | null,
-  textLayer: CompositionTextLayer | null
-): boolean {
-  return assetLayer?.kind === 'sticker' || textLayer?.kind === 'sticker';
-}
-
-function resolveLayerDockLayers(
-  layerId: CompositionLayerId,
-  {
-    assets,
-    effects,
-    logos,
-    shaders,
-    text,
-  }: {
-    assets: readonly CompositionAsset[];
-    effects: readonly CompositionEffectLayer[];
-    logos: readonly CompositionLogoLayer[];
-    shaders: readonly CompositionShaderLayer[];
-    text: readonly CompositionTextLayer[];
-  }
-) {
-  return {
-    assetLayer: isAssetLayerId(layerId) ? assets.find(({ id }) => id === layerId) ?? null : null,
-    effectLayer: isEffectLayerId(layerId) ? effects.find(({ id }) => id === layerId) ?? null : null,
-    logoLayer: isLogoLayerId(layerId) ? logos.find(({ id }) => id === layerId) ?? null : null,
-    shaderLayer: isShaderLayerId(layerId) ? shaders.find(({ id }) => id === layerId) ?? null : null,
-    textLayer: isTextLayerId(layerId) ? text.find(({ id }) => id === layerId) ?? null : null,
-  };
-}
-
-function resolveLayerDockShader(
-  layerId: CompositionLayerId,
-  shaderLayer: CompositionShaderLayer | null,
-  layerShaders: Partial<Record<ContentLayerId, ShaderApplication>>
-): ShaderApplication | null {
-  if (shaderLayer) return shaderLayer;
-  if (!isContentLayerId(layerId)) return null;
-  return layerShaders[layerId] ?? null;
-}
-
-function LayerDockStaticPreview({
-  effectLayer,
-  imageCrop,
-  label,
-  onSelect,
-  previewUrl,
-}: {
-  effectLayer: CompositionEffectLayer | null;
-  imageCrop?: ImageCropSettings;
-  label: string;
-  onSelect: () => void;
-  previewUrl?: string;
-}) {
-  let preview: ReactNode = <span aria-hidden='true' />;
-  if (effectLayer) preview = <CompositionEffectThumbnail kind={effectLayer.settings.kind} settings={effectLayer.settings} />;
-  else if (previewUrl) preview = <img alt='' draggable={false} src={previewUrl} style={imageCropElementStyle(imageCrop)} />;
-  return (
-    <button className='shader-lab-v2-dock-preview-select' aria-label={`Select ${label} preview`} onClick={onSelect} type='button'>
-      {preview}
-    </button>
-  );
-}
-
-function layerDockTooltipDescription({
-  appliedShader,
-  effectLayer,
-  layerId,
-  sticker,
-  textLayer,
-}: {
-  appliedShader: ShaderApplication | null;
-  effectLayer: CompositionEffectLayer | null;
-  layerId: CompositionLayerId;
-  sticker: boolean;
-  textLayer: CompositionTextLayer | null;
-}): string {
-  if (sticker) return `An editable sticker layer with a non-destructive die-cut treatment${appliedShader ? ` and ${getLiveMaterial(appliedShader.materialId).name}` : ''}.`;
-  if (effectLayer) return `Converts every visible layer beneath it with the ${effectLayer.settings.kind} effect.`;
-  if (isShaderLayerId(layerId) && appliedShader) {
-    return `${getLiveMaterial(appliedShader.materialId).name} fills this movable background layer.`;
-  }
-  if (textLayer) return `Editable text on the canvas${appliedShader ? ` with ${getLiveMaterial(appliedShader.materialId).name} applied` : ''}.`;
-  if (isLogoLayerId(layerId)) return `A reusable brand mark${appliedShader ? ` filled with ${getLiveMaterial(appliedShader.materialId).name}` : ''}.`;
-  return `An imported image layer${appliedShader ? ` styled with ${getLiveMaterial(appliedShader.materialId).name}` : ''}.`;
-}
-
-function RichTextLayerPreview({ layer, identity }: { layer: CompositionTextLayer; identity: BrandIdentity }) {
-  const baseSize = resolveDesignLabFontSize(layer, 900);
-  return textStyleSegments(layer.value, layer.runs).map((run) => {
-    const style = resolveTextRunStyle(layer, identity, 900, run.style);
-    return <span key={run.start} style={{ color: style.color, fontFamily: style.fontFamily,
-      fontSize: `${style.fontSize / baseSize}em`, fontStyle: style.fontStyle, fontWeight: style.fontWeight,
-      letterSpacing: `${style.tracking}em`, textDecorationLine: designLabTextDecorationLine(style),
-      textDecorationThickness: 'from-font', textUnderlineOffset: '0.12em' }}>{layer.value.slice(run.start, run.end)}</span>;
-  });
-}
-
-function TextLayerDockPreview({ layer, identity, onSelect, onChange }: {
-  layer: CompositionTextLayer; identity: BrandIdentity; onSelect: () => void; onChange: (value: string) => void;
-}) {
-  if (layer.runs?.length) return <button aria-label={`Select ${layer.name} preview`} onClick={onSelect} type='button'>
-    <span className='shader-lab-v2-dock-rich-text' style={{ opacity: layer.opacity }}><RichTextLayerPreview layer={layer} identity={identity} /></span>
-  </button>;
-  const appearance = resolvedTextAppearance(layer);
-  return <input aria-label={`Edit ${layer.name}`} onChange={(event) => onChange(event.target.value)}
-    onFocus={onSelect} onKeyDown={(event) => event.stopPropagation()}
-    style={{ color: appearance.color, fontFamily: `${JSON.stringify(brandTypographyFamily(identity, appearance.fontRole))}, sans-serif`,
-      fontStyle: layer.fontStyle ?? 'normal', fontWeight: resolveBrandTypographyWeight(identity, appearance.fontRole, layer.weight),
-      letterSpacing: `${layer.tracking}em`, opacity: appearance.opacity, textDecorationColor: appearance.color,
-      textDecorationLine: designLabTextDecorationLine(layer), textDecorationThickness: 'from-font', textUnderlineOffset: '0.12em' }}
-    type='text' value={layer.value} />;
-}
-
-function LayerDockTooltipPreview({
-  appliedShader,
-  effectLayer,
-  identity,
-  imageCrop,
-  previewUrl,
-  textAppearance,
-  textLayer,
-}: {
-  appliedShader: ShaderApplication | null;
-  effectLayer: CompositionEffectLayer | null;
-  identity: BrandIdentity;
-  imageCrop?: ImageCropSettings;
-  previewUrl?: string;
-  textAppearance: TextAppearanceSettings | null;
-  textLayer: CompositionTextLayer | null;
-}) {
-  return (
-    <div className='studio-layer-tooltip-preview'>
-      {appliedShader ? (
-        <img
-          alt=''
-          className='studio-layer-tooltip-preview__material'
-          draggable={false}
-          src={shaderPreviewAssetPath(appliedShader.materialId)}
-        />
-      ) : null}
-      {effectLayer ? <CompositionEffectThumbnail kind={effectLayer.settings.kind} settings={effectLayer.settings} /> : null}
-      {previewUrl ? <img alt='' draggable={false} src={previewUrl} style={imageCropElementStyle(imageCrop)} /> : null}
-      {textLayer && textAppearance ? (
-        <span
-          style={{
-            color: textAppearance.color,
-            fontFamily: `${JSON.stringify(brandTypographyFamily(identity, textAppearance.fontRole))}, sans-serif`,
-            fontStyle: textLayer.fontStyle ?? 'normal',
-            fontWeight: resolveBrandTypographyWeight(identity, textAppearance.fontRole, textLayer.weight),
-            letterSpacing: `${textLayer.tracking}em`,
-            opacity: textAppearance.opacity,
-            textDecorationColor: textAppearance.color,
-            textDecorationLine: 'none',
-            textDecorationThickness: 'from-font',
-            textUnderlineOffset: '0.12em',
-          }}
-        >{textLayer.value ? <RichTextLayerPreview layer={textLayer} identity={identity} /> : 'Empty text layer'}</span>
-      ) : null}
-    </div>
-  );
-}
 
 type DesignLabCompositionSource = {
   canvasDimensions?: Partial<StudioArtboardDimensions>;
@@ -1651,6 +857,7 @@ function assertOptionalArray<T>(
 function validateCompositionLayers(composition: DesignLabCompositionSource['composition']): void {
   assertOptionalArray(composition.shaderLayers, 'Shader layers', (layer) => !layer.id?.startsWith('shader-'));
   assertOptionalArray(composition.effectLayers, 'Converter layers', (layer) => !layer.id?.startsWith('effect-'));
+  composition.effectLayers?.forEach((layer) => assertDesignLabEffectSettings(layer.settings, `Effect layer ${layer.id}`));
   assertOptionalArray(composition.textLayers, 'Text layers', (layer) => !layer.id?.startsWith('text-') || typeof layer.value !== 'string');
   composition.textLayers?.forEach(validateDesignLabTextTypography);
   assertOptionalArray(composition.logos, 'Mark layers', (layer) => !layer.id?.startsWith('logo-'));
@@ -1710,12 +917,16 @@ function validateCompositionMetadata(parsed: DesignLabCompositionSource): void {
 
 /** Native effect props validate against control metadata that loads on demand. */
 async function validateShaderEffectSettings(parsed: DesignLabCompositionSource): Promise<void> {
-  const layers = [parsed.composition, ...(parsed.workspace?.artboards ?? []).map(({ snapshot }) => snapshot)]
+  const compositions = [parsed.composition, ...(parsed.workspace?.artboards ?? []).map(({ snapshot }) => snapshot)];
+  const layers = compositions
     .flatMap((composition) => [...(composition.shaderLayers ?? []), ...Object.values(composition.layerShaders ?? {})])
     .flatMap((layer) => layer?.settings?.effectProps === undefined ? [] : [{ effectProps: layer.settings.effectProps, materialId: layer.materialId }]);
-  if (!layers.length) return;
+  // Image-effect Effect layers carry the same native props under their effectId.
+  const effects = compositions.flatMap((composition) => composition.effectLayers ?? [])
+    .flatMap(({ settings }) => settings?.effectId ? [{ effectProps: settings.effectProps ?? {}, materialId: settings.effectId }] : []);
+  if (!layers.length && !effects.length) return;
   const { validateShaderEffectProps } = await loadShaderEffectsProps();
-  layers.forEach(({ effectProps, materialId }) => validateShaderEffectProps(materialId, effectProps));
+  [...layers, ...effects].forEach(({ effectProps, materialId }) => validateShaderEffectProps(materialId, effectProps));
 }
 
 async function parseCompositionSource(source: string): Promise<DesignLabCompositionSource> {
@@ -1917,155 +1128,6 @@ function restoredLayerOrder({
   }) as CompositionLayerId[];
 }
 
-function resolvedTextTransform(transform: CanvasLayerTransform): CanvasLayerTransform {
-  return {
-    ...transform,
-    heightScale: transform.heightScale ?? 1,
-    widthScale: transform.widthScale ?? 1,
-  };
-}
-
-function resolvedTextAppearance(layer: CompositionTextLayer): TextAppearanceSettings {
-  return {
-    color: layer.color ?? DEFAULT_TEXT_APPEARANCE.color,
-    fontRole: layer.fontRole ?? DEFAULT_TEXT_APPEARANCE.fontRole,
-    opacity: layer.opacity ?? DEFAULT_TEXT_APPEARANCE.opacity,
-    outlineColor: layer.outlineColor ?? DEFAULT_TEXT_APPEARANCE.outlineColor,
-    outlineEnabled: layer.outlineEnabled ?? DEFAULT_TEXT_APPEARANCE.outlineEnabled,
-    outlineWidth: layer.outlineWidth ?? DEFAULT_TEXT_APPEARANCE.outlineWidth,
-    shadowBlur: layer.shadowBlur ?? DEFAULT_TEXT_APPEARANCE.shadowBlur,
-    shadowColor: layer.shadowColor ?? DEFAULT_TEXT_APPEARANCE.shadowColor,
-    shadowEnabled: layer.shadowEnabled ?? DEFAULT_TEXT_APPEARANCE.shadowEnabled,
-    shadowOffsetX: layer.shadowOffsetX ?? DEFAULT_TEXT_APPEARANCE.shadowOffsetX,
-    shadowOffsetY: layer.shadowOffsetY ?? DEFAULT_TEXT_APPEARANCE.shadowOffsetY,
-    shadowOpacity: layer.shadowOpacity ?? DEFAULT_TEXT_APPEARANCE.shadowOpacity,
-    textEffect: resolveTextEffectSettings(layer.textEffect),
-  };
-}
-
-function resolvedLogoAppearance(settings?: LogoAppearanceSettings): LogoAppearanceSettings {
-  return { ...DEFAULT_LOGO_APPEARANCE, ...settings };
-}
-
-function colorWithOpacity(color: string, opacity: number): string {
-  const hex = color.replace('#', '');
-  if (!/^[0-9a-f]{6}$/i.test(hex)) return color;
-  const value = Number.parseInt(hex, 16);
-  const red = (value >> 16) & 255;
-  const green = (value >> 8) & 255;
-  const blue = value & 255;
-  return `rgba(${red}, ${green}, ${blue}, ${Math.max(0, Math.min(1, opacity))})`;
-}
-
-function scrollLayerDockWithWheel(event: ReactWheelEvent<HTMLDivElement>) {
-  if (event.ctrlKey || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
-  const dock = event.currentTarget;
-  const maximumScroll = Math.max(0, dock.scrollWidth - dock.clientWidth);
-  if (maximumScroll === 0) return;
-  const unit = event.deltaMode === 1
-    ? 16
-    : event.deltaMode === 2
-      ? dock.clientWidth
-      : 1;
-  const nextScroll = Math.max(0, Math.min(maximumScroll, dock.scrollLeft + event.deltaY * unit));
-  if (nextScroll === dock.scrollLeft) return;
-  event.preventDefault();
-  dock.scrollLeft = nextScroll;
-}
-
-function textShadowStyle(settings: TextAppearanceSettings): string | undefined {
-  if (!settings.shadowEnabled) return undefined;
-  return `${settings.shadowOffsetX}px ${settings.shadowOffsetY}px ${settings.shadowBlur}px ${colorWithOpacity(settings.shadowColor, settings.shadowOpacity / 100)}`;
-}
-
-function InspectorTextArea({
-  ariaLabel,
-  onChange,
-  onPreview,
-  onSelection,
-  value,
-}: {
-  ariaLabel: string;
-  onChange: (value: string) => void;
-  onPreview?: (value: string) => void;
-  onSelection?: (range: TextSelectionRange) => void;
-  value: string;
-}) {
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const onChangeRef = useCommittedRef(onChange);
-  const onPreviewRef = useCommittedRef(onPreview);
-  const pendingValueRef = useRef<string | null>(null);
-  const commitTimerRef = useRef(0);
-
-  function flushTextChange() {
-    window.clearTimeout(commitTimerRef.current);
-    commitTimerRef.current = 0;
-    const nextValue = pendingValueRef.current;
-    pendingValueRef.current = null;
-    if (nextValue !== null) onChangeRef.current(nextValue);
-  }
-
-  useLayoutEffect(() => {
-    const input = inputRef.current;
-    if (!input || document.activeElement === input || input.value === value) return;
-    input.value = value;
-  }, [value]);
-
-  useEffect(() => () => window.clearTimeout(commitTimerRef.current), []);
-
-  return (
-    <textarea
-      aria-label={ariaLabel}
-      onSelect={(event) => onSelection?.({ start: event.currentTarget.selectionStart, end: event.currentTarget.selectionEnd })}
-      defaultValue={value}
-      onBlur={(event) => {
-        pendingValueRef.current = event.currentTarget.value;
-        flushTextChange();
-      }}
-      onInput={(event) => {
-        pendingValueRef.current = event.currentTarget.value;
-        onPreviewRef.current?.(event.currentTarget.value);
-        window.clearTimeout(commitTimerRef.current);
-        commitTimerRef.current = window.setTimeout(flushTextChange, 140);
-      }}
-      placeholder='Type something'
-      ref={inputRef}
-      rows={2}
-    />
-  );
-}
-
-function layerGeometry(layerId: CanvasLayerId, canvas: StudioArtboardDimensions): LayerGeometry {
-  return designLayerGeometry(layerId, canvas);
-}
-
-const PRIMARY_CONTROLS: readonly {
-  key: keyof Pick<LiveMaterialSettings, 'speed' | 'frequency' | 'strength' | 'detail' | 'grain' | 'brightness'>;
-  label: string;
-  max: number;
-  min: number;
-  step: number;
-}[] = [
-  { key: 'speed', label: 'Shader speed', max: 1.5, min: 0, step: 0.01 },
-  { key: 'frequency', label: 'Frequency', max: 12, min: 0.5, step: 0.1 },
-  { key: 'strength', label: 'Warp', max: 1.5, min: 0, step: 0.01 },
-  { key: 'detail', label: 'Detail', max: 9, min: 0.5, step: 0.1 },
-  { key: 'grain', label: 'Texture', max: 100, min: 0, step: 1 },
-  { key: 'brightness', label: 'Light', max: 1.6, min: 0.35, step: 0.01 },
-];
-
-const ADVANCED_CONTROLS: readonly {
-  key: keyof Pick<LiveMaterialSettings, 'amplitude' | 'density' | 'rotationZ'>;
-  label: string;
-  max: number;
-  min: number;
-  step: number;
-}[] = [
-  { key: 'amplitude', label: 'Amplitude', max: 10, min: 0, step: 0.1 },
-  { key: 'density', label: 'Density', max: 2, min: 0.1, step: 0.01 },
-  { key: 'rotationZ', label: 'Rotation', max: 180, min: -180, step: 1 },
-];
-
 function escapeXml(value: string): string {
   return value.replace(/[<>&'"]/g, (character) => ({
     '"': '&quot;',
@@ -2099,347 +1161,6 @@ function shaderApplicationFor(
     }),
     shaderSize: clampShaderZoom(overrides.shaderSize ?? 1),
   };
-}
-
-function shaderBlendStyle(blendMode: ShaderBlendMode): CSSProperties['mixBlendMode'] {
-  return blendMode === 'normal' ? 'normal' : blendMode;
-}
-
-
-export function ShaderZoomControl({
-  onChange,
-  onPreview,
-  value,
-}: {
-  onChange: (value: number) => void;
-  onPreview?: (value: number) => void;
-  value: number;
-}) {
-  const zoom = clampShaderZoom(value);
-  const [sliderValue, setSliderValue] = useState(() => shaderZoomToSlider(zoom));
-  const [zoomEntry, setZoomEntry] = useState(() => formatShaderZoom(zoom).slice(0, -1));
-  const pendingZoomRef = useRef<number | null>(null);
-  const latestZoomRef = useRef<number | null>(null);
-  const zoomFrameRef = useRef(0);
-  const sliderRef = useRef<HTMLInputElement>(null);
-  const pointerIdRef = useRef<number | null>(null);
-  const detachGestureListenersRef = useRef<(() => void) | null>(null);
-  const finishGestureRef = useCommittedRef(finishGesture);
-  const editingEntryRef = useRef(false);
-
-  useEffect(() => {
-    if (pointerIdRef.current === null && pendingZoomRef.current === null && zoomFrameRef.current === 0) {
-      setSliderValue(shaderZoomToSlider(zoom));
-      if (!editingEntryRef.current) setZoomEntry(formatShaderZoom(zoom).slice(0, -1));
-    }
-  }, [zoom]);
-
-  useEffect(() => () => {
-    cancelAnimationFrame(zoomFrameRef.current);
-    detachGestureListenersRef.current?.();
-  }, []);
-
-  function flushZoom() {
-    cancelAnimationFrame(zoomFrameRef.current);
-    zoomFrameRef.current = 0;
-    const nextZoom = pendingZoomRef.current ?? latestZoomRef.current;
-    pendingZoomRef.current = null;
-    latestZoomRef.current = null;
-    if (nextZoom !== null) {
-      onPreview?.(nextZoom);
-      flushSync(() => onChange(nextZoom));
-    }
-    sliderRef.current?.removeAttribute('data-canvas-preview-pending');
-  }
-
-  function finishGesture() {
-    pointerIdRef.current = null;
-    detachGestureListenersRef.current?.();
-    detachGestureListenersRef.current = null;
-    const slider = sliderRef.current;
-    // Compare in slider space: log/power round trips can differ by an epsilon
-    // even when the native value has not changed since the previous commit.
-    if (slider && Number(slider.value) !== sliderValue) {
-      const nativeZoom = shaderZoomFromSlider(Number(slider.value));
-      setSliderValue(Number(slider.value));
-      setZoomEntry(formatShaderZoom(nativeZoom).slice(0, -1));
-      pendingZoomRef.current = nativeZoom;
-      latestZoomRef.current = nativeZoom;
-    }
-    flushZoom();
-  }
-
-  function finishPointerGesture(event: { pointerId: number }) {
-    if (event.pointerId === pointerIdRef.current) finishGesture();
-  }
-
-  function beginGesture(event: ReactPointerEvent<HTMLInputElement>) {
-    if (event.button !== 0 || pointerIdRef.current !== null) return;
-    pointerIdRef.current = event.pointerId;
-    // Preserve WebKit's native thumb capture; finish even when release occurs
-    // outside the range, without replacing the browser's drag implementation.
-    const finishPointer = (event: PointerEvent) => {
-      if (event.pointerId === pointerIdRef.current) finishGestureRef.current();
-    };
-    const finishBlur = () => finishGestureRef.current();
-    window.addEventListener('pointerup', finishPointer);
-    window.addEventListener('pointercancel', finishPointer);
-    window.addEventListener('blur', finishBlur);
-    detachGestureListenersRef.current = () => {
-      window.removeEventListener('pointerup', finishPointer);
-      window.removeEventListener('pointercancel', finishPointer);
-      window.removeEventListener('blur', finishBlur);
-    };
-  }
-
-  function scheduleZoom(nextSliderValue: number) {
-    setSliderValue(nextSliderValue);
-    const nextZoom = shaderZoomFromSlider(nextSliderValue);
-    setZoomEntry(formatShaderZoom(nextZoom).slice(0, -1));
-    pendingZoomRef.current = nextZoom;
-    latestZoomRef.current = nextZoom;
-    if (pointerIdRef.current === null) {
-      flushZoom();
-      return;
-    }
-    sliderRef.current?.setAttribute('data-canvas-preview-pending', 'true');
-    if (zoomFrameRef.current) return;
-    zoomFrameRef.current = requestAnimationFrame(() => {
-      zoomFrameRef.current = 0;
-      if (pendingZoomRef.current === null) return;
-      const nextZoom = pendingZoomRef.current;
-      pendingZoomRef.current = null;
-      (onPreview ?? onChange)(nextZoom);
-    });
-  }
-
-  function applyZoom(nextValue: number) {
-    cancelAnimationFrame(zoomFrameRef.current);
-    zoomFrameRef.current = 0;
-    pendingZoomRef.current = null;
-    latestZoomRef.current = null;
-    pointerIdRef.current = null;
-    detachGestureListenersRef.current?.();
-    detachGestureListenersRef.current = null;
-    const nextZoom = clampShaderZoom(nextValue);
-    setSliderValue(shaderZoomToSlider(nextZoom));
-    setZoomEntry(formatShaderZoom(nextZoom).slice(0, -1));
-    onPreview?.(nextZoom);
-    flushSync(() => onChange(nextZoom));
-    sliderRef.current?.removeAttribute('data-canvas-preview-pending');
-  }
-
-  function commitZoomEntry() {
-    if (!editingEntryRef.current) return;
-    editingEntryRef.current = false;
-    const nextZoom = Number(zoomEntry);
-    if (!Number.isFinite(nextZoom) || nextZoom <= 0) {
-      setZoomEntry(formatShaderZoom(zoom).slice(0, -1));
-      return;
-    }
-    applyZoom(nextZoom);
-  }
-
-  return (
-    <div className='shader-lab-v2-range shader-lab-v2-zoom-control'>
-      <StudioRangeLabel
-        label='Shader zoom'
-        value={(
-          <span className='shader-lab-v2-zoom-value'>
-            <input
-              aria-label='Shader zoom value'
-              inputMode='decimal'
-              max={SHADER_ZOOM_MAX}
-              min={SHADER_ZOOM_MIN}
-              onBlur={commitZoomEntry}
-              onChange={(event) => setZoomEntry(event.target.value)}
-              onFocus={() => { editingEntryRef.current = true; }}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault();
-                  event.currentTarget.blur();
-                }
-                if (event.key === 'Escape') {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  editingEntryRef.current = false;
-                  setZoomEntry(formatShaderZoom(zoom).slice(0, -1));
-                  event.currentTarget.blur();
-                }
-              }}
-              step={0.05}
-              type='number'
-              value={zoomEntry}
-            />
-            <span aria-hidden='true'>×</span>
-          </span>
-        )}
-      />
-      <div className='shader-lab-v2-zoom-input'>
-        <button
-          aria-label='Zoom shader out'
-          disabled={zoom <= 0.1}
-          onClick={() => applyZoom(stepShaderZoom(zoom, -1))}
-          title='Zoom shader out'
-          type='button'
-        ><ZoomOut aria-hidden='true' /></button>
-        <StudioRange
-          aria-label='Shader zoom slider'
-          max={SHADER_ZOOM_SLIDER_MAX}
-          min={SHADER_ZOOM_SLIDER_MIN}
-          onBlur={finishGesture}
-          onChange={(event) => {
-            if (event.nativeEvent.type === 'change') finishGesture();
-          }}
-          onInput={(event) => scheduleZoom(Number(event.currentTarget.value))}
-          onLostPointerCapture={finishPointerGesture}
-          onPointerCancel={finishPointerGesture}
-          onPointerDown={beginGesture}
-          onPointerUp={finishPointerGesture}
-          ref={sliderRef}
-          step={SHADER_ZOOM_SLIDER_STEP}
-          value={sliderValue}
-        />
-        <button
-          aria-label='Zoom shader in'
-          disabled={zoom >= 10}
-          onClick={() => applyZoom(stepShaderZoom(zoom, 1))}
-          title='Zoom shader in'
-          type='button'
-        ><ZoomIn aria-hidden='true' /></button>
-      </div>
-      <div aria-hidden='true' className='shader-lab-v2-zoom-scale'>
-        <span>0.1×</span><span>1×</span><span>10×</span>
-      </div>
-    </div>
-  );
-}
-
-function DesignLabEffectInspector({
-  previewEffectLayer,
-  selectEffectPreset,
-  selectedEffectLayer,
-  updateEffectLayer,
-}: {
-  previewEffectLayer: (
-    id: EffectLayerId,
-    update: { opacity?: number; settings?: Partial<CompositionEffectSettings> }
-  ) => void;
-  selectEffectPreset: (layer: CompositionEffectLayer, kind: CompositionEffectKind) => void;
-  selectedEffectLayer: CompositionEffectLayer;
-  updateEffectLayer: (
-    id: EffectLayerId,
-    update: Partial<Omit<CompositionEffectLayer, 'id'>>
-  ) => void;
-}) {
-  return <LabInspectorSection className='shader-lab-v2-control-section shader-lab-v2-effect-inspector' meta='Post-process' title='Converter'>
-    <div className='shader-lab-v2-effect-presets' aria-label='Converter type'>
-      {COMPOSITION_EFFECT_PRESETS.map((preset) => (
-        <button
-          aria-pressed={selectedEffectLayer.settings.kind === preset.kind}
-          key={preset.kind}
-          onClick={() => selectEffectPreset(selectedEffectLayer, preset.kind)}
-          type='button'
-        >
-          <CompositionEffectThumbnail kind={preset.kind} />
-          <span><strong>{preset.label}</strong><small>{preset.description}</small></span>
-        </button>
-      ))}
-    </div>
-    <div className='shader-lab-v2-ranges'>
-      <RangeControl
-        formatValue={(value) => `${Math.round(value * 100)}%`}
-        label='Layer opacity'
-        max={1}
-        min={0}
-        onChange={(opacity) => updateEffectLayer(selectedEffectLayer.id, { opacity })}
-        onPreview={(opacity) => previewEffectLayer(selectedEffectLayer.id, { opacity })}
-        step={0.01}
-        value={selectedEffectLayer.opacity}
-      />
-      <RangeControl
-        formatValue={(value) => `${Math.round(value)}px`}
-        label='Cell size'
-        max={28}
-        min={selectedEffectLayer.settings.kind === 'ascii' ? 7 : selectedEffectLayer.settings.kind === 'halftone' ? 4 : 1}
-        onChange={(cellSize) => updateEffectLayer(selectedEffectLayer.id, {
-          settings: { ...selectedEffectLayer.settings, cellSize },
-        })}
-        onPreview={(cellSize) => previewEffectLayer(selectedEffectLayer.id, { settings: { cellSize } })}
-        step={1}
-        value={selectedEffectLayer.settings.cellSize}
-      />
-      <RangeControl
-        formatValue={(value) => `${value.toFixed(2)}×`}
-        label='Contrast'
-        max={2.4}
-        min={0.4}
-        onChange={(contrast) => updateEffectLayer(selectedEffectLayer.id, {
-          settings: { ...selectedEffectLayer.settings, contrast },
-        })}
-        onPreview={(contrast) => previewEffectLayer(selectedEffectLayer.id, { settings: { contrast } })}
-        step={0.02}
-        value={selectedEffectLayer.settings.contrast}
-      />
-      <RangeControl
-        formatValue={(value) => `${value >= 0.5 ? '+' : ''}${Math.round((value - 0.5) * 200)}%`}
-        label='Brightness'
-        max={1}
-        min={0}
-        onChange={(threshold) => updateEffectLayer(selectedEffectLayer.id, {
-          settings: { ...selectedEffectLayer.settings, threshold },
-        })}
-        onPreview={(threshold) => previewEffectLayer(selectedEffectLayer.id, { settings: { threshold } })}
-        step={0.01}
-        value={selectedEffectLayer.settings.threshold}
-      />
-      {selectedEffectLayer.settings.kind === 'posterize' ? (
-        <RangeControl
-          formatValue={(value) => `${Math.round(value)} tones`}
-          label='Tone count'
-          max={8}
-          min={2}
-          onChange={(levels) => updateEffectLayer(selectedEffectLayer.id, {
-            settings: { ...selectedEffectLayer.settings, levels },
-          })}
-          onPreview={(levels) => previewEffectLayer(selectedEffectLayer.id, { settings: { levels } })}
-          step={1}
-          value={selectedEffectLayer.settings.levels}
-        />
-      ) : null}
-    </div>
-    <div className='shader-lab-v2-effect-colors'>
-      <ColorControl
-        ariaLabel='Converter foreground color'
-        label='Foreground'
-        onChange={(foreground) => updateEffectLayer(selectedEffectLayer.id, {
-          settings: { ...selectedEffectLayer.settings, foreground },
-        })}
-        onPreview={(foreground) => previewEffectLayer(selectedEffectLayer.id, { settings: { foreground } })}
-        value={selectedEffectLayer.settings.foreground}
-      />
-      <ColorControl
-        ariaLabel='Converter background color'
-        label='Background'
-        onChange={(background) => updateEffectLayer(selectedEffectLayer.id, {
-          settings: { ...selectedEffectLayer.settings, background },
-        })}
-        onPreview={(background) => previewEffectLayer(selectedEffectLayer.id, { settings: { background } })}
-        value={selectedEffectLayer.settings.background}
-      />
-    </div>
-    <div className='shader-lab-v2-effect-group'>
-      <label>
-        <span>Invert luminance</span>
-        <StudioCheckbox
-          checked={selectedEffectLayer.settings.invert}
-          onChange={(event) => updateEffectLayer(selectedEffectLayer.id, {
-            settings: { ...selectedEffectLayer.settings, invert: event.target.checked },
-          })}
-        />
-      </label>
-    </div>
-  </LabInspectorSection>;
 }
 
 const ShaderMaterialCard = memo(function ShaderMaterialCard({
@@ -2482,14 +1203,6 @@ function syncSelectedCanvasLayerOverlay(layer: HTMLElement) {
 
 function dataTransferHasFiles(dataTransfer: DataTransfer): boolean {
   return Array.from(dataTransfer.types).includes('Files');
-}
-
-function layerKind(id: CompositionLayerId) {
-  if (isShaderLayerId(id)) return 'Shader';
-  if (isEffectLayerId(id)) return 'Converter';
-  if (isLogoLayerId(id)) return 'Brand mark';
-  if (isTextLayerId(id)) return 'Editable text';
-  return 'Image';
 }
 
 function drawContained(
@@ -2924,7 +1637,9 @@ function designAutomationExportInput(input: unknown): DesignAutomationExportInpu
 }
 
 type DesignAutomationHandlers = {
+  effectAction: (action: string, input: unknown) => Promise<unknown>;
   formatText: (input: unknown) => Promise<unknown>;
+  layerAction: (action: string, input: unknown) => Promise<unknown>;
   workspaceAction: (action: string, input: unknown) => Promise<unknown>;
   prepareCompositionSource: () => Promise<string>;
   prepareProjectFile: () => Promise<ExportPreviewAsset>;
@@ -2951,6 +1666,92 @@ const DESIGN_AUTOMATION_EXPORT_REQUESTS: Readonly<Record<string, DesignAutomatio
   'design.export.shader-sequence.mp4': { format: 'mp4', mode: 'shader-sequence' },
 };
 
+/** Validates `design.layers.*` input; unknown keys are rejected like other Design Lab actions. */
+export function designLayerActionInput(action: string, input: unknown): {
+  arrangement?: DesignLabArrangement;
+  layerId?: string;
+  layerIds?: string[];
+  locked?: boolean;
+} {
+  const allowed: Record<string, readonly string[]> = {
+    'design.layers.arrange': ['arrangement', 'layerIds'],
+    'design.layers.copyStyle': ['layerId'],
+    'design.layers.lock': ['layerIds', 'locked'],
+    'design.layers.pasteStyle': ['layerIds'],
+  };
+  const keys = allowed[action];
+  if (!keys) throw new RangeError(`Unknown Design Lab action: ${action}.`);
+  if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some((key) => !keys.includes(key))) {
+    throw new TypeError(`${action} accepts only { ${keys.join(', ')} }.`);
+  }
+  const request = input as Record<string, unknown>;
+  if (request.layerIds !== undefined && (!Array.isArray(request.layerIds) || request.layerIds.some((id) => typeof id !== 'string'))) {
+    throw new TypeError('layerIds must be an array of layer ids.');
+  }
+  if (action === 'design.layers.arrange' && !isDesignLabArrangement(request.arrangement)) {
+    throw new TypeError('arrangement must be left, horizontal-center, right, top, vertical-center, bottom, distribute-horizontal or distribute-vertical.');
+  }
+  if (action === 'design.layers.lock' && typeof request.locked !== 'boolean') throw new TypeError('locked must be true or false.');
+  if (action === 'design.layers.copyStyle' && typeof request.layerId !== 'string') throw new TypeError('layerId must identify a layer.');
+  if ((action === 'design.layers.lock' || action === 'design.layers.pasteStyle') && !Array.isArray(request.layerIds)) {
+    throw new TypeError('layerIds must list at least one layer.');
+  }
+  return request as ReturnType<typeof designLayerActionInput>;
+}
+
+const DESIGN_EFFECT_ACTION_FIELDS: Readonly<Record<string, readonly string[]>> = {
+  'design.effects.add': ['effectId', 'effectProps', 'kind', 'opacity'],
+  'design.effects.configure': ['effectId', 'effectProps', 'kind', 'layerId', 'opacity'],
+  'design.effects.describe': [],
+};
+
+export type DesignEffectActionInput = {
+  effectId?: DesignLabImageEffectId;
+  effectProps?: ShaderEffectProps;
+  kind?: CompositionEffectKind;
+  layerId?: string;
+  opacity?: number;
+};
+
+function assertDesignEffectFields(request: Record<string, unknown>) {
+  if (request.kind !== undefined && !COMPOSITION_EFFECT_PRESETS.some(({ kind }) => kind === request.kind)) {
+    throw new TypeError('kind must be bayer, ascii, halftone or posterize.');
+  }
+  if (request.kind !== undefined && request.effectId !== undefined) {
+    throw new TypeError('Pass kind for a built-in converter or effectId for an image effect, not both.');
+  }
+  const { opacity } = request;
+  if (opacity !== undefined && (typeof opacity !== 'number' || !Number.isFinite(opacity) || opacity < 0 || opacity > 1)) {
+    throw new TypeError('opacity must be a number from 0 to 1.');
+  }
+}
+
+/**
+ * Validates `design.effects.*` input. Effect props are checked here for shape
+ * only; their control values validate against metadata the host loads lazily.
+ */
+export function designEffectActionInput(action: string, input: unknown): DesignEffectActionInput {
+  const keys = DESIGN_EFFECT_ACTION_FIELDS[action];
+  if (!keys) throw new RangeError(`Unknown Design Lab action: ${action}.`);
+  if (input === undefined && action === 'design.effects.describe') return {};
+  if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some((key) => !keys.includes(key))) {
+    throw new TypeError(keys.length ? `${action} accepts only { ${keys.join(', ')} }.` : `${action} takes no input.`);
+  }
+  const request = input as Record<string, unknown>;
+  assertDesignEffectFields(request);
+  if (action === 'design.effects.configure') {
+    if (typeof request.layerId !== 'string') throw new TypeError('layerId must identify an Effect layer.');
+    if (Object.keys(request).length === 1) throw new TypeError('design.effects.configure needs effectId, kind, effectProps or opacity.');
+  }
+  if (request.effectId !== undefined || action === 'design.effects.add') {
+    assertDesignLabEffectSettings({ effectId: request.effectId, effectProps: request.effectProps }, action);
+  } else if (request.effectProps !== undefined) {
+    // configure may edit the props of the layer's current image effect.
+    assertDesignLabEffectProps(request.effectProps, action);
+  }
+  return request as DesignEffectActionInput;
+}
+
 function designAutomationSeekTime(input: unknown): number {
   if (!input || typeof input !== 'object' || Array.isArray(input)
     || Object.keys(input).some((key) => key !== 'timeMs')
@@ -2967,8 +1768,16 @@ function designWorkspaceActionInput(input: unknown) {
   return request;
 }
 
+/** Action families that one handler validates and runs. */
+const DESIGN_AUTOMATION_ACTION_FAMILIES = [
+  ['design.workspace.', 'workspaceAction'],
+  ['design.layers.', 'layerAction'],
+  ['design.effects.', 'effectAction'],
+] as const satisfies readonly (readonly [string, keyof DesignAutomationHandlers])[];
+
 async function invokeDesignAutomationAction(handlers: DesignAutomationHandlers, action: string, input: unknown) {
-  if (action.startsWith('design.workspace.')) return handlers.workspaceAction(action, input);
+  const family = DESIGN_AUTOMATION_ACTION_FAMILIES.find(([prefix]) => action.startsWith(prefix));
+  if (family) return handlers[family[1]](action, input);
   switch (action) {
     case 'design.text.format':
       return handlers.formatText(input);
@@ -3014,334 +1823,6 @@ async function invokeDesignAutomationAction(handlers: DesignAutomationHandlers, 
       return handlers.exportForAutomation(request);
     }
   }
-}
-
-type RenderLiveMaterial = (application: ShaderApplication, instanceKey: string) => ReactNode;
-
-function imageCropPosition(cropInput?: Partial<ImageCropSettings>): string {
-  const crop = normalizeImageCropSettings(cropInput);
-  return `${crop.focalPointX * 100}% ${crop.focalPointY * 100}%`;
-}
-
-function imageCropTransformStyle(cropInput?: Partial<ImageCropSettings>): CSSProperties {
-  const crop = normalizeImageCropSettings(cropInput);
-  if (!crop.enabled) return {};
-  const transformOrigin = imageCropPosition(crop);
-  return {
-    transform: `scale(${crop.zoom})`,
-    transformOrigin,
-  };
-}
-
-function imageCropMaterialStyle(cropInput?: Partial<ImageCropSettings>): CSSProperties {
-  const crop = normalizeImageCropSettings(cropInput);
-  if (!crop.enabled) return {};
-  return {
-    transform: `scale(${1 / crop.zoom})`,
-    transformOrigin: imageCropPosition(crop),
-  };
-}
-
-function imageCropElementStyle(cropInput?: Partial<ImageCropSettings>): CSSProperties {
-  const crop = normalizeImageCropSettings(cropInput);
-  if (!crop.enabled) return {};
-  return {
-    objectFit: 'cover',
-    objectPosition: imageCropPosition(crop),
-    ...imageCropTransformStyle(crop),
-  };
-}
-
-function applyImageCropPreviewStyles(layer: HTMLElement, cropInput?: Partial<ImageCropSettings>) {
-  const crop = normalizeImageCropSettings(cropInput);
-  const position = imageCropPosition(crop);
-  layer.querySelectorAll<HTMLElement>('[data-image-crop-enabled]')
-    .forEach((frame) => {
-      if (frame.closest('[data-image-crop-source]')) return;
-      frame.dataset.imageCropEnabled = String(crop.enabled);
-    });
-  layer.querySelectorAll<HTMLElement>('[data-image-crop-media="image"]')
-    .forEach((image) => {
-      if (image.closest('[data-image-crop-source]')) return;
-      image.style.objectFit = crop.enabled ? 'cover' : '';
-      image.style.objectPosition = crop.enabled ? position : '';
-      image.style.transform = crop.enabled ? `scale(${crop.zoom})` : '';
-      image.style.transformOrigin = crop.enabled ? position : '';
-    });
-  layer.querySelectorAll<HTMLElement>('[data-image-crop-media="mask"], [data-image-crop-media="sticker"]')
-    .forEach((mask) => {
-      if (mask.closest('[data-image-crop-source]')) return;
-      const size = crop.enabled ? 'cover' : '100% 100%';
-      mask.style.maskPosition = crop.enabled ? position : 'center';
-      mask.style.maskSize = size;
-      mask.style.webkitMaskPosition = crop.enabled ? position : 'center';
-      mask.style.webkitMaskSize = size;
-      mask.style.transform = crop.enabled ? `scale(${crop.zoom})` : '';
-      mask.style.transformOrigin = crop.enabled ? position : '';
-    });
-  layer.querySelectorAll<HTMLElement>('[data-image-crop-material]')
-    .forEach((material) => {
-      if (material.closest('[data-image-crop-source]')) return;
-      material.style.transform = crop.enabled ? `scale(${1 / crop.zoom})` : '';
-      material.style.transformOrigin = crop.enabled ? position : '';
-    });
-}
-
-function canvasMediaMaskStyle(
-  url: string,
-  fillFrame = false,
-  cropInput?: Partial<ImageCropSettings>
-): CSSProperties {
-  const crop = normalizeImageCropSettings(cropInput);
-  const maskSize = crop.enabled ? 'cover' : fillFrame ? '100% 100%' : 'contain';
-  const maskPosition = crop.enabled ? imageCropPosition(crop) : 'center';
-  return {
-    WebkitMaskImage: `url("${url}")`,
-    WebkitMaskPosition: maskPosition,
-    WebkitMaskRepeat: 'no-repeat',
-    WebkitMaskSize: maskSize,
-    maskImage: `url("${url}")`,
-    maskMode: 'alpha',
-    maskPosition,
-    maskRepeat: 'no-repeat',
-    maskSize,
-    ...imageCropTransformStyle(crop),
-  };
-}
-
-function ShaderMaskedMediaContent({
-  application,
-  appearance: appearanceSettings,
-  fallbackColor,
-  imageCrop,
-  instanceKey,
-  label,
-  opacity,
-  preserveColors = false,
-  renderMaterial,
-  url,
-}: {
-  application?: ShaderApplication;
-  appearance?: LogoAppearanceSettings;
-  fallbackColor: string;
-  imageCrop?: ImageCropSettings;
-  instanceKey: string;
-  label: string;
-  opacity: number;
-  preserveColors?: boolean;
-  renderMaterial: RenderLiveMaterial;
-  url: string;
-}) {
-  const appearance = resolvedLogoAppearance(appearanceSettings);
-  if (!application && preserveColors) {
-    return (
-      <AppearanceFilteredContent
-        ariaLabel={label}
-        className='shader-lab-v2-appearance-preview shader-lab-v2-asset-preview'
-        opacity={opacity}
-        settings={appearance}
-      >
-        <div className='shader-lab-v2-image-crop-frame' data-image-crop-enabled={normalizeImageCropSettings(imageCrop).enabled}>
-          <img
-            alt=''
-            className='shader-lab-v2-layer-image'
-            data-image-crop-media='image'
-            draggable={false}
-            src={url}
-            style={imageCropElementStyle(imageCrop)}
-          />
-        </div>
-      </AppearanceFilteredContent>
-    );
-  }
-  if (!application) {
-    return (
-      <LogoAppearancePreview
-        ariaLabel={label}
-        className='shader-lab-v2-appearance-preview'
-        color={fallbackColor}
-        logoPath={url}
-        opacity={opacity}
-        preserveColors={preserveColors}
-        settings={appearance}
-      />
-    );
-  }
-  return (
-    <div
-      className='shader-lab-v2-appearance-preview shader-lab-v2-appearance-stack'
-      style={{
-        mixBlendMode: shaderBlendStyle(application.blendMode),
-        opacity: opacity * application.opacity,
-      }}
-    >
-      <AppearanceFilteredContent
-        ariaLabel={`${label} material`}
-        className='shader-lab-v2-appearance-stack-layer'
-        settings={appearance}
-      >
-        <div className='shader-lab-v2-image-crop-frame' data-image-crop-enabled={normalizeImageCropSettings(imageCrop).enabled}>
-          <div
-            className='shader-lab-v2-layer-logo-mask'
-            data-image-crop-media='mask'
-            data-shader-instance={instanceKey}
-            style={canvasMediaMaskStyle(url, preserveColors, imageCrop)}
-          >
-            <div className='shader-lab-v2-image-crop-material' data-image-crop-material style={imageCropMaterialStyle(imageCrop)}>
-              {renderMaterial(application, instanceKey)}
-            </div>
-          </div>
-        </div>
-      </AppearanceFilteredContent>
-    </div>
-  );
-}
-
-function stickerFinishCssVariables(value?: Partial<StickerFinishSettings>): Record<string, string> {
-  const finish = normalizeStickerFinish(value);
-  return {
-    '--design-sticker-finish': stickerFinishSwatch(finish),
-    '--design-sticker-finish-contrast': String(1 + finish.relief / 420),
-    '--design-sticker-finish-glint': `${finish.glintAngle}deg`,
-    '--design-sticker-finish-glint-opacity': String(0.18 + finish.relief / 128),
-    '--design-sticker-finish-opacity': String(Math.max(0, Math.min(0.82, finish.intensity / 122))),
-    '--design-sticker-finish-saturation': String(1 + finish.depth / 240),
-    '--design-sticker-finish-texture': String(finish.texture / 260),
-  };
-}
-
-function StickerFinishOverlay({
-  finish,
-  imageCrop,
-  url,
-}: {
-  finish?: Partial<StickerFinishSettings>;
-  imageCrop?: ImageCropSettings;
-  url: string;
-}) {
-  const normalized = normalizeStickerFinish(finish);
-  const maskImage = `url("${url.replaceAll('"', '%22')}")`;
-  const crop = normalizeImageCropSettings(imageCrop);
-  const maskPosition = crop.enabled ? imageCropPosition(crop) : 'center';
-  return (
-    <span
-      aria-hidden='true'
-      className='shader-lab-v2-sticker-finish-overlay'
-      data-sticker-finish={normalized.presetId}
-      style={stickerFinishCssVariables(normalized) as CSSProperties}
-    >
-      <span
-        className='shader-lab-v2-sticker-finish-media'
-        data-image-crop-media='sticker'
-        style={{
-          maskImage,
-          maskPosition,
-          maskRepeat: 'no-repeat',
-          maskSize: crop.enabled ? 'cover' : '100% 100%',
-          WebkitMaskImage: maskImage,
-          WebkitMaskPosition: maskPosition,
-          WebkitMaskRepeat: 'no-repeat',
-          WebkitMaskSize: crop.enabled ? 'cover' : '100% 100%',
-          ...imageCropTransformStyle(crop),
-        }}
-      />
-    </span>
-  );
-}
-
-function CanvasTextLayerContent({
-  application,
-  canvasHeight,
-  fontSizeCqw,
-  identity,
-  layer,
-  onChange,
-  onFocus,
-  onRichChange,
-  onSelectionChange,
-  onFormat,
-  onUndoRedo,
-  renderMaterial,
-}: {
-  application?: ShaderApplication;
-  canvasHeight: number;
-  fontSizeCqw: number;
-  identity: BrandIdentity;
-  layer: CompositionTextLayer;
-  onChange: (value: string) => void;
-  onFocus: () => void;
-  onRichChange?: (value: string, runs: TextStyleRun[] | undefined) => void;
-  onSelectionChange?: (selection: TextSelectionRange) => void;
-  onFormat?: (format: 'bold' | 'italic' | 'underline') => void;
-  onUndoRedo?: (redo: boolean) => void;
-  renderMaterial: RenderLiveMaterial;
-}) {
-  const appearance = resolvedTextAppearance(layer);
-  const instanceKey = `content-${layer.id}`;
-  const materialImage = application ? `url("${shaderPreviewAssetPath(application.materialId)}")` : undefined;
-  return (
-    <>
-      {application ? (
-        <div
-          aria-hidden='true'
-          className='pointer-events-none absolute inset-0 opacity-0'
-          data-shader-instance={instanceKey}
-        >
-          {renderMaterial(application, instanceKey)}
-        </div>
-      ) : null}
-      <CanvasEditableText
-        className={`shader-lab-v2-layer-text ${application ? 'shader-lab-v2-layer-text-material' : ''}`}
-        label={`Edit ${layer.name}`}
-        onChange={onChange}
-        onFocus={onFocus}
-        onRichChange={onRichChange}
-        onSelectionChange={onSelectionChange}
-        onFormat={onFormat}
-        onUndoRedo={onUndoRedo}
-        runs={layer.runs}
-        resolveRunStyle={(style) => {
-          const resolved = resolveTextRunStyle(layer, identity, canvasHeight, style);
-          return {
-            color: application || appearance.textEffect.kind !== 'solid' || !style.color ? 'inherit' : resolved.color,
-            fontFamily: style.fontRole ? resolved.fontFamily : 'inherit',
-            fontSize: style.fontSize === undefined ? 'inherit' : `${fontSizeCqw * resolved.fontSize / resolveDesignLabFontSize(layer, canvasHeight)}cqw`,
-            fontWeight: style.weight !== undefined || style.fontRole ? String(resolved.fontWeight) : 'inherit', fontStyle: style.fontStyle ?? 'inherit',
-            letterSpacing: style.tracking === undefined ? 'inherit' : `${resolved.tracking}em`,
-            textDecorationLine: designLabTextDecorationLine(resolved),
-            textDecorationColor: 'currentColor', textDecorationThickness: 'from-font', textUnderlineOffset: '0.12em',
-          };
-        }}
-        style={{
-          display: layer.runs?.length ? 'block' : 'flex',
-          caretColor: appearance.color,
-          color: appearance.color,
-          ...canvasTextTypography({
-            align: layer.align,
-            fontFamily: `${JSON.stringify(brandTypographyFamily(identity, appearance.fontRole))}, Arial, sans-serif`,
-            fontSize: `${fontSizeCqw}cqw`,
-            fontStyle: layer.fontStyle ?? 'normal',
-            fontWeight: resolveBrandTypographyWeight(identity, appearance.fontRole, layer.weight),
-            lineHeight: layer.lineHeight,
-            tracking: layer.tracking,
-            wrap: layer.wrap,
-          }),
-          mixBlendMode: application ? shaderBlendStyle(application.blendMode) : undefined,
-          opacity: appearance.opacity * (application?.opacity ?? 1),
-          textDecorationColor: appearance.color,
-          textDecorationLine: layer.runs?.length ? 'none' : designLabTextDecorationLine(layer),
-          textDecorationThickness: 'from-font',
-          textShadow: textShadowStyle(appearance),
-          textUnderlineOffset: '0.12em',
-          WebkitTextStroke: appearance.outlineEnabled
-            ? `${appearance.outlineWidth}px ${appearance.outlineColor}`
-            : undefined,
-          ...textEffectCssStyle(appearance.textEffect, appearance.color, materialImage),
-        }}
-        value={layer.value}
-      />
-    </>
-  );
 }
 
 function resolveDesignLabBrandLogo(identity: BrandIdentity): string {
@@ -3478,781 +1959,6 @@ function resolveContentLayerSelection({
   };
 }
 
-type SelectedTextInspector = NonNullable<ReturnType<typeof resolveContentLayerSelection>['textInspector']>;
-type TextAppearancePreviewPatch = Partial<Omit<TextAppearanceSettings, 'textEffect'>> & {
-  textEffect?: Partial<TextEffectSettings>;
-};
-
-const IMAGE_CROP_ASPECT_OPTIONS = [
-  { label: 'Freeform', value: 'freeform' },
-  { label: 'Square · 1:1', value: '1' },
-  { label: 'Landscape · 4:3', value: '1.333333' },
-  { label: 'Widescreen · 16:9', value: '1.777778' },
-  { label: 'Portrait · 3:4', value: '0.75' },
-  { label: 'Story · 9:16', value: '0.5625' },
-] as const;
-
-function imageCropAspectValue(transform: CanvasLayerTransform, geometry: CanvasLayerGeometry): string {
-  const { height, width } = canvasLayerDimensions(transform, geometry);
-  const ratio = width / Math.max(height, 0.001);
-  return IMAGE_CROP_ASPECT_OPTIONS.find(({ value }) => {
-    const numeric = Number(value);
-    return Number.isFinite(numeric) && Math.abs(ratio - numeric) < 0.012;
-  })?.value ?? 'freeform';
-}
-
-function DesignLabAssetLayerInspector({
-  appearance,
-  asset,
-  cropAspect,
-  cropEditing,
-  onCropAspectChange,
-  onCropEditingChange,
-  previewAppearance,
-  previewImageCrop,
-  previewOpacity,
-  previewStickerFinish,
-  updateAsset,
-}: {
-  appearance: LogoAppearanceSettings;
-  asset: CompositionAsset;
-  cropAspect: string;
-  cropEditing: boolean;
-  onCropAspectChange: (value: string) => void;
-  onCropEditingChange: (editing: boolean) => void;
-  previewAppearance: (patch: Partial<LogoAppearanceSettings>) => void;
-  previewImageCrop: (patch: Partial<ImageCropSettings>) => void;
-  previewOpacity: (value: number) => void;
-  previewStickerFinish: (patch: Partial<StickerFinishSettings>) => void;
-  updateAsset: (update: Partial<Omit<CompositionAsset, 'id'>>) => void;
-}) {
-  const sticker = asset.kind === 'sticker';
-  const crop = normalizeImageCropSettings(asset.imageCrop);
-  const finish = normalizeStickerFinish(asset.stickerFinish);
-  const updateFinish = (patch: Partial<StickerFinishSettings>) => updateAsset({
-    stickerFinish: normalizeStickerFinish({ ...finish, ...patch }),
-  });
-
-  return (
-    <div aria-label={sticker ? 'Sticker appearance' : 'Image appearance'} className='shader-lab-v2-layer-settings' role='group'>
-      <div className='shader-lab-v2-layer-settings-heading'>
-        <strong>{sticker ? 'Sticker appearance' : 'Image appearance'}</strong>
-        <span>{sticker ? 'Die-cut layer' : 'Non-destructive'}</span>
-      </div>
-      <RangeControl
-        formatValue={(value) => `${Math.round(value * 100)}%`}
-        label='Layer opacity'
-        max={1}
-        min={0}
-        onChange={(opacity) => updateAsset({ opacity })}
-        onPreview={previewOpacity}
-        step={0.01}
-        value={asset.opacity ?? 1}
-      />
-
-      <div className='shader-lab-v2-image-crop-panel'>
-        <label className='shader-lab-v2-effect-toggle'>
-          <span>
-            <strong><Crop aria-hidden='true' />Crop to frame</strong>
-            <small>Resize the layer frame without squeezing the image.</small>
-          </span>
-          <StudioCheckbox
-            aria-label='Crop image to frame'
-            checked={crop.enabled}
-            onChange={(event) => {
-              const enabled = event.target.checked;
-              if (!enabled) onCropEditingChange(false);
-              updateAsset({ imageCrop: { ...crop, enabled } });
-            }}
-            variant='switch'
-          />
-        </label>
-        {crop.enabled ? (
-          <div className='shader-lab-v2-image-crop-controls'>
-            <div className='shader-lab-v2-image-crop-actions'>
-              <Button onClick={() => onCropEditingChange(!cropEditing)} size='sm' type='button' variant={cropEditing ? 'secondary' : 'outline'}>
-                {cropEditing ? <Check aria-hidden='true' /> : <Crop aria-hidden='true' />}{cropEditing ? 'Finish cropping' : 'Edit crop on canvas'}
-              </Button>
-              <Button onClick={() => updateAsset({ imageCrop: { ...DEFAULT_IMAGE_CROP, enabled: true } })} size='sm' type='button' variant='ghost'>
-                <Frame aria-hidden='true' />Fill frame
-              </Button>
-              <Button onClick={() => { onCropEditingChange(false); updateAsset({ imageCrop: { ...crop, enabled: false } }); }} size='sm' type='button' variant='ghost'>
-                <ImageDown aria-hidden='true' />Fit image
-              </Button>
-              <Button onClick={() => onCropAspectChange('original')} size='sm' type='button' variant='ghost'>
-                <FileImage aria-hidden='true' />Original ratio
-              </Button>
-            </div>
-            <label className='shader-lab-v2-field'>
-              <span>Crop aspect</span>
-              <StudioSelect
-                ariaLabel='Crop aspect ratio'
-                onValueChange={onCropAspectChange}
-                options={[...IMAGE_CROP_ASPECT_OPTIONS]}
-                value={cropAspect}
-              />
-            </label>
-            <RangeControl
-              formatValue={(value) => `${Math.round(value * 100)}%`}
-              label='Crop zoom'
-              max={4}
-              min={1}
-              onChange={(zoom) => updateAsset({ imageCrop: { ...crop, zoom } })}
-              onPreview={(zoom) => previewImageCrop({ zoom })}
-              step={0.01}
-              value={crop.zoom}
-            />
-            <RangeControl
-              formatValue={(value) => `${Math.round(value * 100)}%`}
-              label='Horizontal focus'
-              max={1}
-              min={0}
-              onChange={(focalPointX) => updateAsset({ imageCrop: { ...crop, focalPointX } })}
-              onPreview={(focalPointX) => previewImageCrop({ focalPointX })}
-              step={0.01}
-              value={crop.focalPointX}
-            />
-            <RangeControl
-              formatValue={(value) => `${Math.round(value * 100)}%`}
-              label='Vertical focus'
-              max={1}
-              min={0}
-              onChange={(focalPointY) => updateAsset({ imageCrop: { ...crop, focalPointY } })}
-              onPreview={(focalPointY) => previewImageCrop({ focalPointY })}
-              step={0.01}
-              value={crop.focalPointY}
-            />
-            <Button
-              onClick={() => updateAsset({ imageCrop: { ...DEFAULT_IMAGE_CROP, enabled: true } })}
-              size='sm'
-              type='button'
-              variant='ghost'
-            >
-              <RotateCcw aria-hidden='true' />Reset crop
-            </Button>
-          </div>
-        ) : null}
-      </div>
-
-      {sticker ? (
-        <div className='shader-lab-v2-sticker-finish-panel'>
-          <div className='shader-lab-v2-sticker-finish-heading'>
-            <span><Sparkles aria-hidden='true' /><strong>Surface finish</strong></span>
-            <small>{STICKER_FINISH_PRESETS.length} finishes</small>
-          </div>
-          <div aria-label='Sticker surface finish' className='shader-lab-v2-sticker-finish-presets' role='group'>
-            {STICKER_FINISH_PRESETS.map((preset) => (
-              <button
-                aria-pressed={finish.presetId === preset.id}
-                key={preset.id}
-                onClick={() => updateAsset({ stickerFinish: { ...preset.settings } })}
-                title={preset.description}
-                type='button'
-              >
-                <span aria-hidden='true' style={{ background: preset.swatch }} />
-                <strong>{preset.label}</strong>
-              </button>
-            ))}
-          </div>
-          <div className='shader-lab-v2-sticker-finish-controls'>
-            <RangeControl formatValue={(value) => `${Math.round(value)}%`} label='Shine' max={100} min={0} onChange={(intensity) => updateFinish({ intensity })} onPreview={(intensity) => previewStickerFinish({ intensity })} step={1} value={finish.intensity} />
-            <RangeControl formatValue={(value) => `${Math.round(value)}%`} label='Texture' max={100} min={0} onChange={(texture) => updateFinish({ texture })} onPreview={(texture) => previewStickerFinish({ texture })} step={1} value={finish.texture} />
-            <RangeControl formatValue={(value) => `${Math.round(value)}%`} label='Relief' max={100} min={0} onChange={(relief) => updateFinish({ relief })} onPreview={(relief) => previewStickerFinish({ relief })} step={1} value={finish.relief} />
-            <RangeControl formatValue={(value) => `${Math.round(value)}°`} label='Glint angle' max={180} min={0} onChange={(glintAngle) => updateFinish({ glintAngle })} onPreview={(glintAngle) => previewStickerFinish({ glintAngle })} step={1} value={finish.glintAngle} />
-            <RangeControl formatValue={(value) => `${Math.round(value)}%`} label='Depth' max={100} min={0} onChange={(depth) => updateFinish({ depth })} onPreview={(depth) => previewStickerFinish({ depth })} step={1} value={finish.depth} />
-          </div>
-        </div>
-      ) : null}
-
-      <LogoAppearanceControls
-        kind={sticker ? 'sticker' : 'image'}
-        onChange={(patch) => updateAsset({ appearance: { ...appearance, ...patch } })}
-        onPreview={previewAppearance}
-        settings={appearance}
-      />
-      {!sticker ? (
-        <Button
-          onClick={() => updateAsset({
-            appearance: { ...STICKER_IMAGE_APPEARANCE },
-            kind: 'sticker',
-            stickerFinish: { ...DEFAULT_STICKER_FINISH },
-          })}
-          size='sm'
-          type='button'
-          variant='outline'
-        >
-          <Sticker aria-hidden='true' />Make sticker
-        </Button>
-      ) : null}
-    </div>
-  );
-}
-
-function textInspectorRange(selection: SelectedTextInspector, range: TextSelectionRange | null) {
-  const { layer, appearance } = selection;
-  const segments = textStyleSegments(layer.value, layer.runs).filter((run) => !range || (run.start < range.end && run.end > range.start));
-  const style = range ? segments[0]?.style ?? {} : {};
-  return {
-    selectedTextLayer: { ...layer, ...style },
-    selectedTextAppearance: { ...appearance, ...style },
-    mixedFormatting: segments.some((run) => INLINE_TEXT_KEYS.some((key) => (run.style[key] ?? layer[key]) !== (segments[0].style[key] ?? layer[key]))),
-  };
-}
-
-function DesignLabTextStyleButtons({ layer, weight, boldAvailable, onChange }: {
-  layer: CompositionTextLayer; weight: number; boldAvailable: boolean;
-  onChange: (patch: InlineTextStyle) => void;
-}) {
-  return <div className='shader-lab-v2-text-options'>
-    <span>Style</span>
-    <div>
-      <button aria-label='Bold text' aria-pressed={weight >= 600} disabled={!boldAvailable}
-        onClick={() => onChange({ weight: weight >= 600 ? 400 : 700 })}
-        title={boldAvailable ? 'Bold' : 'This font does not include regular and bold weights'} type='button'><TextB aria-hidden='true' /></button>
-      <button aria-label='Italic text' aria-pressed={layer.fontStyle === 'italic'}
-        onClick={() => onChange({ fontStyle: layer.fontStyle === 'italic' ? 'normal' : 'italic' })}
-        title='Italic' type='button'><TextItalic aria-hidden='true' /></button>
-      <button aria-label='Underline text' aria-pressed={layer.underline === true}
-        onClick={() => onChange({ underline: !layer.underline })}
-        title='Underline' type='button'><TextUnderline aria-hidden='true' /></button>
-      <button aria-label='Strikethrough text' aria-pressed={layer.strikethrough === true}
-        onClick={() => onChange({ strikethrough: !layer.strikethrough })}
-        title='Strikethrough' type='button'><TextStrikethrough aria-hidden='true' /></button>
-    </div>
-  </div>;
-}
-
-function TextSelectionScope({ range, mixed, onClear }: { range: TextSelectionRange | null; mixed: boolean; onClear: () => void }) {
-  return <div className='mb-3 flex items-center justify-between gap-2 text-xs text-muted-foreground' data-canvas-selection-preserve>
-    <span role='status'>{range ? `Selected text · ${range.end - range.start} characters` : 'Whole text box'}{mixed ? ' · Mixed formatting' : ''}</span>
-    {range ? <Button onClick={onClear} size='sm' variant='ghost'>Whole text box</Button> : null}
-  </div>;
-}
-
-function DesignLabTextLayerInspector({
-  canvasHeight,
-  canvasWidth,
-  identity,
-  previewSelectedContentOpacity,
-  previewSelectedTextAppearance,
-  previewSelectedTextLayer,
-  previewSelectedTextWidth,
-  selectedCanvasLayerCount,
-  selection,
-  stageRef,
-  textRenderedWeight,
-  textWeightRange,
-  updateTextLayer,
-  updateTextBox,
-  textRange,
-  clearTextRange,
-  onTextSelection,
-}: {
-  textRange: TextSelectionRange | null;
-  clearTextRange: () => void;
-  onTextSelection: (range: TextSelectionRange) => void;
-  canvasHeight: number;
-  canvasWidth: number;
-  identity: BrandIdentity;
-  previewSelectedContentOpacity: (value: number) => void;
-  previewSelectedTextAppearance: (patch: TextAppearancePreviewPatch) => void;
-  previewSelectedTextLayer: (update: Partial<Omit<CompositionTextLayer, 'id'>>) => void;
-  previewSelectedTextWidth: (value: number) => void;
-  selectedCanvasLayerCount: number;
-  selection: SelectedTextInspector;
-  stageRef: RefObject<HTMLDivElement | null>;
-  textRenderedWeight: number;
-  textWeightRange: { max: number; min: number };
-  updateTextLayer: (id: TextLayerId, update: Partial<Omit<CompositionTextLayer, 'id'>>) => void;
-  updateTextBox: (id: TextLayerId, update: Partial<Omit<CompositionTextLayer, 'id'>>) => void;
-}) {
-  const {
-    layer: baseLayer,
-    transform: selectedTextTransform,
-  } = selection;
-  const { selectedTextLayer, selectedTextAppearance, mixedFormatting } = textInspectorRange(selection, textRange);
-  const resolvedWeight = resolveBrandTypographyWeight(identity, selectedTextAppearance.fontRole, selectedTextLayer.weight);
-  const rangeWeightBounds = brandTypographyWeightRange(identity, selectedTextAppearance.fontRole);
-  return <>
-    <TextSelectionScope range={textRange} mixed={mixedFormatting} onClear={clearTextRange} />
-    <label className='shader-lab-v2-text-input'>
-      <Type aria-hidden='true' />
-      <InspectorTextArea
-        ariaLabel={`${selectedTextLayer.name} content`}
-        onSelection={onTextSelection}
-        onChange={(value) => updateTextLayer(selectedTextLayer.id, { value })}
-        onPreview={(value) => {
-          if (baseLayer.runs?.length) return;
-          const text = selectedCanvasLayerElement(stageRef.current, selectedCanvasLayerCount)
-            ?.querySelector<HTMLElement>('.shader-lab-v2-layer-text');
-          if (text) text.innerText = value;
-          previewSelectedTextLayer({ value });
-        }}
-        value={selectedTextLayer.value}
-      />
-    </label>
-    <div aria-label='Typography' className='shader-lab-v2-text-controls'>
-      <label className='shader-lab-v2-field'>
-        <span>Brand font</span>
-        <StudioSelect
-          ariaLabel='Text font role'
-          onValueChange={(fontRole) => {
-            const nextRole = fontRole as BrandTypography['role'];
-            updateTextLayer(selectedTextLayer.id, {
-              fontRole: nextRole,
-              weight: resolveBrandTypographyWeight(
-                identity,
-                nextRole,
-                brandTypographyRole(identity, nextRole).weight ?? selectedTextLayer.weight
-              ),
-            });
-          }}
-          options={(['Display', 'Body', 'Accent', 'Code'] as const).map((role) => ({
-            label: `${role} · ${brandTypographyFamily(identity, role).replace(/^Glyphfield Project [\da-f]+(?:-[\da-f]+)*:: /, '')}`,
-            value: role,
-          }))}
-          value={selectedTextAppearance.fontRole}
-        />
-      </label>
-      <ColorControl
-        ariaLabel='Text color'
-        label='Text color'
-        onChange={(color) => updateTextLayer(selectedTextLayer.id, { color })}
-        onPreview={textRange ? undefined : (color) => previewSelectedTextAppearance({ color })}
-        value={selectedTextAppearance.color}
-      />
-      <div className='shader-lab-v2-text-options'>
-        <span>Wrap</span>
-        <div>
-          {(['wrap', 'nowrap'] as const).map((value) => (
-            <button
-              aria-pressed={selectedTextLayer.wrap === value}
-              key={value}
-              onClick={() => updateTextLayer(selectedTextLayer.id, { wrap: value })}
-              title={value === 'wrap' ? 'Wrap text' : 'Keep text on one line'}
-              type='button'
-            >
-              {value === 'wrap' ? <WrapText aria-hidden='true' /> : <ArrowRight aria-hidden='true' />}
-              <span>{value === 'wrap' ? 'Wrap' : 'Single line'}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className='shader-lab-v2-text-options'>
-        <span>Align</span>
-        <div>
-          {(['left', 'center', 'right'] as const).map((value) => (
-            <button
-              aria-label={`${value[0]!.toUpperCase()}${value.slice(1)} align text`}
-              aria-pressed={selectedTextLayer.align === value}
-              key={value}
-              onClick={() => updateTextLayer(selectedTextLayer.id, { align: value })}
-              title={`${value[0]!.toUpperCase()}${value.slice(1)} align`}
-              type='button'
-            >
-              {value === 'left' ? <AlignLeft aria-hidden='true' /> : value === 'right' ? <AlignRight aria-hidden='true' /> : <AlignCenter aria-hidden='true' />}
-            </button>
-          ))}
-        </div>
-      </div>
-      <DesignLabTextStyleButtons layer={selectedTextLayer} weight={resolvedWeight}
-        boldAvailable={rangeWeightBounds.max >= 600 && rangeWeightBounds.min < 600}
-        onChange={(patch) => updateTextLayer(selectedTextLayer.id, patch)} />
-      <StudioFontSizeControl
-        key={selectedTextLayer.id}
-        onChange={(size) => updateTextLayer(selectedTextLayer.id, designLabFontSizeUpdate(selectedTextLayer, size))}
-        onPreview={(size) => {
-          if (textRange) return;
-          previewSelectedTextStyle(
-            stageRef.current,
-            selectedCanvasLayerCount,
-            'fontSize',
-            `${size / canvasWidth * 100}cqw`
-          );
-          previewSelectedTextLayer(designLabFontSizeUpdate(selectedTextLayer, size));
-        }}
-        value={resolveDesignLabFontSize(selectedTextLayer, canvasHeight)}
-      />
-      <RangeControl
-        formatValue={(value) => String(Math.round(value))}
-        label='Font weight'
-        max={textRange ? rangeWeightBounds.max : textWeightRange.max}
-        min={textRange ? rangeWeightBounds.min : textWeightRange.min}
-        onChange={(weight) => updateTextLayer(selectedTextLayer.id, {
-          weight: resolveBrandTypographyWeight(identity, selectedTextAppearance.fontRole, weight),
-        })}
-        onPreview={(weight) => {
-          if (textRange) return;
-          const resolvedWeight = resolveBrandTypographyWeight(identity, selectedTextAppearance.fontRole, weight);
-          previewSelectedTextStyle(stageRef.current, selectedCanvasLayerCount, 'fontWeight', String(resolvedWeight));
-          previewSelectedTextLayer({ weight: resolvedWeight });
-        }}
-        step={textWeightRange.max - textWeightRange.min <= 100 ? 100 : 50}
-        value={textRange ? resolvedWeight : textRenderedWeight}
-      />
-      <RangeControl
-        formatValue={(value) => `${Math.round(value * 100)}%`}
-        label='Text box width'
-        max={3}
-        min={0.25}
-        onChange={(widthScale) => updateTextLayer(selectedTextLayer.id, {
-          transform: { ...selectedTextTransform, widthScale },
-        })}
-        onPreview={previewSelectedTextWidth}
-        step={0.05}
-        value={selectedTextTransform.widthScale ?? 1}
-      />
-      <RangeControl
-        formatValue={(value) => `${Math.round(value * 100)}%`}
-        label='Layer opacity'
-        max={1}
-        min={0}
-        onChange={(opacity) => updateTextLayer(selectedTextLayer.id, { opacity })}
-        onPreview={previewSelectedContentOpacity}
-        step={0.01}
-        value={selectedTextAppearance.opacity}
-      />
-      <RangeControl
-        formatValue={(value) => value.toFixed(2)}
-        label='Line height'
-        max={1.8}
-        min={0.7}
-        onChange={(lineHeight) => updateTextLayer(selectedTextLayer.id, { lineHeight })}
-        onPreview={(lineHeight) => {
-          previewSelectedTextStyle(stageRef.current, selectedCanvasLayerCount, 'lineHeight', String(lineHeight));
-          previewSelectedTextLayer({ lineHeight });
-        }}
-        step={0.05}
-        value={selectedTextLayer.lineHeight}
-      />
-      <RangeControl
-        formatValue={(value) => `${value.toFixed(2)}em`}
-        label='Tracking'
-        max={0.2}
-        min={-0.12}
-        onChange={(tracking) => updateTextLayer(selectedTextLayer.id, { tracking })}
-        onPreview={(tracking) => {
-          if (textRange) return;
-          previewSelectedTextStyle(stageRef.current, selectedCanvasLayerCount, 'letterSpacing', `${tracking}em`);
-          previewSelectedTextLayer({ tracking });
-        }}
-        step={0.01}
-        value={selectedTextLayer.tracking}
-      />
-      <div className='shader-lab-v2-text-effects-panel'>
-        <div className='shader-lab-v2-text-effects-heading'>
-          <span><WandSparkles aria-hidden='true' />Text effects</span>
-          <small>Glyph fill</small>
-        </div>
-        <div aria-label='Text effect presets' className='shader-lab-v2-text-effect-presets'>
-          {TEXT_EFFECT_PRESETS.map((preset) => (
-            <button
-              aria-pressed={selectedTextAppearance.textEffect.kind === preset.settings.kind}
-              key={preset.settings.kind}
-              onClick={() => updateTextLayer(selectedTextLayer.id, { textEffect: { ...preset.settings } })}
-              title={preset.description}
-              type='button'
-            >
-              <TextEffectThumbnail settings={preset.settings} />
-              <span><strong>{preset.label}</strong><small>{preset.description}</small></span>
-            </button>
-          ))}
-        </div>
-        {selectedTextAppearance.textEffect.kind !== 'solid' ? (
-          <div className='shader-lab-v2-text-effect-tuning'>
-            <div className='shader-lab-v2-effect-colors'>
-              <ColorControl
-                ariaLabel='Text effect foreground color'
-                label='Foreground'
-                onChange={(color) => updateTextBox(selectedTextLayer.id, { color })}
-                onPreview={(color) => previewSelectedTextAppearance({ color })}
-                value={selection.appearance.color}
-              />
-              <ColorControl
-                ariaLabel='Text effect background color'
-                label='Background'
-                onChange={(backgroundColor) => updateTextLayer(selectedTextLayer.id, {
-                  textEffect: { ...selectedTextAppearance.textEffect, backgroundColor },
-                })}
-                onPreview={(backgroundColor) => previewSelectedTextAppearance({ textEffect: { backgroundColor } })}
-                value={selectedTextAppearance.textEffect.backgroundColor}
-              />
-            </div>
-            {selectedTextAppearance.textEffect.kind !== 'gradient' ? <>
-              <RangeControl
-                formatValue={(value) => `${Math.round(value)}%`}
-                label='Effect strength'
-                max={100}
-                min={0}
-                onChange={(amount) => updateTextLayer(selectedTextLayer.id, {
-                  textEffect: { ...selectedTextAppearance.textEffect, amount },
-                })}
-                onPreview={(amount) => previewSelectedTextAppearance({ textEffect: { amount } })}
-                step={1}
-                value={selectedTextAppearance.textEffect.amount}
-              />
-              <RangeControl
-                formatValue={(value) => `${Math.round(value)}px`}
-                label='Pattern scale'
-                max={36}
-                min={4}
-                onChange={(scale) => updateTextLayer(selectedTextLayer.id, {
-                  textEffect: { ...selectedTextAppearance.textEffect, scale },
-                })}
-                onPreview={(scale) => previewSelectedTextAppearance({ textEffect: { scale } })}
-                step={1}
-                value={selectedTextAppearance.textEffect.scale}
-              />
-            </> : null}
-            {selectedTextAppearance.textEffect.kind !== 'halftone' ? (
-              <RangeControl
-                formatValue={(value) => `${Math.round(value)}°`}
-                label='Effect angle'
-                max={180}
-                min={-180}
-                onChange={(angle) => updateTextLayer(selectedTextLayer.id, {
-                  textEffect: { ...selectedTextAppearance.textEffect, angle },
-                })}
-                onPreview={(angle) => previewSelectedTextAppearance({ textEffect: { angle } })}
-                step={1}
-                value={selectedTextAppearance.textEffect.angle}
-              />
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-      <div className='shader-lab-v2-effect-group'>
-        <label><span>Text outline</span><StudioCheckbox checked={selectedTextAppearance.outlineEnabled} onChange={(event) => updateTextLayer(selectedTextLayer.id, { outlineEnabled: event.target.checked })} /></label>
-        {selectedTextAppearance.outlineEnabled ? <>
-          <ColorControl ariaLabel='Text outline color' label='Outline color' onChange={(outlineColor) => updateTextLayer(selectedTextLayer.id, { outlineColor })} onPreview={(outlineColor) => previewSelectedTextAppearance({ outlineColor })} value={selectedTextAppearance.outlineColor} />
-          <RangeControl label='Outline width' max={12} min={0.5} onChange={(outlineWidth) => updateTextLayer(selectedTextLayer.id, { outlineWidth })} onPreview={(outlineWidth) => previewSelectedTextAppearance({ outlineWidth })} step={0.5} value={selectedTextAppearance.outlineWidth} />
-        </> : null}
-      </div>
-      <div className='shader-lab-v2-effect-group'>
-        <label><span>Text shadow</span><StudioCheckbox checked={selectedTextAppearance.shadowEnabled} onChange={(event) => updateTextLayer(selectedTextLayer.id, { shadowEnabled: event.target.checked })} /></label>
-        {selectedTextAppearance.shadowEnabled ? <>
-          <ColorControl ariaLabel='Text shadow color' label='Shadow color' onChange={(shadowColor) => updateTextLayer(selectedTextLayer.id, { shadowColor })} onPreview={(shadowColor) => previewSelectedTextAppearance({ shadowColor })} value={selectedTextAppearance.shadowColor} />
-          <RangeControl label='Shadow blur' max={64} min={0} onChange={(shadowBlur) => updateTextLayer(selectedTextLayer.id, { shadowBlur })} onPreview={(shadowBlur) => previewSelectedTextAppearance({ shadowBlur })} step={1} value={selectedTextAppearance.shadowBlur} />
-          <RangeControl label='Shadow X' max={48} min={-48} onChange={(shadowOffsetX) => updateTextLayer(selectedTextLayer.id, { shadowOffsetX })} onPreview={(shadowOffsetX) => previewSelectedTextAppearance({ shadowOffsetX })} step={1} value={selectedTextAppearance.shadowOffsetX} />
-          <RangeControl label='Shadow Y' max={48} min={-48} onChange={(shadowOffsetY) => updateTextLayer(selectedTextLayer.id, { shadowOffsetY })} onPreview={(shadowOffsetY) => previewSelectedTextAppearance({ shadowOffsetY })} step={1} value={selectedTextAppearance.shadowOffsetY} />
-          <RangeControl formatValue={(value) => `${Math.round(value)}%`} label='Shadow opacity' max={100} min={0} onChange={(shadowOpacity) => updateTextLayer(selectedTextLayer.id, { shadowOpacity })} onPreview={(shadowOpacity) => previewSelectedTextAppearance({ shadowOpacity })} step={1} value={selectedTextAppearance.shadowOpacity} />
-        </> : null}
-      </div>
-    </div>
-  </>;
-}
-
-function DesignLabShaderInspector({
-  brandPalette,
-  editingShader,
-  initialSettings,
-  material,
-  previewSelectedShaderOpacity,
-  previewSelectedShaderSize,
-  previewSelectedShaderSetting,
-  settings,
-  shaderSize,
-  updateSelectedShader,
-  updateSetting,
-}: {
-  brandPalette: ReturnType<typeof brandMaterialPalette>;
-  editingShader: ShaderApplication;
-  initialSettings: LiveMaterialSettings;
-  material: LiveMaterialOption;
-  previewSelectedShaderOpacity: (value: number) => void;
-  previewSelectedShaderSize: (value: number) => void;
-  previewSelectedShaderSetting: <Key extends keyof LiveMaterialSettings>(key: Key, value: LiveMaterialSettings[Key]) => void;
-  settings: LiveMaterialSettings;
-  shaderSize: number;
-  updateSelectedShader: (update: Partial<ShaderApplication>) => void;
-  updateSetting: <Key extends keyof LiveMaterialSettings>(key: Key, value: LiveMaterialSettings[Key]) => void;
-}) {
-  return <>
-    <LabInspectorSection className='shader-lab-v2-control-section' meta={material.name} title='Shader color'>
-      <div className='shader-lab-v2-colors'>
-        {([
-          { key: 'colorA', label: 'Base color' },
-          { key: 'colorB', label: 'Mid color' },
-          { key: 'colorC', label: 'Light color' },
-        ] as const).map(({ key, label }) => (
-          <ColorControl
-            ariaLabel={`Shader ${label.toLowerCase()}`}
-            key={key}
-            label={label}
-            onChange={(color) => updateSetting(key, color)}
-            onPreview={(color) => previewSelectedShaderSetting(key, color)}
-            value={settings[key]}
-          />
-        ))}
-      </div>
-      <div className='shader-lab-v2-palettes'>
-        {[brandPalette, ...LIVE_MATERIAL_PALETTES.slice(0, 7)].map((palette) => (
-          <button
-            aria-label={`Apply ${palette.name} palette`}
-            key={palette.id}
-            onClick={() => updateSelectedShader({
-              settings: {
-                ...settings,
-                colorA: palette.colors[0],
-                colorB: palette.colors[1],
-                colorC: palette.colors[2],
-              },
-            })}
-            title={palette.name}
-            type='button'
-          >
-            {palette.colors.map((color) => <i key={color} style={{ background: color }} />)}
-          </button>
-        ))}
-      </div>
-      <div className='shader-lab-v2-shader-meta'>
-        <button
-          onClick={() => updateSelectedShader({
-            settings: shaderLabSettingsFor(editingShader.materialId, initialSettings),
-            shaderSize: 1,
-          })}
-          type='button'
-        ><RotateCcw aria-hidden='true' />Reset shader</button>
-        {material.sourceUrl ? (
-          <a href={material.sourceUrl} rel='noreferrer' target='_blank'>{material.sourceLabel ?? 'View source'}<ExternalLink aria-hidden='true' /></a>
-        ) : null}
-      </div>
-    </LabInspectorSection>
-
-    {getShaderEffect(editingShader.materialId) ? <LabInspectorSection className='shader-lab-v2-control-section' meta={material.name} title='Effect settings'><ShaderEffectsControls materialId={editingShader.materialId} palette={settings} value={settings.effectProps} onChange={(effectProps) => updateSetting('effectProps', effectProps)} /></LabInspectorSection> : null}
-
-    <LabInspectorSection className='shader-lab-v2-control-section' meta='Essentials' title='Shader settings'>
-      <div className='shader-lab-v2-ranges'>
-        <ShaderZoomControl
-          onChange={(value) => updateSelectedShader({ shaderSize: value })}
-          onPreview={previewSelectedShaderSize}
-          value={shaderSize}
-        />
-        <RangeControl
-          formatValue={(value) => `${Math.round(value * 100)}%`}
-          label='Layer opacity'
-          max={1}
-          min={0}
-          onChange={(value) => updateSelectedShader({ opacity: value })}
-          onPreview={previewSelectedShaderOpacity}
-          step={0.01}
-          value={editingShader.opacity}
-        />
-        <div className='shader-lab-v2-text-options'>
-          <span>Blend</span>
-          <div>
-            {(['normal', 'screen', 'overlay', 'multiply'] as const).map((value) => (
-              <button
-                aria-label={`Blend mode: ${value}`}
-                aria-pressed={editingShader.blendMode === value}
-                key={value}
-                onClick={() => updateSelectedShader({ blendMode: value })}
-                type='button'
-              >
-                {value.charAt(0).toUpperCase() + value.slice(1)}
-              </button>
-            ))}
-          </div>
-        </div>
-        {isPaperLiveMaterialId(editingShader.materialId) ? <>
-          <RangeControl
-            formatValue={(value) => `${Math.round(value * 100)}%`}
-            label='Center X'
-            max={1}
-            min={0}
-            onChange={(value) => updateSetting('centerX', value)}
-            onPreview={(value) => previewSelectedShaderSetting('centerX', value)}
-            step={0.01}
-            value={settings.centerX ?? 0.5}
-          />
-          <RangeControl
-            formatValue={(value) => `${Math.round(value * 100)}%`}
-            label='Center Y'
-            max={1}
-            min={0}
-            onChange={(value) => updateSetting('centerY', value)}
-            onPreview={(value) => previewSelectedShaderSetting('centerY', value)}
-            step={0.01}
-            value={settings.centerY ?? 0.5}
-          />
-        </> : null}
-        {PRIMARY_CONTROLS.filter((control) => !getShaderEffect(editingShader.materialId) || control.key === 'speed').map((control) => (
-          <RangeControl
-            {...control}
-            formatValue={control.key === 'speed' ? (value) => `${value.toFixed(2)}×` : undefined}
-            key={control.key}
-            onChange={(value) => updateSetting(control.key, value)}
-            onPreview={(value) => previewSelectedShaderSetting(control.key, value)}
-            value={settings[control.key]}
-          />
-        ))}
-      </div>
-    </LabInspectorSection>
-  </>;
-}
-
-function DesignLabShaderFrameInspector({
-  canvasHeight,
-  canvasWidth,
-  layer,
-  onChange,
-}: {
-  canvasHeight: number;
-  canvasWidth: number;
-  layer: CompositionShaderLayer;
-  onChange: (transform: CanvasLayerTransform) => void;
-}) {
-  const transform = normalizeCanvasLayerTransform(layer.transform, DEFAULT_LAYER_TRANSFORM);
-  const widthScale = transform.widthScale ?? transform.scale;
-  const heightScale = transform.heightScale ?? transform.scale;
-  return (
-    <LabInspectorSection className='shader-lab-v2-control-section shader-lab-v2-shader-frame' meta='Canvas bounds' title='Shader frame'>
-      <p>Drag the shader directly on the canvas, or use exact position and size controls.</p>
-      <div className='shader-lab-v2-ranges'>
-        <RangeControl
-          formatValue={(value) => `${Math.round(value)} px`}
-          label='Horizontal position'
-          max={canvasWidth}
-          min={-canvasWidth}
-          onChange={(x) => onChange({ ...transform, x })}
-          step={1}
-          value={transform.x}
-        />
-        <RangeControl
-          formatValue={(value) => `${Math.round(value)} px`}
-          label='Vertical position'
-          max={canvasHeight}
-          min={-canvasHeight}
-          onChange={(y) => onChange({ ...transform, y })}
-          step={1}
-          value={transform.y}
-        />
-        <RangeControl
-          formatValue={(value) => `${Math.round(value * 100)}%`}
-          label='Frame width'
-          max={3}
-          min={MIN_CANVAS_LAYER_SCALE}
-          onChange={(widthScale) => onChange({ ...transform, widthScale })}
-          step={0.01}
-          value={widthScale}
-        />
-        <RangeControl
-          formatValue={(value) => `${Math.round(value * 100)}%`}
-          label='Frame height'
-          max={3}
-          min={MIN_CANVAS_LAYER_SCALE}
-          onChange={(heightScale) => onChange({ ...transform, heightScale })}
-          step={0.01}
-          value={heightScale}
-        />
-      </div>
-      <Button onClick={() => onChange({ ...DEFAULT_LAYER_TRANSFORM })} size='sm' type='button' variant='outline'>
-        <RotateCcw aria-hidden='true' />Fit shader to canvas
-      </Button>
-    </LabInspectorSection>
-  );
-}
-
 type DesignLabCanvasSelectionInput = {
   canvasDimensions: StudioArtboardDimensions;
   compositionAssets: CompositionAsset[];
@@ -4260,7 +1966,8 @@ type DesignLabCanvasSelectionInput = {
   layerGroups: CompositionLayerGroup[];
   layerGroupByLayerId: ReadonlyMap<CanvasLayerId, CompositionLayerGroup>;
   layerOrder: CompositionLayerId[];
-  layerVisible: (id: CompositionLayerId) => boolean;
+  /** Visible and unlocked: the layers a canvas gesture may select or move. */
+  layerSelectable: (id: CompositionLayerId) => boolean;
   logoLayers: CompositionLogoLayer[];
   removeLayer: (id: CompositionLayerId) => void;
   selectedCanvasLayerIds: CanvasLayerId[];
@@ -4538,7 +2245,7 @@ function useDesignLabCanvasSelection({
   layerGroups,
   layerGroupByLayerId,
   layerOrder,
-  layerVisible,
+  layerSelectable,
   logoLayers,
   removeLayer,
   selectedCanvasLayerIds,
@@ -4599,7 +2306,7 @@ function useDesignLabCanvasSelection({
 
   function selectableAssemblyFor(id: CanvasLayerId): CanvasLayerId[] {
     const ids = groupForLayer(id)?.layerIds ?? [id];
-    return ids.filter(layerVisible);
+    return ids.filter(layerSelectable);
   }
 
   function selectCanvasAssembly(id: CanvasLayerId, additive = false) {
@@ -4719,6 +2426,38 @@ function useDesignLabCanvasSelection({
     updateCanvasLayerTransforms(updates);
   }
 
+  /** Selected layers grouped into rigid units: a fully selected group moves as one. */
+  function selectionUnits(ids: readonly CanvasLayerId[] = selectedCanvasLayerIds): CanvasLayerId[][] {
+    const idSet = new Set(ids);
+    const claimed = new Set<CanvasLayerId>();
+    const units: CanvasLayerId[][] = [];
+    for (const id of ids) {
+      if (claimed.has(id)) continue;
+      const group = groupForLayer(id);
+      const unit = group && group.layerIds.every((layerId) => idSet.has(layerId)) ? group.layerIds : [id];
+      unit.forEach((layerId) => claimed.add(layerId));
+      units.push([...unit]);
+    }
+    return units;
+  }
+
+  function arrangeCanvasSelection(arrangement: DesignLabArrangement, ids: readonly CanvasLayerId[] = selectedCanvasLayerIds): boolean {
+    const units = selectionUnits(ids);
+    if (!canArrangeUnits(arrangement, units.length)) return false;
+    const offsets = arrangeCanvasUnits(units.map((unit) => unit.flatMap((layerId): CanvasSelectionItem[] => {
+      const transform = canvasLayerTransform(layerId);
+      return transform ? [{ geometry: layerGeometry(layerId, canvasDimensions), transform }] : [];
+    })), arrangement);
+    const updates = new Map<CanvasLayerId, CanvasLayerTransform>();
+    units.forEach((unit, index) => unit.forEach((layerId) => {
+      const transform = canvasLayerTransform(layerId);
+      const offset = offsets[index]!;
+      if (transform) updates.set(layerId, { ...transform, x: transform.x + offset.x, y: transform.y + offset.y });
+    }));
+    updateCanvasLayerTransforms(updates);
+    return true;
+  }
+
   function moveCanvasSelection(direction: -1 | 1) {
     const selected = new Set<CompositionLayerId>(selectedCanvasLayerIds);
     setLayerOrder((current) => {
@@ -4750,7 +2489,7 @@ function useDesignLabCanvasSelection({
   }
 
   function selectAllCanvasLayers() {
-    const ids = layerOrder.filter((id): id is CanvasLayerId => isCanvasLayerId(id) && layerVisible(id));
+    const ids = layerOrder.filter((id): id is CanvasLayerId => isCanvasLayerId(id) && layerSelectable(id));
     setSelectedCanvasLayerIds(ids);
     setSelectedLayerId(ids.at(-1) ?? null);
     setSelectionMenuPosition(null);
@@ -4809,6 +2548,7 @@ function useDesignLabCanvasSelection({
 
   return {
     alignCanvasAssembly,
+    arrangeCanvasSelection,
     deselectCanvasLayers,
     duplicateCanvasSelection,
     groupCanvasSelection,
@@ -4825,6 +2565,7 @@ function useDesignLabCanvasSelection({
     selectedCanvasGroup,
     selectedCanvasLayerIdSet,
     selectedGroupedAssemblies,
+    selectionUnits,
     selectLayerFromStack,
     ungroupCanvasSelection,
     updateCanvasLayerTransform,
@@ -4841,7 +2582,7 @@ type LayerDockMenuState = {
   position: StudioContextMenuPosition;
 };
 
-function DesignArtboardContextMenu({
+const DesignArtboardContextMenu = memo(function DesignArtboardContextMenu({
   activeArtboardId,
   artboards,
   menu,
@@ -4903,41 +2644,79 @@ function DesignArtboardContextMenu({
       ] : []}
     />
   );
+});
+
+function layerStyleMenuSection(
+  layerId: CompositionLayerId,
+  canPaste: boolean,
+  onCopyStyle: (id: CompositionLayerId) => void,
+  onPasteStyle: (id: CompositionLayerId) => void
+) {
+  return {
+    label: 'Style',
+    items: [
+      { icon: <PaintBrush aria-hidden='true' />, id: 'copy-layer-style', label: 'Copy style', onSelect: () => onCopyStyle(layerId), shortcut: '⌥⌘C' },
+      { disabled: !canPaste, icon: <PaintBrush aria-hidden='true' />, id: 'paste-layer-style', label: 'Paste style', onSelect: () => onPasteStyle(layerId), shortcut: '⌥⌘V' },
+    ],
+  };
 }
 
-function LayerDockContextMenu({
+function layerLockMenuItem(layerId: CompositionLayerId, locked: boolean, onToggleLock: (id: CompositionLayerId) => void) {
+  return {
+    checked: locked,
+    icon: locked ? <Lock aria-hidden='true' /> : <LockOpen aria-hidden='true' />,
+    id: 'toggle-layer-lock',
+    label: locked ? 'Unlock layer' : 'Lock layer',
+    onSelect: () => onToggleLock(layerId),
+    shortcut: '⇧⌘L',
+  };
+}
+
+const LayerDockContextMenu = memo(function LayerDockContextMenu({
+  canPasteStyle,
   layerKind,
   layerLabel,
+  layerLocked,
   layerOrder,
   layerVisible,
   menu,
   onClose,
   onCopy,
+  onCopyStyle,
   onCut,
   onDelete,
   onDuplicate,
   onMove,
   onMoveToEdge,
   onPaste,
+  onPasteStyle,
+  onToggleLock,
   onToggleVisibility,
 }: {
+  canPasteStyle: boolean;
   layerKind: (id: CompositionLayerId) => string;
   layerLabel: (id: CompositionLayerId) => string;
+  layerLocked: (id: CompositionLayerId) => boolean;
   layerOrder: readonly CompositionLayerId[];
   layerVisible: (id: CompositionLayerId) => boolean;
   menu: LayerDockMenuState | null;
   onClose: () => void;
   onCopy: (id: CompositionLayerId) => void;
+  onCopyStyle: (id: CompositionLayerId) => void;
   onCut: (id: CompositionLayerId) => void;
   onDelete: (id: CompositionLayerId) => void;
   onDuplicate: (id: CompositionLayerId) => void;
   onMove: (id: CompositionLayerId, direction: -1 | 1) => void;
   onMoveToEdge: (id: CompositionLayerId, edge: 'back' | 'front') => void;
   onPaste: () => void;
+  onPasteStyle: (id: CompositionLayerId) => void;
+  onToggleLock: (id: CompositionLayerId) => void;
   onToggleVisibility: (id: CompositionLayerId) => void;
 }) {
   const layerId = menu && layerOrder.includes(menu.layerId) ? menu.layerId : null;
   const visible = layerId ? layerVisible(layerId) : false;
+  const locked = layerId ? layerLocked(layerId) : false;
+  const canvasLayer = isCanvasLayerId(layerId);
   const orderIndex = layerId ? layerOrder.indexOf(layerId) : -1;
   return (
     <StudioContextMenu
@@ -4954,6 +2733,7 @@ function LayerDockContextMenu({
             { icon: <Files aria-hidden='true' />, id: 'duplicate-layer', label: 'Duplicate layer', onSelect: () => onDuplicate(layerId), shortcut: '⌘D' },
           ],
         },
+        ...(canvasLayer ? [layerStyleMenuSection(layerId, canPasteStyle && !locked, onCopyStyle, onPasteStyle)] : []),
         {
           label: 'Visibility',
           items: [
@@ -4964,6 +2744,7 @@ function LayerDockContextMenu({
               label: visible ? 'Layer visible' : 'Layer hidden',
               onSelect: () => onToggleVisibility(layerId),
             },
+            ...(canvasLayer ? [layerLockMenuItem(layerId, locked, onToggleLock)] : []),
           ],
         },
         {
@@ -4983,7 +2764,7 @@ function LayerDockContextMenu({
       ] : []}
     />
   );
-}
+});
 
 export default function ShaderLabStudio({
   active = true,
@@ -5049,6 +2830,20 @@ export default function ShaderLabStudio({
   const assetLayerPreviewOverridesRef = useRef<Map<AssetLayerId, CompositionAsset>>(new Map());
   const canvasBackgroundPreviewOverrideRef = useRef<string | null>(null);
   const effectPreviewRedrawRef = useRef<(() => void) | null>(null);
+  // Image-effect Effect layers: one WebGPU processor per layer for the live
+  // preview, the last output per layer, and a status the stage and inspector show.
+  const imageEffectPreviewPoolRef = useRef<ImageEffectProcessorPool | null>(null);
+  const imageEffectPreviewOutputsRef = useRef(new Map<EffectLayerId, HTMLCanvasElement>());
+  const imageEffectPreviewSourceRef = useRef<HTMLCanvasElement | null>(null);
+  // Effect time for previews: advances while playing, holds while paused.
+  const imageEffectPreviewClockRef = useRef({ lastFrameAt: 0, seconds: 0 });
+  // Preview runs share canvases, so a restarted preview loop waits for the last run.
+  const imageEffectPreviewQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+  const imageEffectStatusStore = useLocalValueStore<ReadonlyMap<string, DesignLabImageEffectStatus>>(new Map());
+  useEffect(() => () => {
+    imageEffectPreviewPoolRef.current?.dispose();
+    imageEffectPreviewPoolRef.current = null;
+  }, []);
   const textEffectScratchRefs = useRef<Map<TextLayerId, TextEffectRenderScratch>>(new Map());
   const logoInputRef = useRef<HTMLInputElement>(null);
   const materialLibraryRef = useRef<HTMLDivElement>(null);
@@ -5206,17 +3001,19 @@ export default function ShaderLabStudio({
     [DEFAULT_DESIGN_LAB_SELECTED_LAYER_ID]
   );
   const [selectionMenuPosition, setSelectionMenuPosition] = useState<CanvasSelectionMenuPosition | null>(null);
-  const [textSelection, setTextSelection] = useState<(TextSelectionRange & { layerId: TextLayerId }) | null>(null);
-  const textSelectionRef = useRef<typeof textSelection>(null);
+  // Text ranges change on every native selection change; only the text
+  // inspector subscribes, so selecting characters never re-renders the editor.
+  const textSelectionStore = useLocalValueStore<DesignLabTextSelection | null>(null);
+  const textSelectionRef = useRef<DesignLabTextSelection | null>(null);
   function rememberTextSelection(layerId: TextLayerId, range: TextSelectionRange) {
     const next = range.end > range.start ? { ...range, layerId } : null;
     if (JSON.stringify(next) === JSON.stringify(textSelectionRef.current)) return;
     textSelectionRef.current = next;
-    setTextSelection(next);
+    textSelectionStore.set(next);
   }
   function clearTextRange() {
     textSelectionRef.current = null;
-    setTextSelection(null);
+    textSelectionStore.set(null);
   }
   const [cropEditingLayerId, setCropEditingLayerId] = useState<AssetLayerId | null>(null);
   const [artboardMenu, setArtboardMenu] = useState<DesignArtboardMenuState | null>(null);
@@ -5224,7 +3021,8 @@ export default function ShaderLabStudio({
   const [draftHydrated, setDraftHydrated] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
-  const [canvasClipboardStatus, setCanvasClipboardStatus] = useState<string | null>(null);
+  // Status messages are transient; only the artboard toolbar subscribes.
+  const canvasStatusStore = useLocalValueStore<string | null>(null);
   const [sourceOpen, setSourceOpen] = useState(false);
   const [captureTimeMs, setCaptureTimeMs] = useState<number | null>(null);
   const [sequenceCapture, setSequenceCapture] = useState<ShaderSequenceCapture | null>(null);
@@ -5249,8 +3047,8 @@ export default function ShaderLabStudio({
   );
   useEffect(() => {
     textSelectionRef.current = null;
-    setTextSelection(null);
-  }, [activeArtboardId, storedSelectedLayerId]);
+    textSelectionStore.set(null);
+  }, [activeArtboardId, storedSelectedLayerId, textSelectionStore]);
   const [artboards, setArtboards] = useState<DesignArtboard[]>(() => [{
     id: DEFAULT_DESIGN_ARTBOARD_ID,
     name: 'Artboard 1',
@@ -5288,6 +3086,9 @@ export default function ShaderLabStudio({
   const artboardActivationRef = useRef<{ id: DesignArtboardId; result: Promise<boolean> } | null>(null);
   const pendingArtboardLayerRef = useRef<{ artboardId: DesignArtboardId; layerId: CanvasLayerId } | null>(null);
   const designLabClipboardRef = useRef<string | null>(null);
+  const styleClipboardRef = useRef<DesignLabLayerStyle | null>(null);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const pointerInEditorRef = useRef(false);
   const imagePlacementModeRef = useRef<ImageAssetPlacementMode>('image');
   const canvasClipboardStatusTimerRef = useRef<number | null>(null);
 
@@ -5330,11 +3131,11 @@ export default function ShaderLabStudio({
     () => normalizeStudioArtboardDimensions(storedCanvasDimensions, studioDimensionsForRatio(ratio)),
     [ratio, storedCanvasDimensions]
   );
-  const ratioOption = RATIO_OPTIONS.find((option) => option.value === ratio) ?? {
+  const ratioOption = useMemo<DesignRatioOption>(() => RATIO_OPTIONS.find((option) => option.value === ratio) ?? {
     ...canvasDimensions,
     label: 'Custom',
     value: 'custom' as const,
-  };
+  }, [canvasDimensions, ratio]);
   const normalizedExportSettings = useMemo(
     () => normalizeDesignExportSettings(exportSettings),
     [exportSettings]
@@ -5553,14 +3354,17 @@ export default function ShaderLabStudio({
   const previewNeedsRefresh = Boolean(
     lastExportRequest && lastExportRequest.settingsSignature !== currentExportSettingsSignature
   );
-  const designHistoryView = designHistoryRef.current;
-  const canvasActionHistory = presentCanvasActionHistory(
-    designHistoryView,
+  const historyHandlers = useStableHandlers({
+    redo: () => redoDesignCanvas(),
+    undo: () => undoDesignCanvas(),
+  });
+  // designHistoryRef is replaced, never mutated, and every replacement bumps the revision.
+  const canvasActionHistory = useMemo(() => presentCanvasActionHistory(
+    designHistoryRef.current,
     designHistorySignature,
-    redoDesignCanvas,
-    undoDesignCanvas
-  );
-  void designHistoryRevision;
+    historyHandlers.redo,
+    historyHandlers.undo
+  ), [designHistoryRevision, designHistorySignature, historyHandlers]);
 
   useEffect(() => {
     cancelAnimationFrame(sequencePreviewAnimationRef.current);
@@ -5634,6 +3438,13 @@ export default function ShaderLabStudio({
       setCropEditingLayerId(null);
     }
   }, [compositionAssets, cropEditingLayerId, selectedCanvasLayerIds.length, selectedLayerId]);
+  const stageLayerById = useMemo(() => new Map<CompositionLayerId, CompositionShaderLayer | CompositionEffectLayer | CompositionTextLayer | CompositionLogoLayer | CompositionAsset>([
+    ...shaderLayers.map((layer) => [layer.id, layer] as const),
+    ...effectLayers.map((layer) => [layer.id, layer] as const),
+    ...textLayers.map((layer) => [layer.id, layer] as const),
+    ...logoLayers.map((layer) => [layer.id, layer] as const),
+    ...compositionAssets.map((layer) => [layer.id, layer] as const),
+  ]), [compositionAssets, effectLayers, logoLayers, shaderLayers, textLayers]);
   const layerGroupByLayerId = useMemo(() => {
     const groups = new Map<CanvasLayerId, CompositionLayerGroup>();
     for (const group of layerGroups) {
@@ -5675,6 +3486,7 @@ export default function ShaderLabStudio({
   });
   const {
     alignCanvasAssembly,
+    arrangeCanvasSelection,
     deselectCanvasLayers,
     duplicateCanvasSelection,
     groupCanvasSelection,
@@ -5691,6 +3503,7 @@ export default function ShaderLabStudio({
     selectedCanvasGroup,
     selectedCanvasLayerIdSet,
     selectedGroupedAssemblies,
+    selectionUnits,
     selectLayerFromStack,
     ungroupCanvasSelection,
     updateCanvasLayerTransform,
@@ -5701,7 +3514,7 @@ export default function ShaderLabStudio({
     layerGroups,
     layerGroupByLayerId,
     layerOrder,
-    layerVisible,
+    layerSelectable: (id) => layerVisible(id) && !layerLocked(id),
     logoLayers,
     removeLayer,
     selectedCanvasLayerIds,
@@ -5878,7 +3691,8 @@ export default function ShaderLabStudio({
       ? describeDesignCanvasChange(history.present.artboards, nextArtboards)
       : 'Opened canvas'), signature, nextTypography);
     designHistoryRef.current = checkpointCanvasHistory(history, next);
-    setDesignHistoryRevision((revision) => revision + 1);
+    // Only the undo controls and history list read the revision.
+    startTransition(() => setDesignHistoryRevision((revision) => revision + 1));
   }
 
   function checkpointAppliedDesignSource(nextArtboards: DesignArtboard[], nextTypography: DesignLabProjectIdentity | null) {
@@ -6399,7 +4213,7 @@ export default function ShaderLabStudio({
       if (pending.id !== activeArtboardId || pending.signature !== currentArtboardSignature) return;
       pendingArtboardApplyRef.current = null;
     }
-    setArtboards((current) => {
+    const syncActiveArtboard = () => setArtboards((current) => {
       const target = current.find((artboard) => artboard.id === activeArtboardId);
       if (!target) return current;
       if (artboardSnapshotPersistenceSignature(target.snapshot) === currentArtboardPersistenceSignature) return current;
@@ -6409,6 +4223,10 @@ export default function ShaderLabStudio({
       workspaceArtboardsRef.current = nextArtboards;
       return nextArtboards;
     });
+    // The active artboard already renders from live state. After an ordinary
+    // edit this copy changes nothing on screen, so it waits behind input.
+    if (pending) syncActiveArtboard();
+    else startTransition(syncActiveArtboard);
   }, [activeArtboardId, currentArtboardPersistenceSignature, currentArtboardSnapshot, draftHydrated, workspaceArtboardsRef]);
 
   useEffect(() => {
@@ -6860,22 +4678,32 @@ export default function ShaderLabStudio({
     setSelectedCanvasLayerIds([id]);
   }
 
-  function addEffectLayer(kind: CompositionEffectKind = 'bayer') {
-    if (editingCanvas) { setExportError('Frame your selection to apply a composition-wide converter.'); return; }
+  /** Adds a built-in converter, or an image effect when `image` names one, above every layer. */
+  function addEffectLayer(
+    kind: CompositionEffectKind = 'bayer',
+    image?: { effectId: DesignLabImageEffectId; effectProps?: ShaderEffectProps }
+  ): EffectLayerId | null {
+    if (editingCanvas) { setExportError('Frame your selection to apply a composition-wide converter.'); return null; }
     const id = `effect-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as EffectLayerId;
     const preset = COMPOSITION_EFFECT_PRESETS.find((option) => option.kind === kind)!;
-    const number = effectLayers.filter((layer) => layer.settings.kind === kind).length + 1;
+    const imageEffect = designLabImageEffect(image?.effectId);
+    const number = effectLayers.filter(({ settings }) => imageEffect
+      ? settings.effectId === imageEffect.id
+      : !settings.effectId && settings.kind === kind).length + 1;
     const layer: CompositionEffectLayer = {
       id,
-      name: `${preset.label} ${number}`,
+      name: `${imageEffect?.name ?? preset.label} ${number}`,
       opacity: 1,
-      settings: defaultCompositionEffectSettings(kind),
+      settings: imageEffect
+        ? { ...defaultCompositionEffectSettings(kind), effectId: imageEffect.id, effectProps: image?.effectProps ?? {} }
+        : defaultCompositionEffectSettings(kind),
       visible: true,
     };
     setEffectLayers((current) => [...current, layer]);
     setLayerOrder((current) => [...current, id]);
     setSelectedLayerId(id);
     setSelectedCanvasLayerIds([]);
+    return id;
   }
 
   function updateEffectLayer(id: EffectLayerId, update: Partial<Omit<CompositionEffectLayer, 'id'>>) {
@@ -6902,6 +4730,16 @@ export default function ShaderLabStudio({
     updateEffectLayer(layer.id, {
       name: preset.label,
       settings: defaultCompositionEffectSettings(kind),
+    });
+  }
+
+  /** Switches an Effect layer to an image effect. Settings start from the effect's defaults unless given. */
+  function selectImageEffect(layer: CompositionEffectLayer, effectId: DesignLabImageEffectId, effectProps: ShaderEffectProps = {}) {
+    const imageEffect = designLabImageEffect(effectId);
+    if (!imageEffect) return;
+    updateEffectLayer(layer.id, {
+      name: imageEffect.name,
+      settings: { ...layer.settings, effectId: imageEffect.id, effectProps },
     });
   }
 
@@ -7243,13 +5081,13 @@ export default function ShaderLabStudio({
   }, [placeBrandAssets]);
 
   function announceCanvasClipboard(message: string) {
-    setCanvasClipboardStatus(message);
+    canvasStatusStore.set(message);
     if (canvasClipboardStatusTimerRef.current !== null) {
       window.clearTimeout(canvasClipboardStatusTimerRef.current);
     }
     canvasClipboardStatusTimerRef.current = window.setTimeout(() => {
       canvasClipboardStatusTimerRef.current = null;
-      setCanvasClipboardStatus(null);
+      canvasStatusStore.set(null);
     }, 2_400);
   }
 
@@ -7450,6 +5288,46 @@ export default function ShaderLabStudio({
     }
   }
 
+  function runEditorShortcut(command: DesignLabShortcutCommand) {
+    if (command.kind === 'shortcuts') setShortcutsOpen((open) => !open);
+    else if (command.kind === 'copy-style') copyLayerStyle();
+    else if (command.kind === 'paste-style') pasteLayerStyle();
+    else if (command.kind === 'toggle-lock') toggleSelectionLock();
+    else if (command.kind === 'arrange') {
+      if (!arrangeCanvasSelection(command.arrangement)) {
+        announceCanvasClipboard(command.arrangement.startsWith('distribute-')
+          ? 'Select three or more layers to distribute' : 'Select two or more layers to align');
+      }
+    } else if (command.layer === 'text') addTextLayer();
+    else if (command.layer === 'shader') addCanvasShader();
+    else if (command.layer === 'mark') addBrandMarkLayer();
+    else if (command.layer === 'image') openImageImport();
+    else if (command.layer === 'sticker') openImageImport([], 'sticker');
+    else if (editingCanvas) announceCanvasClipboard('Frame your selection to apply composition-wide effects');
+    else addEffectLayer();
+  }
+
+  const handleEditorShortcut = useEffectEvent((event: KeyboardEvent) => {
+    if (event.defaultPrevented || event.repeat || !workspaceActiveRef.current || !projectWorkspaceActiveRef.current) return;
+    const root = studioRootRef.current;
+    const target = event.target instanceof Element ? event.target : null;
+    // Typing, menus and dialogs keep their keys; the editor must be focused or under the pointer.
+    if (!root || isCanvasTextEditingTarget(event.target)
+      || target?.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="menu"], [role="dialog"], [role="listbox"]')) return;
+    if (!root.contains(document.activeElement) && !pointerInEditorRef.current) return;
+    const command = resolveDesignLabShortcut(event);
+    if (!command) return;
+    event.preventDefault();
+    runEditorShortcut(command);
+  });
+
+  useEffect(() => {
+    if (!active) return;
+    const handleKeyDown = (event: KeyboardEvent) => handleEditorShortcut(event);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [active]);
+
   const handleDesignLabCopy = useEffectEvent(copyDesignLabSelection);
   const handleDesignLabPaste = useEffectEvent((event: ClipboardEvent) => {
     if (!workspaceActiveRef.current || !projectWorkspaceActiveRef.current || isCanvasClipboardEditingTarget(event.target)) return;
@@ -7611,6 +5489,95 @@ export default function ShaderLabStudio({
     return !designLabDocument.elements[id]?.hidden;
   }
 
+  function layerLocked(id: CompositionLayerId) {
+    return Boolean(designLabDocument.elements[id]?.locked);
+  }
+
+  /** Canvas layers that keyboard and menu commands act on: the canvas selection, else the selected layer. */
+  function commandLayerIds(): CanvasLayerId[] {
+    if (selectedCanvasLayerIds.length > 0) return selectedCanvasLayerIds;
+    return selectedLayerId && isCanvasLayerId(selectedLayerId) ? [selectedLayerId] : [];
+  }
+
+  function setLayersLocked(ids: readonly CompositionLayerId[], locked: boolean) {
+    const targets = new Set(ids.filter(isCanvasLayerId));
+    if (targets.size === 0) return;
+    const lock = <T extends { id: string; locked?: boolean }>(layer: T): T => {
+      if (!targets.has(layer.id as CanvasLayerId) || Boolean(layer.locked) === locked) return layer;
+      const next = { ...layer };
+      if (locked) next.locked = true;
+      else delete next.locked;
+      return next;
+    };
+    setShaderLayers((current) => current.map(lock));
+    setTextLayers((current) => current.map(lock));
+    setLogoLayers((current) => current.map(lock));
+    setCompositionAssets((current) => current.map(lock));
+    // A locked layer leaves the canvas selection but stays open in the inspector.
+    if (locked) setSelectedCanvasLayerIds((current) => current.filter((id) => !targets.has(id)));
+    announceCanvasClipboard(`${locked ? 'Locked' : 'Unlocked'} ${targets.size} layer${targets.size === 1 ? '' : 's'}`);
+  }
+
+  function toggleLayerLock(id: CompositionLayerId) {
+    setLayersLocked([id], !layerLocked(id));
+  }
+
+  function toggleSelectionLock() {
+    const ids = commandLayerIds();
+    if (ids.length === 0) return;
+    setLayersLocked(ids, !ids.every(layerLocked));
+  }
+
+  function styledLayer(id: CompositionLayerId): DesignLabStyledLayer | null {
+    if (!isCanvasLayerId(id)) return null;
+    const layer = stageLayerById.get(id);
+    return layer ? layer as DesignLabStyledLayer : null;
+  }
+
+  function copyLayerStyle(id: CompositionLayerId | null = selectedLayerId): boolean {
+    const layer = id ? styledLayer(id) : null;
+    if (!layer) {
+      announceCanvasClipboard('Select a text, mark, image or shader layer to copy its style');
+      return false;
+    }
+    styleClipboardRef.current = extractDesignLabLayerStyle(layer, isContentLayerId(layer.id) ? layerShaders[layer.id] : undefined);
+    announceCanvasClipboard(`Copied style from ${layer.name}`);
+    return true;
+  }
+
+  function pasteLayerStyle(ids: readonly CompositionLayerId[] = commandLayerIds()): number {
+    const style = styleClipboardRef.current;
+    const targets = new Set(ids.filter((id) => styledLayer(id) && !layerLocked(id)));
+    if (!style || targets.size === 0) {
+      announceCanvasClipboard(style ? 'Select unlocked layers to paste the style onto' : 'Copy a style first');
+      return 0;
+    }
+    const restyle = <T extends DesignLabStyledLayer>(layer: T): T => (
+      targets.has(layer.id as CompositionLayerId) ? applyDesignLabLayerStyle(layer, style).layer : layer
+    );
+    targets.forEach((id) => {
+      shaderApplicationPreviewOverridesRef.current.delete(id as ShaderLayerId | ContentLayerId);
+      if (isTextLayerId(id)) textLayerPreviewOverridesRef.current.delete(id);
+      if (isLogoLayerId(id)) logoLayerPreviewOverridesRef.current.delete(id);
+      if (isAssetLayerId(id)) assetLayerPreviewOverridesRef.current.delete(id);
+    });
+    setShaderLayers((current) => current.map(restyle));
+    setTextLayers((current) => current.map(restyle));
+    setLogoLayers((current) => current.map(restyle));
+    setCompositionAssets((current) => current.map(restyle));
+    const contentTargets = [...targets].filter(isContentLayerId);
+    // A copied material fills content layers; without one they keep their own.
+    if (style.material && contentTargets.length > 0) {
+      const material = style.material;
+      setLayerShaders((current) => ({
+        ...current,
+        ...Object.fromEntries(contentTargets.map((id) => [id, { ...material, settings: { ...material.settings } }])),
+      }));
+    }
+    announceCanvasClipboard(`Pasted style onto ${targets.size} layer${targets.size === 1 ? '' : 's'}`);
+    return targets.size;
+  }
+
   const designLabPage = designLabDocument.pages[designLabDocument.pageIds[0]!]!;
   const listedLayerIds = designLabPage.elementIds as CompositionLayerId[];
   const visibleLayerIds = useMemo(
@@ -7618,10 +5585,14 @@ export default function ShaderLabStudio({
     [designLabDocument, listedLayerIds]
   );
   const visibleLayerIdSet = useMemo(() => new Set(visibleLayerIds), [visibleLayerIds]);
-  const visibleShaderCapabilities = [
+  // Content keys: the document is rebuilt for every edit, while these change
+  // only when the listed layers or their visibility do.
+  const listedLayerKey = listedLayerIds.join('\u0000');
+  const hiddenLayerKey = listedLayerIds.filter((id) => designLabDocument.elements[id]?.hidden).join('\u0000');
+  const visibleShaderCapabilities = useMemo(() => [
     ...shaderLayers.filter(({ id }) => visibleLayerIdSet.has(id)),
     ...Object.entries(layerShaders).flatMap(([id, application]) => application && visibleLayerIdSet.has(id as CompositionLayerId) ? [application] : []),
-  ].map(({ materialId }) => getShaderMotionCapabilities(materialId));
+  ].map(({ materialId }) => getShaderMotionCapabilities(materialId)), [layerShaders, shaderLayers, visibleLayerIdSet]);
   const compositionCanSeek = visibleShaderCapabilities.every(({ motionModel }) => motionModel !== 'stateful');
   const compositionHasMotion = visibleShaderCapabilities.some(({ motionModel }) => motionModel !== 'static');
   const explorerCapabilities = visibleShaderCapabilities.find(({ motionModel }) => motionModel === 'stateful')
@@ -8062,7 +6033,8 @@ export default function ShaderLabStudio({
     layerId: EffectLayerId,
     width: number,
     height: number,
-    onEffectPainted?: (effectId: EffectLayerId, source: HTMLCanvasElement) => void
+    onEffectPainted?: (effectId: EffectLayerId, source: HTMLCanvasElement) => void,
+    imageEffectOutputs?: ReadonlyMap<EffectLayerId, HTMLCanvasElement>
   ) {
     const effectLayer = effectLayers.find((layer) => layer.id === layerId);
     if (!effectLayer) return;
@@ -8071,6 +6043,20 @@ export default function ShaderLabStudio({
       effectPreviewOverridesRef.current.get(layerId),
       Boolean(effectCaptureShaderImagesRef.current)
     );
+    if (effectLayer.settings.effectId) {
+      // Image effects run before this compose (resolveImageEffectOutputs).
+      // Without an output the layers beneath show unchanged.
+      const output = imageEffectOutputs?.get(layerId);
+      if (output) {
+        context.save();
+        context.globalAlpha = Math.min(1, Math.max(0, rendered.opacity));
+        context.globalCompositeOperation = 'source-over';
+        context.drawImage(output, 0, 0, width, height);
+        context.restore();
+      }
+      onEffectPainted?.(layerId, context.canvas);
+      return;
+    }
     let scratch = effectScratchRefs.current.get(layerId);
     if (!scratch) {
       scratch = createCompositionEffectScratch() ?? undefined;
@@ -8175,7 +6161,8 @@ export default function ShaderLabStudio({
     height: number,
     images: Map<string, HTMLImageElement>,
     frameLayerIds: readonly CompositionLayerId[] = visibleLayerIds,
-    onEffectPainted?: (effectId: EffectLayerId, source: HTMLCanvasElement) => void
+    onEffectPainted?: (effectId: EffectLayerId, source: HTMLCanvasElement) => void,
+    imageEffectOutputs?: ReadonlyMap<EffectLayerId, HTMLCanvasElement>
   ) {
     const backgroundPreview = transientCompositionPreviewEnabled()
       ? canvasBackgroundPreviewOverrideRef.current
@@ -8199,7 +6186,7 @@ export default function ShaderLabStudio({
       renderElement: ({ element }) => {
         const layerId = element.id as CompositionLayerId;
         if (isShaderLayerId(layerId)) return paintCompositionShader(context, layerId, width, height);
-        if (isEffectLayerId(layerId)) return paintCompositionEffect(context, layerId, width, height, onEffectPainted);
+        if (isEffectLayerId(layerId)) return paintCompositionEffect(context, layerId, width, height, onEffectPainted, imageEffectOutputs);
         if (isLogoLayerId(layerId) || isAssetLayerId(layerId)) {
           return paintCompositionImage(context, layerId, width, height, images);
         }
@@ -8276,6 +6263,114 @@ export default function ShaderLabStudio({
       })));
   }
 
+  function imageEffectLayer(layerId: CompositionLayerId): (CompositionEffectLayer & { settings: { effectId: DesignLabImageEffectId } }) | null {
+    if (!isEffectLayerId(layerId)) return null;
+    const layer = effectLayers.find(({ id }) => id === layerId);
+    return layer?.settings.effectId ? layer as CompositionEffectLayer & { settings: { effectId: DesignLabImageEffectId } } : null;
+  }
+
+  function imageEffectPassesFor(layerIds: readonly CompositionLayerId[]) {
+    return planImageEffectPasses(layerIds, (layerId): layerId is EffectLayerId => imageEffectLayer(layerId) !== null);
+  }
+
+  function setImageEffectStatus(layerId: EffectLayerId, status: DesignLabImageEffectStatus) {
+    const current = imageEffectStatusStore.get();
+    if (current.get(layerId) === status) return;
+    imageEffectStatusStore.set(new Map(current).set(layerId, status));
+  }
+
+  /**
+   * Live preview: runs each image effect on the layers beneath it with the
+   * preview processors and keeps the outputs, which snapshots reuse. A
+   * failure leaves that layer out and records why, so the canvas shows the
+   * source and the stage and inspector say what happened. Runs share
+   * canvases, so a restarted preview loop queues behind the previous run.
+   */
+  function resolvePreviewImageEffects({
+    composeBeneath,
+    height,
+    layerIds,
+    timeSeconds,
+    width,
+  }: {
+    composeBeneath: (
+      context: CanvasRenderingContext2D,
+      beneath: readonly CompositionLayerId[],
+      resolved: ReadonlyMap<EffectLayerId, HTMLCanvasElement>
+    ) => unknown;
+    height: number;
+    layerIds: readonly CompositionLayerId[];
+    timeSeconds: number;
+    width: number;
+  }) {
+    const pool = imageEffectPreviewPoolRef.current ?? createImageEffectProcessorPool();
+    imageEffectPreviewPoolRef.current = pool;
+    pool.retain(new Map(effectLayers.flatMap(({ id, settings }) => settings.effectId ? [[id, settings.effectId] as const] : [])));
+    const source = imageEffectPreviewSourceRef.current ?? document.createElement('canvas');
+    imageEffectPreviewSourceRef.current = source;
+    const resolve = () => resolveImageEffectOutputs({
+      composeBeneath,
+      height,
+      outputs: imageEffectPreviewOutputsRef.current,
+      passes: imageEffectPassesFor(layerIds),
+      run: async (layerId, pixels) => {
+        const layer = imageEffectLayer(layerId);
+        if (!layer) return null;
+        if (imageEffectStatusStore.get().get(layer.id) !== 'ready') setImageEffectStatus(layer.id, 'loading');
+        try {
+          const output = await pool.process(layer.id, layer.settings.effectId, pixels, layer.settings.effectProps ?? {}, timeSeconds);
+          setImageEffectStatus(layer.id, 'ready');
+          return output;
+        } catch (error) {
+          setImageEffectStatus(layer.id, imageEffectFailureStatus(error));
+          return null;
+        }
+      },
+      source,
+      width,
+    });
+    const result = imageEffectPreviewQueueRef.current.then(resolve);
+    imageEffectPreviewQueueRef.current = result.catch(() => undefined);
+    return result;
+  }
+
+  /**
+   * Exports: runs every visible image effect at export size with a fresh
+   * processor pool, so effect time starts at zero. Unlike the preview, an
+   * effect that cannot render stops the export.
+   */
+  async function resolveExportImageEffects(
+    pool: ImageEffectProcessorPool,
+    width: number,
+    height: number,
+    timeSeconds: number,
+    composeBeneath: (
+      context: CanvasRenderingContext2D,
+      beneath: readonly CompositionLayerId[],
+      resolved: ReadonlyMap<EffectLayerId, HTMLCanvasElement>
+    ) => unknown,
+    layerIds: readonly CompositionLayerId[] = visibleLayerIds
+  ): Promise<ReadonlyMap<EffectLayerId, HTMLCanvasElement> | undefined> {
+    const passes = imageEffectPassesFor(layerIds);
+    if (!passes.length) return undefined;
+    return resolveImageEffectOutputs({
+      composeBeneath,
+      height,
+      passes,
+      run: async (layerId, pixels) => {
+        const layer = imageEffectLayer(layerId);
+        if (!layer) return null;
+        try {
+          return await pool.process(layer.id, layer.settings.effectId, pixels, layer.settings.effectProps ?? {}, timeSeconds);
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : 'The image effect could not render.';
+          throw new Error(`${layer.name}: ${reason} Hide this layer to export without it.`);
+        }
+      },
+      width,
+    });
+  }
+
   async function captureCompositionEffectFrames(shaderFrames: Promise<Map<string, CapturedShaderFrame>>): Promise<Map<string, ShaderFrameSnapshot>> {
     const ids = visibleLayerIds.filter(isEffectLayerId);
     if (!ids.length) return new Map();
@@ -8294,6 +6389,12 @@ export default function ShaderLabStudio({
     const context = buffer.getContext('2d', { willReadFrequently: true });
     if (!context) throw new Error('Converter capture is unavailable.');
     try {
+      // Snapshots record what the canvas shows: an image effect contributes
+      // its last preview output, so saving never waits on the GPU, and an
+      // effect that cannot render is left out here as it is on the canvas.
+      const statuses = imageEffectStatusStore.get();
+      const imageEffectOutputs = new Map([...imageEffectPreviewOutputsRef.current]
+        .filter(([layerId]) => statuses.get(layerId) === 'ready' && imageEffectLayer(layerId) !== null));
       let encoding!: Promise<Map<string, ShaderFrameSnapshot>>;
       await withCapturedShaderImages(captures, (shaderImages) => {
         effectCaptureShaderImagesRef.current = shaderImages;
@@ -8301,7 +6402,7 @@ export default function ShaderLabStudio({
           // This callback copies every converter synchronously. The override is
           // removed before encoding yields, so live previews never consume it.
           encoding = captureComposedEffectFrames(ids, (copy) => composeFrame(
-            context, width, height, images, prefix, copy
+            context, width, height, images, prefix, copy, imageEffectOutputs
           ));
         } finally {
           effectCaptureShaderImagesRef.current = null;
@@ -8315,6 +6416,8 @@ export default function ShaderLabStudio({
   }
 
   const composeFrameRef = useCommittedRef(composeFrame);
+  const imageEffectPassesForRef = useCommittedRef(imageEffectPassesFor);
+  const resolvePreviewImageEffectsRef = useCommittedRef(resolvePreviewImageEffects);
   const loadCompositionImagesRef = useCommittedRef(loadCompositionImages);
   const lastPreviewEffectIndex = visibleLayerIds.findLastIndex(isEffectLayerId);
   const effectPreviewOrderSignature = lastPreviewEffectIndex < 0
@@ -8344,6 +6447,9 @@ export default function ShaderLabStudio({
     let renderSamples = 0;
     let pausedRedraw: ReturnType<typeof observePausedCompositionReadiness> | undefined;
     let sourceRedrawPending = paused;
+    let skippedWhileRendering = false;
+    const lastEffectIndex = Math.max(...activeEffectIds.map((effectId) => visibleLayerIds.indexOf(effectId)));
+    const previewLayerIds = visibleLayerIds.slice(0, lastEffectIndex + 1);
     const requestPausedRedraw = () => {
       sourceRedrawPending = true;
       pausedRedraw?.request();
@@ -8364,21 +6470,24 @@ export default function ShaderLabStudio({
         }, { rootMargin: '120px' });
     if (observer && stageRef.current) observer.observe(stageRef.current);
 
-    const paintEffectPreview = (images: Map<string, HTMLImageElement>) => {
-      const previewHeight = Math.max(1, Math.round(previewWidth * canvasDimensions.height / canvasDimensions.width));
+    const previewHeightFor = (width: number) => Math.max(1, Math.round(width * canvasDimensions.height / canvasDimensions.width));
+    const paintEffectPreview = (
+      images: Map<string, HTMLImageElement>,
+      imageEffectOutputs?: ReadonlyMap<EffectLayerId, HTMLCanvasElement>
+    ) => {
+      const previewHeight = previewHeightFor(previewWidth);
       const buffer = effectPreviewBufferRef.current ?? document.createElement('canvas');
       effectPreviewBufferRef.current = buffer;
       if (buffer.width !== previewWidth) buffer.width = previewWidth;
       if (buffer.height !== previewHeight) buffer.height = previewHeight;
       const context = buffer.getContext('2d', { willReadFrequently: true });
       if (!context) return;
-      const lastEffectIndex = Math.max(...activeEffectIds.map((effectId) => visibleLayerIds.indexOf(effectId)));
       composeFrameRef.current(
         context,
         previewWidth,
         previewHeight,
         images,
-        visibleLayerIds.slice(0, lastEffectIndex + 1),
+        previewLayerIds,
         (effectId, source) => {
           const canvas = effectCanvasRefs.current.get(effectId);
           if (!canvas) return;
@@ -8388,48 +6497,85 @@ export default function ShaderLabStudio({
           if (!visibleContext) return;
           visibleContext.clearRect(0, 0, previewWidth, previewHeight);
           visibleContext.drawImage(source, 0, 0);
-        }
+        },
+        imageEffectOutputs
       );
+    };
+    // Image effects run on the GPU and resolve asynchronously: compose the
+    // layers beneath each one, run it, then paint the whole preview. A paused
+    // canvas renders again if a settling frame arrived during the run.
+    const paintImageEffectPreview = (images: Map<string, HTMLImageElement>) => {
+      rendering = true;
+      const width = previewWidth;
+      const height = previewHeightFor(width);
+      void resolvePreviewImageEffectsRef.current({
+        composeBeneath: (context, beneath, resolved) => composeFrameRef.current(context, width, height, images, beneath, undefined, resolved),
+        height,
+        layerIds: previewLayerIds,
+        timeSeconds: imageEffectPreviewClockRef.current.seconds,
+        width,
+      }).then((outputs) => {
+        if (!cancelled) paintEffectPreview(images, outputs);
+      }).catch(() => {
+        // Each effect reports its own failure; a compose error keeps the last frame.
+      }).finally(() => {
+        rendering = false;
+        if (cancelled || !paused || !skippedWhileRendering) return;
+        skippedWhileRendering = false;
+        paintImageEffectPreview(images);
+      });
     };
 
     void loadCompositionImagesRef.current().then((images) => {
       if (cancelled) return;
+      // Converters render synchronously; the measured cost sizes the next frames.
+      const paintConverterPreview = () => {
+        rendering = true;
+        const renderStartedAt = performance.now();
+        try {
+          paintEffectPreview(images);
+        } catch {
+          // Safari can expose a shader canvas one paint before it becomes
+          // readable. Keep the last good converter frame and retry instead
+          // of leaving the preview loop permanently locked.
+          if (paused) pausedRedraw?.request();
+        }
+        renderDurationTotal = renderDurationTotal + performance.now() - renderStartedAt;
+        renderSamples = renderSamples + 1;
+        if (renderSamples >= 8) {
+          const averageDuration = renderDurationTotal / renderSamples;
+          if (averageDuration > 14) {
+            if (previewWidth > 360) previewWidth = Math.max(360, Math.round(previewWidth * 0.84));
+            else targetFrameRate = 30;
+          } else if (averageDuration < 9) {
+            targetFrameRate = 60;
+            previewWidth = Math.min(640, canvasDimensions.width, Math.round(previewWidth * 1.12));
+          }
+          renderDurationTotal = 0;
+          renderSamples = 0;
+        }
+        rendering = false;
+      };
+      const advanceImageEffectClock = (now: number) => {
+        const clock = imageEffectPreviewClockRef.current;
+        if (!paused && clock.lastFrameAt) clock.seconds += Math.min(0.25, Math.max(0, (now - clock.lastFrameAt) / 1000));
+        clock.lastFrameAt = paused ? 0 : now;
+      };
       const tick = (now: number) => {
         if (cancelled) return;
         redrawPausedSource();
+        advanceImageEffectClock(now);
+        const hasImageEffects = imageEffectPassesForRef.current(previewLayerIds).length > 0;
+        if (rendering && paused) skippedWhileRendering = true;
+        const frameRate = hasImageEffects ? Math.min(targetFrameRate, IMAGE_EFFECT_PREVIEW_FRAME_RATE) : targetFrameRate;
         const shouldRender = workspaceActiveRef.current
           && projectWorkspaceActiveRef.current
           && inViewport
           && !document.hidden
           && !rendering
-          && framePacer.shouldDraw(now, targetFrameRate, paused);
-        if (shouldRender) {
-          rendering = true;
-          const renderStartedAt = performance.now();
-          try {
-            paintEffectPreview(images);
-          } catch {
-            // Safari can expose a shader canvas one paint before it becomes
-            // readable. Keep the last good converter frame and retry instead
-            // of leaving the preview loop permanently locked.
-            if (paused) pausedRedraw?.request();
-          }
-          renderDurationTotal = renderDurationTotal + performance.now() - renderStartedAt;
-          renderSamples = renderSamples + 1;
-          if (renderSamples >= 8) {
-            const averageDuration = renderDurationTotal / renderSamples;
-            if (averageDuration > 14) {
-              if (previewWidth > 360) previewWidth = Math.max(360, Math.round(previewWidth * 0.84));
-              else targetFrameRate = 30;
-            } else if (averageDuration < 9) {
-              targetFrameRate = 60;
-              previewWidth = Math.min(640, canvasDimensions.width, Math.round(previewWidth * 1.12));
-            }
-            renderDurationTotal = 0;
-            renderSamples = 0;
-          }
-          rendering = false;
-        }
+          && framePacer.shouldDraw(now, frameRate, paused);
+        if (shouldRender && hasImageEffects) paintImageEffectPreview(images);
+        else if (shouldRender) paintConverterPreview();
         if (!paused) animationFrame = requestAnimationFrame(tick);
       };
       if (paused && stageRef.current) {
@@ -8455,9 +6601,11 @@ export default function ShaderLabStudio({
     compositionImageSignature,
     composeFrameRef,
     effectPreviewOrderSignature,
+    imageEffectPassesForRef,
     loadCompositionImagesRef,
     paused,
     pausedEffectPreviewSignature,
+    resolvePreviewImageEffectsRef,
     visibleLayerIds,
   ]);
 
@@ -8521,14 +6669,32 @@ export default function ShaderLabStudio({
       if (!context) throw new Error('Canvas rendering is unavailable.');
       const images = await loadCompositionImages();
       assertFresh();
-      await withCapturedShaderImages(captures, (shaderImages) => {
+      const composeCaptured = (
+        target: CanvasRenderingContext2D,
+        layerIds: readonly CompositionLayerId[],
+        imageEffectOutputs?: ReadonlyMap<EffectLayerId, HTMLCanvasElement>
+      ) => withCapturedShaderImages(captures, (shaderImages) => {
         effectCaptureShaderImagesRef.current = shaderImages;
         try {
-          composeFrame(context, output.width, output.height, images);
+          composeFrame(target, output.width, output.height, images, layerIds, undefined, imageEffectOutputs);
         } finally {
           effectCaptureShaderImagesRef.current = null;
         }
       });
+      const imageEffectPool = createImageEffectProcessorPool();
+      try {
+        const imageEffectOutputs = await resolveExportImageEffects(
+          imageEffectPool,
+          output.width,
+          output.height,
+          timeMs / 1000,
+          (target, beneath, resolved) => composeCaptured(target, beneath, resolved)
+        );
+        assertFresh();
+        await composeCaptured(context, visibleLayerIds, imageEffectOutputs);
+      } finally {
+        imageEffectPool.dispose();
+      }
       const quality = normalizedExportSettings.quality === 'fast'
         ? 0.82
         : normalizedExportSettings.quality === 'best'
@@ -8624,6 +6790,7 @@ export default function ShaderLabStudio({
     setExporting(format);
     setExportError(null);
     studioExport.start(`Rendering ${motionMode === 'sequence' ? 'shader sequence ' : ''}${format.toUpperCase()} preview`, 0);
+    let disposeImageEffects: (() => void) | null = null;
     try {
       assertMotionIsSeekable(motionMode);
       const startedAt = performance.now();
@@ -8641,6 +6808,8 @@ export default function ShaderLabStudio({
       const context = output.getContext('2d', { willReadFrequently: format === 'gif' });
       if (!context) throw new Error('Canvas rendering is unavailable.');
       const images = await loadCompositionImages();
+      const imageEffectPool = createImageEffectProcessorPool();
+      disposeImageEffects = () => imageEffectPool.dispose();
       const renderFrame = async (frame: MotionFrame) => {
         const segment = motionMode === 'sequence'
           ? shaderSequenceSegmentAt(shaderSequenceTimeline, frame.timeMs)
@@ -8654,7 +6823,16 @@ export default function ShaderLabStudio({
           : null;
         await waitForCapturedFrame(frame, nextSequenceCapture);
         assertFresh();
-        composeFrame(context, output.width, output.height, images);
+        // Image effects take this frame's time, so effect motion follows the clip.
+        const imageEffectOutputs = await resolveExportImageEffects(
+          imageEffectPool,
+          output.width,
+          output.height,
+          frame.timeMs / 1000,
+          (target, beneath, resolved) => composeFrame(target, output.width, output.height, images, beneath, undefined, resolved)
+        );
+        assertFresh();
+        composeFrame(context, output.width, output.height, images, visibleLayerIds, undefined, imageEffectOutputs);
       };
       const sharedOptions = {
         canvas: output,
@@ -8695,6 +6873,7 @@ export default function ShaderLabStudio({
       setExportError(error instanceof Error ? error.message : `The ${format.toUpperCase()} could not be exported.`);
       return null;
     } finally {
+      disposeImageEffects?.();
       exportJobRef.current = false;
       sequenceCaptureRef.current = null;
       setSequenceCapture(null);
@@ -8731,7 +6910,90 @@ export default function ShaderLabStudio({
     return asset;
   }
 
+  /** Effect layers on the active artboard, front to back as stacked, with the image effects on offer. */
+  function describeEffectLayers() {
+    const statuses = imageEffectStatusStore.get();
+    return {
+      builtIn: COMPOSITION_EFFECT_PRESETS.map(({ description, kind, label }) => ({ description, kind, label })),
+      imageEffects: {
+        categories: DESIGN_LAB_IMAGE_EFFECT_CATEGORIES,
+        effects: DESIGN_LAB_IMAGE_EFFECTS.map(({ category, id, name }) => ({ category, id, name })),
+        controls: '/api/materials imageEffects.effects[].nativeControls',
+      },
+      layers: layerOrder.filter(isEffectLayerId).flatMap((layerId) => {
+        const layer = effectLayers.find(({ id }) => id === layerId);
+        if (!layer) return [];
+        const { effectId, effectProps, kind } = layer.settings;
+        return [{
+          id: layer.id,
+          name: layer.name,
+          opacity: layer.opacity,
+          visible: layer.visible,
+          ...(effectId
+            ? { effectId, effectProps: effectProps ?? {}, ...(statuses.get(layer.id) ? { status: statuses.get(layer.id) } : {}) }
+            : { kind }),
+        }];
+      }),
+    };
+  }
+
   const designAutomationRef = useCommittedRef({
+    layerAction: async (action: string, input: unknown) => {
+      assertShaderWorkspaceIdle();
+      const request = designLayerActionInput(action, input);
+      const surfaceIds = new Set<string>(layerOrder);
+      const ids = (request.layerIds ?? []).map((id) => {
+        if (!surfaceIds.has(id) || !isCanvasLayerId(id as CompositionLayerId)) throw new TypeError(`${id} is not a text, mark, image or shader layer on the active surface.`);
+        return id as CanvasLayerId;
+      });
+      if (action === 'design.layers.arrange') {
+        const unlocked = (ids.length ? ids : selectedCanvasLayerIds).filter((id) => !layerLocked(id));
+        if (!arrangeCanvasSelection(request.arrangement!, unlocked)) {
+          throw new Error('Choose at least two unlocked layers to align, or three to distribute.');
+        }
+      } else if (action === 'design.layers.lock') {
+        if (ids.length === 0) throw new TypeError('layerIds must list at least one layer.');
+        setLayersLocked(ids, request.locked!);
+      } else if (action === 'design.layers.copyStyle') {
+        if (!surfaceIds.has(request.layerId!) || !copyLayerStyle(request.layerId as CompositionLayerId)) {
+          throw new TypeError('layerId must identify a text, mark, image or shader layer on the active surface.');
+        }
+        return null;
+      } else if (pasteLayerStyle(ids) === 0) {
+        throw new Error('Copy a style first, then paste it onto unlocked layers.');
+      }
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      return null;
+    },
+    effectAction: async (action: string, input: unknown) => {
+      const request = designEffectActionInput(action, input);
+      if (action === 'design.effects.describe') return describeEffectLayers();
+      assertShaderWorkspaceIdle();
+      const target = action === 'design.effects.configure'
+        ? effectLayers.find(({ id }) => id === request.layerId && layerOrder.includes(id))
+        : undefined;
+      if (action === 'design.effects.configure' && !target) throw new TypeError('layerId must identify an Effect layer on the active artboard.');
+      const effectId = request.effectId ?? (request.kind ? undefined : target?.settings.effectId);
+      if (request.effectProps !== undefined) {
+        if (!effectId) throw new TypeError('This Effect layer uses a built-in converter. Set effectId to an image effect before effectProps.');
+        const { validateShaderEffectProps } = await loadShaderEffectsProps();
+        validateShaderEffectProps(effectId, request.effectProps);
+      }
+      let layerId = target?.id;
+      if (!target) {
+        layerId = addEffectLayer(request.kind ?? 'bayer', request.effectId ? { effectId: request.effectId, effectProps: request.effectProps } : undefined) ?? undefined;
+        if (!layerId) throw new Error('Effect layers apply to a whole artboard. Activate an artboard first.');
+      } else if (request.kind) {
+        selectEffectPreset(target, request.kind);
+      } else if (request.effectId) {
+        selectImageEffect(target, request.effectId, request.effectProps ?? {});
+      } else if (request.effectProps !== undefined) {
+        updateEffectLayer(target.id, { settings: { ...target.settings, effectProps: request.effectProps } });
+      }
+      if (request.opacity !== undefined) updateEffectLayer(layerId!, { opacity: request.opacity });
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      return { layerId };
+    },
     formatText: async (input: unknown) => {
       assertShaderWorkspaceIdle();
       if (!input || typeof input !== 'object' || Array.isArray(input)
@@ -8832,182 +7094,57 @@ export default function ShaderLabStudio({
     void exportStill(format);
   }
 
-  function renderLiveMaterial(application: ShaderApplication, instanceKey: string) {
-    const controlledTimeMs = captureTimeMs ?? (paused ? previewCaptureTimeMs : null);
-    const renderedApplication = sequenceCapture && instanceKey === `canvas-${sequenceCapture.layerId}`
-      ? sequenceCapture.application
-      : application;
-    const frozenSnapshot = paused && !sequencePreviewing && captureTimeMs === null && shaderFrameMatches(renderedApplication.frameSnapshot, renderedApplication)
-      ? renderedApplication.frameSnapshot : undefined;
-    const liveCanvas = !livePreviewRuntimeReady && captureTimeMs === null ? <ShaderSkeleton /> : (
-      <RestoredLiveMaterialCanvas
-        activeWhileMounted
-        captureTimeMs={controlledTimeMs}
-        className='absolute inset-0 size-full'
-        enabled={active}
-        frameRate={DESIGN_LAB_PREVIEW_FRAME_RATE}
-        frameState={renderedApplication.frameState}
-        key={instanceKey}
-        loopDurationMs={renderedApplication.frameState?.loopDurationMs ?? DEFAULT_EXPORT_SETTINGS.durationMs}
-        materialId={renderedApplication.materialId}
-        maxPixelCount={captureTimeMs === null
-          ? livePreviewPixelBudget
-          : Math.max(DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT, exportDimensions.width * exportDimensions.height)}
-        patternScale={clampShaderZoom(renderedApplication.shaderSize)}
-        paused={!active || paused || controlledTimeMs !== null}
-        previewChannel={instanceKey}
-        previewGroup='design-lab'
-        renderScale={captureTimeMs === null ? 1 : DESIGN_LAB_CAPTURE_SUPERSAMPLE}
-        restoreTimeMs={shaderTimelineRestore.pendingKeys.includes(instanceKey)
-          ? paused ? previewCaptureTimeMs : shaderTimelineRestore.timeMs : undefined}
-        holdRestoredPlayback={shaderTimelineRestoring}
-        onRestoreReady={() => finishShaderTimelineRestore(instanceKey, shaderTimelineRestore.revision)}
-        settings={renderedApplication.settings}
-      />
-    );
-    return <ShaderFrameImage key={`${instanceKey}:restore-${shaderTimelineRestore.revision}`} className='absolute inset-0 size-full' previewChannel={instanceKey} snapshot={frozenSnapshot}>{liveCanvas}</ShaderFrameImage>;
-  }
-
-  function renderShaderTimeExplorer() {
-    return <ShaderTimeExplorer
-      timeMs={previewTimeMs}
-      busy={frameCapturePending || Boolean(exporting) || sequencePreviewing || shaderTimelineRestoring}
-      canSeek={compositionCanSeek && compositionHasMotion}
-      capabilities={explorerCapabilities}
-      onLiveTime={(timeMs) => { previewTimeRef.current = timeMs; }}
-      onFreeze={freezeCurrentShaderFrame}
-      onCapture={() => void saveCurrentShaderFrame()}
-      onPlay={playShaderHistory}
-      onTimeChange={seekShaderTime}
-      onScrubStart={beginShaderTimeScrub}
-      onTimePreview={(timeMs) => {
-        previewLiveMaterialTime('design-lab', timeMs);
-        effectPreviewRedrawRef.current?.();
-      }}
-      playing={active && !paused && captureTimeMs === null}
-    />;
-  }
-
-  function renderStudioHeader() {
-    return (
-      <StudioToolHeader
-        layout='balanced'
-        actions={(
-          <>
-            <StudioToolbarGroup label='Design saving and versions'>
-              <DesignVersionHeaderControls />
-            </StudioToolbarGroup>
-            <StudioToolbarGroup label='Project files, code, and export'>
-              <StudioFileMenu sourceDisabled={portableDesignLab.source === null} onSource={() => setSourceOpen(true)}
-                project={{ disabled: Boolean(exporting) || frameCapturePending, open: applyCompositionSource, prepare: prepareProjectFile }} />
-            <StudioSelect
-              ariaLabel='Export size preset'
-              className='studio-export-preset'
-              disabled={Boolean(exporting) || frameCapturePending}
-              leadingIcon={<Frame aria-hidden='true' />}
-              onValueChange={(value) => updateExportSettings({ width: Number(value) })}
-              options={[
-                ...EXPORT_WIDTH_PRESETS.map(({ label, width }) => ({
-                  label, value: String(width),
-                })),
-                ...(!EXPORT_WIDTH_PRESETS.some(({ width }) => width === normalizedExportSettings.width)
-                  ? [{ label: 'Custom', value: String(normalizedExportSettings.width) }]
-                  : []),
-              ]}
-              value={String(normalizedExportSettings.width)}
-            />
-            {lastExport ? (
-              <ExportPreview
-                asset={lastExport}
-                configuration={(
-                  <DesignExportWorkspace
-                    disabled={Boolean(exporting)}
-                    format={exporting ?? lastExportRequest?.format ?? 'png'}
-                    onChange={updateExportSettings}
-                    onFormatChange={previewExportFormat}
-                    ratioOption={ratioOption}
-                    settings={normalizedExportSettings}
-                  />
-                )}
-                needsRefresh={previewNeedsRefresh}
-                projectFile={{ prepare: prepareProjectFile, open: applyCompositionSource, disabled: Boolean(exporting) || frameCapturePending }}
-                onRefresh={refreshExportPreview}
-                refreshKey={currentExportSettingsSignature}
-                refreshing={Boolean(exporting)}
-                triggerLabel='Export'
-              />
-            ) : (
-              <Button aria-label='Open export settings' disabled={Boolean(exporting)} loading={exporting === 'png'} onClick={() => void exportStill('png')} type='button'>
-                <Download aria-hidden='true' /><span className='responsive-toolbar-label'>Export</span>
-              </Button>
-            )}
-            <StudioErrorNotice error={exportError} onDismiss={() => setExportError(null)} title='Design action failed' />
-            </StudioToolbarGroup>
-          </>
-        )}
-        navigation={navigation}
-        navigationLabel='Design Lab view'
-        title={tool.name}
-        toolId={tool.id}
-      />
-    );
-  }
-
-  function renderPreviewQualityToggle() {
-    const index = DESIGN_LAB_PREVIEW_QUALITY_OPTIONS.findIndex(({ value }) => value === previewQuality.mode);
-    const current = DESIGN_LAB_PREVIEW_QUALITY_OPTIONS[Math.max(0, index)]!;
-    const next = DESIGN_LAB_PREVIEW_QUALITY_OPTIONS[(index + 1) % DESIGN_LAB_PREVIEW_QUALITY_OPTIONS.length]!;
-    const detail = previewQuality.automaticallyReduced ? 'Auto lowered resolution after slow frames.' : 'Exports always render at full size.';
-    return (
-      <>
-      <span className='canvas-toolbar-divider' />
-      <Button
-        aria-label='Live shader preview quality'
-        className='gap-1 px-2 text-xs'
-        data-preview-quality={previewQuality.quality}
-        onClick={() => studioRenderQualityStore.setMode(next.value)}
-        size='sm'
-        title={`Preview quality: ${current.label}. ${detail} Click for ${next.label}.`}
-        type='button'
-        variant='ghost'
-      >
-        <Gauge aria-hidden='true' />
-        <span>{current.label}</span>
-      </Button>
-      </>
-    );
-  }
-
-  function renderArtboardToolbar() {
-    return (
-      <StudioArtboardBar
-        activeArtboardId={activeArtboardId}
-        addLabel='Add blank artboard'
-        ariaLabel='Artboard workspace controls'
-        artboards={workspaceArtboards}
-        className='design-lab-artboard-bar'
-        dimensions={canvasDimensions}
-        unframed={editingCanvas}
-        duplicateLabel='Duplicate active artboard'
-        extraActions={(
-          <>
-            {editingCanvas && selectedCanvasLayerIds.length ? <Button aria-label='Create artboard from selection' onClick={() => void frameCanvasSelection()} size='sm' type='button' variant='outline'><Frame aria-hidden='true' /><span>Frame selection</span></Button> : null}
-            <Button aria-label='Edit loose canvas layers' aria-pressed={editingCanvas} onClick={() => { deselectCanvasLayers(); void activateArtboard(DESIGN_CANVAS_ID); }} size='sm' title='Add ideas anywhere outside your artboards' type='button' variant='ghost'><Move aria-hidden='true' /><span>Canvas</span></Button>
-            <Button aria-label='Artboard tutorial' aria-pressed={workspaceTourOpen} onClick={() => setWorkspaceTourOpen((value) => !value)} size='icon-sm' title='Artboard tutorial' type='button' variant='ghost'><Info aria-hidden='true' /></Button>
-          </>
-        )}
-        onAdd={() => addArtboard(false)}
-        onDimensionsChange={updateActiveArtboardDimensions}
-        onDuplicate={() => addArtboard(true)}
-        onRemove={removeActiveArtboard}
-        onRename={renameActiveArtboard}
-        onSelect={(id) => selectArtboardFromPicker(id as DesignArtboardId)}
-        removeLabel='Delete active artboard'
-        selectLabel='Active design artboard'
-        summary={<span aria-live='polite'>{canvasClipboardStatus ?? `${layerOrder.length} layer${layerOrder.length === 1 ? '' : 's'} · ${outputArtboards.length} artboard${outputArtboards.length === 1 ? '' : 's'}`}</span>}
-      />
-    );
-  }
+  const stageActions = useStableHandlers<DesignLabStageActions>({
+    deselectCanvasLayers,
+    finishLayerMove,
+    formatSelectedTextShortcut,
+    openCanvasSelectionMenu,
+    previewAssetCrop: (layerId, imageCrop) => {
+      previewStageLayerCrop(stageRef.current, layerId, imageCrop);
+      previewSelectedAssetLayer({ imageCrop });
+    },
+    registerEffectCanvas: (layerId, canvas) => {
+      if (canvas) effectCanvasRefs.current.set(layerId, canvas);
+      else effectCanvasRefs.current.delete(layerId);
+    },
+    rememberTextSelection,
+    selectCanvasAssembly,
+    setImageCropEditing,
+    undoRedo: (redo) => redo ? redoDesignCanvas() : undoDesignCanvas(),
+    updateAssetCrop: (layerId, imageCrop) => updateAssetLayer(layerId, { imageCrop }),
+    updateCanvasLayerTransform,
+    updateTextLayer,
+  });
+  const artboardActions = useStableHandlers<DesignLabArtboardActions>({
+    activateArtboard,
+    beginArtboardMove,
+    deselectCanvasLayers,
+    handleCanvasAssemblyKeyDown,
+    nudgeArtboard: (event, artboard) => void nudgeArtboard(event, artboard),
+    openArtboardMenu: (artboardId, position) => setArtboardMenu({ artboardId, position }),
+    queueArtboardLayer: (artboardId, layerId) => {
+      pendingArtboardLayerRef.current = layerId ? { artboardId, layerId } : null;
+    },
+  });
+  const restoreReadyHandlers = useStableHandlers({ finishShaderTimelineRestore });
+  const exportPixelCount = exportDimensions.width * exportDimensions.height;
+  const liveMaterialState = useMemo<DesignLabLiveMaterialState>(() => ({
+    active,
+    captureTimeMs,
+    defaultLoopDurationMs: DEFAULT_EXPORT_SETTINGS.durationMs,
+    exportPixelCount,
+    imageEffectStatusStore,
+    livePreviewPixelBudget,
+    livePreviewRuntimeReady,
+    onRestoreReady: restoreReadyHandlers.finishShaderTimelineRestore,
+    paused,
+    previewCaptureTimeMs,
+    sequenceCapture,
+    sequencePreviewing,
+    shaderTimelineRestore,
+    shaderTimelineRestoring,
+  }), [active, captureTimeMs, exportPixelCount, imageEffectStatusStore, livePreviewPixelBudget, livePreviewRuntimeReady, paused,
+    previewCaptureTimeMs, restoreReadyHandlers, sequenceCapture, sequencePreviewing, shaderTimelineRestore, shaderTimelineRestoring]);
 
   function renderShaderLibrary() {
     return (
@@ -9092,156 +7229,6 @@ export default function ShaderLabStudio({
     );
   }
 
-  function renderArtboardPreviewMaterial(
-    application: ShaderApplication,
-    instanceKey: string,
-    captureTimeMs = previewCaptureTimeMs
-  ) {
-    if (shaderFrameMatches(application.frameSnapshot, application)) {
-      return <ShaderFrameImage className='absolute inset-0 size-full' snapshot={application.frameSnapshot!} />;
-    }
-    return (
-      <LiveMaterialCanvas
-        captureTimeMs={captureTimeMs}
-        className='absolute inset-0 size-full'
-        enabled={active}
-        frameRate={24}
-        frameState={application.frameState}
-        key={instanceKey}
-        loopDurationMs={application.frameState?.loopDurationMs ?? DEFAULT_EXPORT_SETTINGS.durationMs}
-        materialId={application.materialId}
-        maxPixelCount={420_000}
-        patternScale={clampShaderZoom(application.shaderSize)}
-        paused
-        renderScale={0.72}
-        settings={application.settings}
-      />
-    );
-  }
-
-  function renderInactiveArtboardLayer(artboard: DesignArtboard, layerId: CompositionLayerId, index: number) {
-    const { snapshot } = artboard;
-    const artboardCaptureTimeMs = snapshot.timeline.timeMs ?? resolveMotionFrame(
-      normalizedExportSettings.durationMs,
-      normalizedExportSettings.fps,
-      snapshot.timeline.frame
-    ).timeMs;
-    const zIndex = 4 + index;
-    if (isEffectLayerId(layerId)) {
-      const layer = snapshot.effectLayers.find(({ id }) => id === layerId);
-      if (!layer?.visible) return null;
-      return (
-        <div className='shader-lab-v2-composition-effect' data-effect-kind={layer.settings.kind} key={layerId} style={{ zIndex }}>
-          {effectFrameMatches(layer.frameSnapshot, snapshot, layerId)
-            ? <ShaderFrameImage snapshot={layer.frameSnapshot} />
-            : <ShaderSkeleton state='unavailable' />}
-        </div>
-      );
-    }
-    if (isShaderLayerId(layerId)) {
-      const layer = snapshot.shaderLayers.find(({ id }) => id === layerId);
-      if (!layer?.visible) return null;
-      const transform = normalizeCanvasLayerTransform(layer.transform, DEFAULT_LAYER_TRANSFORM);
-      return (
-        <EditableCanvasLayer
-          {...layerGeometry(layerId, snapshot.dimensions)}
-          canvasHeight={snapshot.dimensions.height}
-          canvasWidth={snapshot.dimensions.width}
-          className='shader-lab-v2-composition-layer shader-lab-v2-composition-shader'
-          interactive={false}
-          key={layerId}
-          label={layer.name}
-          layerId={layerId}
-          onChange={() => undefined}
-          onDeselect={() => undefined}
-          onSelect={() => undefined}
-          resizeMode='box'
-          selected={false}
-          transform={transform}
-          zIndex={zIndex}
-        >
-          <div className='shader-lab-v2-canvas-material' data-shader-instance={`canvas-${layerId}`} key='content' style={{ mixBlendMode: shaderBlendStyle(layer.blendMode), opacity: layer.opacity }}>
-            {renderArtboardPreviewMaterial(layer, `canvas-${layerId}`, artboardCaptureTimeMs)}
-          </div>
-        </EditableCanvasLayer>
-      );
-    }
-    if (isTextLayerId(layerId)) {
-      const layer = snapshot.textLayers.find(({ id }) => id === layerId);
-      if (!layer?.visible) return null;
-      const transform = resolvedTextTransform(layer.transform);
-      return (
-        <EditableCanvasLayer
-          {...layerGeometry(layerId, snapshot.dimensions)}
-          allowContentInteraction
-          canvasHeight={snapshot.dimensions.height}
-          canvasWidth={snapshot.dimensions.width}
-          className='shader-lab-v2-composition-layer'
-          interactive={false}
-          key={layerId}
-          label={layer.name}
-          layerId={layerId}
-          onChange={() => undefined}
-          onDeselect={() => undefined}
-          onSelect={() => undefined}
-          resizeMode='box'
-          selected={false}
-          transform={transform}
-          zIndex={zIndex}
-        >
-          <CanvasTextLayerContent
-            application={snapshot.layerShaders[layerId]}
-            canvasHeight={snapshot.dimensions.height}
-            fontSizeCqw={resolveDesignLabFontSizeCqw(layer, snapshot.dimensions)}
-            identity={identity}
-            key='content'
-            layer={layer}
-            onChange={() => undefined}
-            onFocus={() => undefined}
-            renderMaterial={(application, instanceKey) => renderArtboardPreviewMaterial(application, instanceKey, artboardCaptureTimeMs)}
-          />
-        </EditableCanvasLayer>
-      );
-    }
-    const layer = isLogoLayerId(layerId)
-      ? snapshot.logos.find(({ id }) => id === layerId)
-      : snapshot.assets.find(({ id }) => id === layerId);
-    if (!layer?.visible) return null;
-    return (
-      <EditableCanvasLayer
-        {...layerGeometry(layerId, snapshot.dimensions)}
-        canvasHeight={snapshot.dimensions.height}
-        canvasWidth={snapshot.dimensions.width}
-        className='shader-lab-v2-composition-layer'
-        interactive={false}
-        key={layerId}
-        label={layer.name}
-        layerId={layerId}
-        onChange={() => undefined}
-        onDeselect={() => undefined}
-        onSelect={() => undefined}
-        selected={false}
-        transform={layer.transform}
-        zIndex={zIndex}
-      >
-        <ShaderMaskedMediaContent
-          application={snapshot.layerShaders[layerId as ContentLayerId]}
-          appearance={layer.appearance}
-          fallbackColor={isLogoLayerId(layerId) ? (layer as CompositionLogoLayer).color ?? '#FFFFFF' : '#FFFFFF'}
-          imageCrop={isAssetLayerId(layerId) ? (layer as CompositionAsset).imageCrop : undefined}
-          instanceKey={`content-${layerId}`}
-          key='content'
-          label={layer.name}
-          opacity={layer.opacity ?? 1}
-          preserveColors={isAssetLayerId(layerId)}
-          renderMaterial={(application, instanceKey) => renderArtboardPreviewMaterial(application, instanceKey, artboardCaptureTimeMs)}
-          url={layer.url}
-        />
-        {'kind' in layer && layer.kind === 'sticker' ? <StickerFinishOverlay finish={layer.stickerFinish} imageCrop={layer.imageCrop} key='finish' url={layer.url} /> : null}
-      </EditableCanvasLayer>
-    );
-  }
-
   function renderArtboard(artboard: DesignArtboard) {
     if (artboard.id === DESIGN_CANVAS_ID) return renderLooseCanvas(artboard);
     const selected = artboard.id === activeArtboardId;
@@ -9250,107 +7237,25 @@ export default function ShaderLabStudio({
       !pending
       || (pending.id === artboard.id && pending.signature === currentArtboardSignature)
     );
-    const snapshot = selectedReady ? currentArtboardSnapshot : artboard.snapshot;
-    const size = designArtboardDisplaySize(snapshot.dimensions, artboard.displayScale);
-    const ratioPresentation: DesignRatioOption = RATIO_OPTIONS.find(({ value }) => value === snapshot.ratio) ?? {
-      ...snapshot.dimensions,
-      label: 'Custom',
-      value: 'custom',
-    };
-    const previewLayerIds = snapshot.layerOrder.filter((layerId) => {
-      if (isShaderLayerId(layerId)) return snapshot.shaderLayers.some((layer) => layer.id === layerId && layer.visible);
-      if (isTextLayerId(layerId)) return snapshot.textLayers.some((layer) => layer.id === layerId && layer.visible);
-      if (isLogoLayerId(layerId)) return snapshot.logos.some((layer) => layer.id === layerId && layer.visible);
-      if (isAssetLayerId(layerId)) return snapshot.assets.some((layer) => layer.id === layerId && layer.visible);
-      return snapshot.effectLayers.some((layer) => layer.id === layerId && layer.visible);
-    });
     return (
-      <article
-        aria-current={selected ? 'true' : undefined}
-        aria-label={`${artboard.name} artboard`}
-        className='design-artboard-shell'
-        data-active={selected ? 'true' : 'false'}
-        data-artboard-id={artboard.id}
-        data-canvas-fit-target='true'
-        data-canvas-focus-target={selected ? 'true' : undefined}
-        data-canvas-interactive
-        data-studio-context-trigger='artboard'
+      <DesignLabArtboardFrame
+        actions={artboardActions}
+        active={active}
+        announcement={selectedReady ? canvasSelectionAnnouncement(selectedCanvasLayerIds.length, selectedCanvasGroup?.name) : undefined}
+        artboard={artboard}
+        defaultLoopDurationMs={DEFAULT_EXPORT_SETTINGS.durationMs}
+        exportDurationMs={normalizedExportSettings.durationMs}
+        exportFps={normalizedExportSettings.fps}
+        identity={identity}
         key={artboard.id}
-        onContextMenu={async (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          const position = {
-            ...contextMenuPositionFromEvent(event),
-            anchor: event.currentTarget.querySelector<HTMLButtonElement>('.design-artboard-label button'),
-          };
-          if (await activateArtboard(artboard.id)) setArtboardMenu({ artboardId: artboard.id, position });
-        }}
-        onPointerDownCapture={(event) => {
-          const target = event.target instanceof Element ? event.target : null;
-          if (event.button !== 0 || event.currentTarget.closest('[data-space-pressed="true"]')) return;
-          if (!selectedReady || target?.closest('.design-artboard-label')
-            || !target?.closest('.editable-canvas-layer, [data-canvas-selection-preserve]')) {
-            beginArtboardMove(event, artboard);
-          }
-        }}
-        onDoubleClickCapture={(event) => {
-          // Inert artboard previews cannot receive their own pointer events.
-          // Resolve their topmost layer by geometry, then select after hydration.
-          if (selectedReady || (event.target instanceof Element && event.target.closest('.design-artboard-label'))) return;
-          const layer = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[data-canvas-layer-id]')).reverse().find((node) => {
-            const bounds = node.getBoundingClientRect();
-            return event.clientX >= bounds.left && event.clientX <= bounds.right && event.clientY >= bounds.top && event.clientY <= bounds.bottom;
-          });
-          const layerId = layer?.dataset.canvasLayerId as CanvasLayerId | undefined;
-          if (!layerId) return;
-          event.preventDefault();
-          event.stopPropagation();
-          pendingArtboardLayerRef.current = { artboardId: artboard.id, layerId };
-          void activateArtboard(artboard.id).then((activated) => {
-            if (!activated) pendingArtboardLayerRef.current = null;
-          });
-        }}
-        style={{ height: size.height, left: artboard.x, top: artboard.y, width: size.width }}
+        materialId={selectedReady ? sequenceCapture?.materialId ?? editingShader?.materialId : undefined}
+        selected={selected}
+        selectedReady={selectedReady}
+        snapshot={selectedReady ? currentArtboardSnapshot : artboard.snapshot}
+        stageRef={selectedReady ? stageRef : undefined}
       >
-        <header
-          aria-label={`Drag ${artboard.name} artboard`}
-          className='design-artboard-label'
-          data-canvas-selection-preserve
-        >
-          <button
-            aria-keyshortcuts='Shift+F10'
-            aria-label={`Move ${artboard.name}. Drag, or use the arrow keys.`}
-            onKeyDown={(event) => nudgeArtboard(event, artboard)}
-            title='Drag to move · Arrow keys nudge · Shift moves farther'
-            type='button'
-          >
-            <Move aria-hidden='true' />
-            <span>{artboard.name}</span>
-          </button>
-          <span>{ratioPresentation.label} · {snapshot.layerOrder.length} layers</span>
-        </header>
-        <div
-          className={`shader-lab-v2-stage shader-lab-v2-stage-${snapshot.ratio}`}
-          data-material-id={selectedReady ? sequenceCapture?.materialId ?? editingShader?.materialId : undefined}
-          data-testid={selectedReady ? 'shader-lab-live-stage' : undefined}
-          onKeyDown={selectedReady ? handleCanvasAssemblyKeyDown : undefined}
-          onPointerDown={selectedReady ? (event) => {
-            if (event.button === 0) deselectCanvasLayers();
-          } : undefined}
-          ref={selectedReady ? stageRef : undefined}
-          style={{
-            aspectRatio: `${ratioPresentation.width} / ${ratioPresentation.height}`,
-            backgroundColor: snapshot.backgroundColor,
-          }}
-        >
-          <CanvasRenderBoundary keepAlive={selectedReady}>{() => selectedReady
-            ? visibleLayerIds.map(renderStageLayer)
-            : previewLayerIds.map((layerId, index) => renderInactiveArtboardLayer(artboard, layerId, index))}</CanvasRenderBoundary>
-          {selectedReady ? <span aria-live='polite' className='sr-only'>
-            {canvasSelectionAnnouncement(selectedCanvasLayerIds.length, selectedCanvasGroup?.name)}
-          </span> : null}
-        </div>
-      </article>
+        {selectedReady ? visibleLayerIds.map(renderStageLayer) : null}
+      </DesignLabArtboardFrame>
     );
   }
 
@@ -9359,6 +7264,11 @@ export default function ShaderLabStudio({
     const snapshot = ready ? currentArtboardSnapshot : surface.snapshot;
     const size = designArtboardDisplaySize(snapshot.dimensions);
     const layers = [...snapshot.assets, ...snapshot.logos, ...snapshot.textLayers, ...snapshot.shaderLayers];
+    const looseCaptureTimeMs = surface.snapshot.timeline.timeMs ?? resolveMotionFrame(
+      normalizedExportSettings.durationMs,
+      normalizedExportSettings.fps,
+      surface.snapshot.timeline.frame
+    ).timeMs;
     return <div className='design-loose-canvas' key={surface.id} style={{ left: surface.x, top: surface.y, ...size }}>
       <div className='shader-lab-v2-stage design-loose-stage' data-canvas-surface='canvas'
         data-testid={ready ? 'shader-lab-live-stage' : undefined} onKeyDown={ready ? handleCanvasAssemblyKeyDown : undefined}
@@ -9367,7 +7277,8 @@ export default function ShaderLabStudio({
           const layer = layers.find((layer) => layer.id === id);
           const box = layer ? designLayerWorldBounds(surface, layer) : { x: 0, y: 0, ...size };
           return <CanvasRenderBoundary key={id} bounds={{ left: box.x, top: box.y, width: box.width, height: box.height }}>
-            {() => renderInactiveArtboardLayer(surface, id, index)}
+            {() => <DesignLabArtboardPreviewLayer active={active} artboard={surface} captureTimeMs={looseCaptureTimeMs}
+              defaultLoopDurationMs={DEFAULT_EXPORT_SETTINGS.durationMs} identity={identity} index={index} layerId={id} />}
           </CanvasRenderBoundary>;
         })}
         {layers.filter(({ visible }) => visible).map((layer, index) => {
@@ -9389,423 +7300,157 @@ export default function ShaderLabStudio({
   }
 
   function renderStageLayer(layerId: CompositionLayerId, index: number) {
-    const zIndex = 4 + index;
-    if (isShaderLayerId(layerId)) {
-      const shaderLayer = shaderLayers.find((layer) => layer.id === layerId);
-      if (!shaderLayer) return null;
-      const geometry = layerGeometry(layerId, canvasDimensions);
-      const transform = normalizeCanvasLayerTransform(shaderLayer.transform, DEFAULT_LAYER_TRANSFORM);
-      return (
-        <EditableCanvasLayer
-          {...geometry}
-          canvasHeight={canvasDimensions.height}
-          canvasWidth={canvasDimensions.width}
-          className='shader-lab-v2-composition-layer shader-lab-v2-composition-shader'
-          key={layerId}
-          label={shaderLayer.name}
-          onMoveComplete={(point) => finishLayerMove(layerId, point)}
-          layerId={layerId}
-          movementBounds={movementBoundsFor(layerId)}
-          onChange={(nextTransform) => updateCanvasLayerTransform(layerId, nextTransform)}
-          onContextMenu={(event) => openCanvasSelectionMenu(layerId, event)}
-          onDeselect={deselectCanvasLayers}
-          onSelect={(additive) => selectCanvasAssembly(layerId, additive)}
-          resizeMode='box'
-          selected={selectedCanvasLayerIdSet.has(layerId)}
-          selectionMember={selectedCanvasLayerIdSet.has(layerId)}
-          showSelectionControls={selectedCanvasLayerIds.length <= 1}
-          transform={transform}
-          zIndex={zIndex}
-        >
-          <div
-            className='shader-lab-v2-canvas-material'
-            data-shader-instance={`canvas-${layerId}`}
-            key='content'
-            style={{
-              mixBlendMode: shaderBlendStyle(shaderLayer.blendMode),
-              opacity: shaderLayer.opacity,
-            }}
-          >
-            {renderLiveMaterial(shaderLayer, `canvas-${layerId}`)}
-          </div>
-        </EditableCanvasLayer>
-      );
-    }
-    if (isEffectLayerId(layerId)) {
-      const effectLayer = effectLayers.find((layer) => layer.id === layerId);
-      if (!effectLayer) return null;
-      return (
-        <canvas
-          aria-hidden='true'
-          className='shader-lab-v2-composition-effect'
-          data-effect-kind={effectLayer.settings.kind}
-          key={layerId}
-          ref={(canvas) => {
-            if (canvas) effectCanvasRefs.current.set(layerId, canvas);
-            else effectCanvasRefs.current.delete(layerId);
-          }}
-          style={{ zIndex }}
-        />
-      );
-    }
-
-    const geometry = layerGeometry(layerId, canvasDimensions);
-    if (isLogoLayerId(layerId)) {
-      const logoLayer = logoLayers.find((layer) => layer.id === layerId);
-      if (!logoLayer) return null;
-      const application = layerShaders[layerId];
-      return (
-        <EditableCanvasLayer
-          {...geometry}
-          canvasHeight={canvasDimensions.height}
-          canvasWidth={canvasDimensions.width}
-          className='shader-lab-v2-composition-layer'
-          key={layerId}
-          label={logoLayer.name}
-          onMoveComplete={(point) => finishLayerMove(layerId, point)}
-          layerId={layerId}
-          movementBounds={movementBoundsFor(layerId)}
-          onChange={(transform) => updateCanvasLayerTransform(layerId, transform)}
-          onContextMenu={(event) => openCanvasSelectionMenu(layerId, event)}
-          onDeselect={deselectCanvasLayers}
-          onSelect={(additive) => selectCanvasAssembly(layerId, additive)}
-          selected={selectedCanvasLayerIdSet.has(layerId)}
-          selectionMember={selectedCanvasLayerIdSet.has(layerId)}
-          showSelectionControls={selectedCanvasLayerIds.length <= 1}
-          transform={logoLayer.transform}
-          zIndex={zIndex}
-        >
-          <ShaderMaskedMediaContent
-            application={application}
-            appearance={logoLayer.appearance}
-            fallbackColor={logoLayer.color ?? '#FFFFFF'}
-            instanceKey={`content-${layerId}`}
-            key='content'
-            label={logoLayer.name}
-            opacity={logoLayer.opacity ?? 1}
-            renderMaterial={renderLiveMaterial}
-            url={logoLayer.url}
-          />
-        </EditableCanvasLayer>
-      );
-    }
-    if (isTextLayerId(layerId)) {
-      const textLayer = textLayers.find((layer) => layer.id === layerId);
-      if (!textLayer) return null;
-      const application = layerShaders[layerId];
-      const transform = resolvedTextTransform(textLayer.transform);
-      const textFontSizeCqw = resolveDesignLabFontSizeCqw(textLayer, canvasDimensions);
-      return (
-        <EditableCanvasLayer
-          {...geometry}
-          allowContentInteraction
-          canvasHeight={canvasDimensions.height}
-          canvasWidth={canvasDimensions.width}
-          className='shader-lab-v2-composition-layer'
-          key={layerId}
-          label={textLayer.name}
-          onMoveComplete={(point) => finishLayerMove(layerId, point)}
-          layerId={layerId}
-          movementBounds={movementBoundsFor(layerId)}
-          onChange={(nextTransform) => updateCanvasLayerTransform(layerId, nextTransform)}
-          onContextMenu={(event) => openCanvasSelectionMenu(layerId, event)}
-          onDeselect={deselectCanvasLayers}
-          onSelect={(additive) => selectCanvasAssembly(layerId, additive)}
-          resizeMode='box'
-          selected={selectedCanvasLayerIdSet.has(layerId)}
-          selectionMember={selectedCanvasLayerIdSet.has(layerId)}
-          showSelectionControls={selectedCanvasLayerIds.length <= 1}
-          transform={transform}
-          zIndex={zIndex}
-        >
-          <CanvasTextLayerContent
-            application={application}
-            canvasHeight={canvasDimensions.height}
-            fontSizeCqw={textFontSizeCqw}
-            identity={identity}
-            key='content'
-            layer={textLayer}
-            onChange={(value) => updateTextLayer(layerId, { value })}
-            onFocus={() => selectCanvasAssembly(layerId)}
-            onRichChange={(value, runs) => updateTextLayer(layerId, { value, runs })}
-            onSelectionChange={(range) => rememberTextSelection(layerId, range)}
-            onFormat={(format) => formatSelectedTextShortcut(layerId, format)}
-            onUndoRedo={(redo) => redo ? redoDesignCanvas() : undoDesignCanvas()}
-            renderMaterial={renderLiveMaterial}
-          />
-        </EditableCanvasLayer>
-      );
-    }
-    const asset = compositionAssets.find(({ id }) => id === layerId);
-    if (!asset) return null;
-    const application = layerShaders[layerId];
-    const cropEditing = cropEditingLayerId === layerId;
+    const layer = stageLayerById.get(layerId);
+    if (!layer) return null;
     return (
-      <EditableCanvasLayer
-        {...geometry}
-        allowContentInteraction={cropEditing}
-        canvasHeight={canvasDimensions.height}
-        canvasWidth={canvasDimensions.width}
-        className='shader-lab-v2-composition-layer'
-        cropEditing={cropEditing}
+      <DesignLabStageLayer
+        actions={stageActions}
+        application={isContentLayerId(layerId) ? layerShaders[layerId] : undefined}
+        canvasDimensions={canvasDimensions}
+        cropEditing={cropEditingLayerId === layerId}
+        identity={identity}
+        index={index}
         key={layerId}
-        label={asset.name}
-        onMoveComplete={(point) => finishLayerMove(layerId, point)}
-        layerId={layerId}
-        movementBounds={movementBoundsFor(layerId)}
-        onChange={(transform) => updateCanvasLayerTransform(layerId, transform)}
-        onContextMenu={(event) => openCanvasSelectionMenu(layerId, event)}
-        onDoubleClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          setImageCropEditing(layerId, true);
-        }}
-        onDeselect={deselectCanvasLayers}
-        onSelect={(additive) => selectCanvasAssembly(layerId, additive)}
-        resizeMode={normalizeImageCropSettings(asset.imageCrop).enabled ? 'box' : 'scale'}
-        selected={selectedCanvasLayerIdSet.has(layerId)}
-        selectionMember={selectedCanvasLayerIdSet.has(layerId)}
+        layer={layer}
+        liveState={liveMaterialState}
+        movementBounds={isCanvasLayerId(layerId) ? movementBoundsFor(layerId) : null}
+        selected={isCanvasLayerId(layerId) && selectedCanvasLayerIdSet.has(layerId)}
         showSelectionControls={selectedCanvasLayerIds.length <= 1}
-        transform={asset.transform}
-        zIndex={zIndex}
-      >
-        <ShaderMaskedMediaContent
-          application={application}
-          appearance={asset.appearance}
-          fallbackColor='#FFFFFF'
-          imageCrop={asset.imageCrop}
-          instanceKey={`content-${layerId}`}
-          key='content'
-          label={asset.name}
-          opacity={asset.opacity ?? 1}
-          preserveColors
-          renderMaterial={renderLiveMaterial}
-          url={asset.url}
-        />
-        {asset.kind === 'sticker' ? <StickerFinishOverlay finish={asset.stickerFinish} imageCrop={asset.imageCrop} key='finish' url={asset.url} /> : null}
-        {cropEditing ? (
-          <ImageCropEditorOverlay
-            crop={normalizeImageCropSettings(asset.imageCrop)}
-            key='crop-editor'
-            label={asset.name}
-            onChange={(imageCrop) => updateAssetLayer(layerId, { imageCrop })}
-            onDone={() => setImageCropEditing(layerId, false)}
-            onPreview={(imageCrop) => {
-              const layer = stageRef.current?.querySelector<HTMLElement>(`[data-canvas-layer-id="${CSS.escape(layerId)}"]`);
-              if (layer) applyImageCropPreviewStyles(layer, imageCrop);
-              previewSelectedAssetLayer({ imageCrop });
-            }}
-            sourcePreview={(
-              <>
-                <ShaderMaskedMediaContent
-                  application={application}
-                  appearance={asset.appearance}
-                  fallbackColor='#FFFFFF'
-                  instanceKey={`crop-source-${layerId}`}
-                  label={`${asset.name} crop source`}
-                  opacity={asset.opacity ?? 1}
-                  preserveColors
-                  renderMaterial={renderLiveMaterial}
-                  url={asset.url}
-                />
-                {asset.kind === 'sticker' ? <StickerFinishOverlay finish={asset.stickerFinish} url={asset.url} /> : null}
-              </>
-            )}
-            url={asset.url}
-          />
-        ) : null}
-      </EditableCanvasLayer>
+      />
     );
+  }
+
+  const layerRowActions = useStableHandlers<DesignLabLayerRowActions>({
+    duplicateLayer: (id) => void duplicateLayer(id),
+    moveLayer,
+    openCanvasSelectionMenu,
+    openLayerMenu: (layerId, position) => setLayerDockMenu({ layerId, position }),
+    removeLayer,
+    selectLayerFromStack,
+    toggleLayerLock,
+    toggleLayerVisibility,
+    updateTextValue: (id, value) => updateTextLayer(id, { value }),
+  });
+
+  function layerRowProps(layerId: CompositionLayerId, index: number): (DesignLabLayerRowProps & { key: string }) | null {
+    const layer = stageLayerById.get(layerId);
+    if (!layer) return null;
+    const orderIndex = layerOrder.indexOf(layerId);
+    return {
+      actions: layerRowActions,
+      appliedShader: isShaderLayerId(layerId) ? layer as CompositionShaderLayer : isContentLayerId(layerId) ? layerShaders[layerId] ?? null : null,
+      canMoveBackward: orderIndex !== 0,
+      canMoveForward: orderIndex !== layerOrder.length - 1,
+      groupName: isCanvasLayerId(layerId) ? groupForLayer(layerId)?.name : undefined,
+      identity,
+      index,
+      key: layerId,
+      kind: resolvedLayerKind(layerId),
+      label: layerLabel(layerId),
+      layer,
+      lazy: listedLayerIds.length >= DESIGN_LAB_LONG_LAYER_LIST,
+      locked: isCanvasLayerId(layerId) ? layerLocked(layerId) : undefined,
+      selected: selectedLayerId === layerId || (isCanvasLayerId(layerId) && selectedCanvasLayerIdSet.has(layerId)),
+      visible: layerVisible(layerId),
+    };
   }
 
   function renderDockLayer(layerId: CompositionLayerId, index: number) {
-    const layerIsVisible = layerVisible(layerId);
-    const orderIndex = layerOrder.indexOf(layerId);
-    const { assetLayer, effectLayer, logoLayer, shaderLayer, textLayer } = resolveLayerDockLayers(
-      layerId,
-      { assets: compositionAssets, effects: effectLayers, logos: logoLayers, shaders: shaderLayers, text: textLayers }
-    );
-    const appliedShader = resolveLayerDockShader(layerId, shaderLayer, layerShaders);
-    const layerGroup = isCanvasLayerId(layerId) ? groupForLayer(layerId) : null;
-    const textAppearance = textLayer ? resolvedTextAppearance(textLayer) : null;
-    const previewUrl = logoLayer?.url ?? assetLayer?.url;
-    const imageCrop = assetLayer?.imageCrop;
-    const stickerLayer = isStickerLayer(assetLayer, textLayer);
-    const selected = selectedLayerId === layerId
-      || (isCanvasLayerId(layerId) && selectedCanvasLayerIdSet.has(layerId));
-    return (
-      <StudioPreviewTooltip
-        description={layerDockTooltipDescription({ appliedShader, effectLayer, layerId, sticker: stickerLayer, textLayer })}
-        eyebrow={`${String(index + 1).padStart(2, '0')} · ${resolvedLayerKind(layerId)}`}
-        key={layerId}
-        meta={`${layerIsVisible ? 'Visible' : 'Hidden'}${layerGroup ? ` · ${layerGroup.name}` : ''} · Right-click for actions`}
-        preview={(
-          <LayerDockTooltipPreview
-            appliedShader={appliedShader}
-            effectLayer={effectLayer}
-            identity={identity}
-            imageCrop={imageCrop}
-            previewUrl={previewUrl}
-            textAppearance={textAppearance}
-            textLayer={textLayer}
-          />
-        )}
-        title={layerLabel(layerId)}
-      >
-        <div
-          aria-label={`${layerLabel(layerId)} layer`}
-          className='shader-lab-v2-dock-layer'
-          data-kind={resolvedLayerKind(layerId).toLocaleLowerCase().replaceAll(' ', '-')}
-          data-material={appliedShader ? 'true' : 'false'}
-          data-selected={selected ? 'true' : 'false'}
-          data-studio-context-trigger='layer'
-          data-visible={layerIsVisible}
-          onContextMenu={(event) => {
-            if (isCanvasLayerId(layerId)) {
-              openCanvasSelectionMenu(layerId, event);
-              return;
-            }
-            event.preventDefault();
-            event.stopPropagation();
-            selectLayerFromStack(layerId);
-            setLayerDockMenu({ layerId, position: contextMenuPositionFromEvent(event) });
-          }}
-          role='group'
-        >
-        <button
-          aria-keyshortcuts='Shift+F10'
-          className='shader-lab-v2-dock-layer-select'
-          onClick={() => selectLayerFromStack(layerId)}
-          onKeyDown={(event) => {
-            if (!((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu')) return;
-            event.preventDefault();
-            if (isCanvasLayerId(layerId)) {
-              event.currentTarget.dispatchEvent(new MouseEvent('contextmenu', {
-                bubbles: true,
-                clientX: event.currentTarget.getBoundingClientRect().left + 24,
-                clientY: event.currentTarget.getBoundingClientRect().top + 24,
-              }));
-              return;
-            }
-            selectLayerFromStack(layerId);
-            setLayerDockMenu({ layerId, position: contextMenuPositionFromElement(event.currentTarget) });
-          }}
-          title={`Select ${layerLabel(layerId)}`}
-          type='button'
-        >
-          <span className='shader-lab-v2-dock-layer-icon'><CanvasLayerKindIcon layerId={layerId} sticker={stickerLayer} /></span>
-          <span className='shader-lab-v2-dock-layer-copy'>
-            <strong>{layerLabel(layerId)}</strong>
-            <small>{String(index + 1).padStart(2, '0')} · {resolvedLayerKind(layerId)}{layerGroup ? ` · ${layerGroup.name}` : ''}</small>
-          </span>
-        </button>
-        <div className='shader-lab-v2-dock-layer-preview'>
-          {appliedShader ? (
-            <span className='shader-lab-v2-dock-material-frame'>
-              <AuthenticShaderPreview materialId={appliedShader.materialId} settings={appliedShader.settings} />
-            </span>
-          ) : null}
-          {textLayer ? (
-            <TextLayerDockPreview layer={textLayer} identity={identity} onSelect={() => selectLayerFromStack(textLayer.id)}
-              onChange={(value) => updateTextLayer(textLayer.id, { value })} />
-          ) : (
-            <LayerDockStaticPreview effectLayer={effectLayer} imageCrop={imageCrop} label={layerLabel(layerId)} onSelect={() => selectLayerFromStack(layerId)} previewUrl={previewUrl} />
-          )}
-        </div>
-        <div className='shader-lab-v2-dock-layer-actions'>
-          <button aria-label={`Duplicate ${layerLabel(layerId)}`} onClick={() => duplicateLayer(layerId)} title='Duplicate' type='button'><Copy aria-hidden='true' /></button>
-          <button aria-label={`Move ${layerLabel(layerId)} forward`} disabled={orderIndex === layerOrder.length - 1} onClick={() => moveLayer(layerId, 1)} title='Move forward' type='button'><ArrowUp aria-hidden='true' /></button>
-          <button aria-label={`Move ${layerLabel(layerId)} backward`} disabled={orderIndex === 0} onClick={() => moveLayer(layerId, -1)} title='Move backward' type='button'><ArrowDown aria-hidden='true' /></button>
-          <button aria-label={`${layerIsVisible ? 'Hide' : 'Show'} ${layerLabel(layerId)}`} aria-pressed={layerIsVisible} onClick={() => toggleLayerVisibility(layerId)} title={layerIsVisible ? 'Hide layer' : 'Show layer'} type='button'>{layerIsVisible ? <Eye aria-hidden='true' /> : <EyeOff aria-hidden='true' />}</button>
-          <button aria-label={`Delete ${layerLabel(layerId)}`} onClick={() => removeLayer(layerId)} title='Delete' type='button'><Trash2 aria-hidden='true' /></button>
-        </div>
-        </div>
-      </StudioPreviewTooltip>
-    );
+    const props = layerRowProps(layerId, index);
+    if (!props) return null;
+    const { key, ...rowProps } = props;
+    return <DesignLabDockLayer key={key} {...rowProps} />;
   }
 
   function renderInspectorLayer(layerId: CompositionLayerId, index: number) {
-    const layerIsVisible = layerVisible(layerId);
-    const { assetLayer, effectLayer, logoLayer, shaderLayer, textLayer } = resolveLayerDockLayers(
-      layerId,
-      { assets: compositionAssets, effects: effectLayers, logos: logoLayers, shaders: shaderLayers, text: textLayers }
-    );
-    const appliedShader = resolveLayerDockShader(layerId, shaderLayer, layerShaders);
-    const layerGroup = isCanvasLayerId(layerId) ? groupForLayer(layerId) : null;
-    const textAppearance = textLayer ? resolvedTextAppearance(textLayer) : null;
-    const previewUrl = logoLayer?.url ?? assetLayer?.url;
-    const stickerLayer = isStickerLayer(assetLayer, textLayer);
-    const selected = selectedLayerId === layerId
-      || (isCanvasLayerId(layerId) && selectedCanvasLayerIdSet.has(layerId));
-    const openLayerMenu = (event: ReactMouseEvent<HTMLDivElement>) => {
-      if (isCanvasLayerId(layerId)) {
-        openCanvasSelectionMenu(layerId, event);
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      selectLayerFromStack(layerId);
-      setLayerDockMenu({ layerId, position: contextMenuPositionFromEvent(event) });
-    };
-    return (
-      <StudioPreviewTooltip
-        description={layerDockTooltipDescription({ appliedShader, effectLayer, layerId, sticker: stickerLayer, textLayer })}
-        eyebrow={`${String(index + 1).padStart(2, '0')} · ${resolvedLayerKind(layerId)}`}
-        key={layerId}
-        meta={`${layerIsVisible ? 'Visible' : 'Hidden'}${layerGroup ? ` · ${layerGroup.name}` : ''}`}
-        preview={(
-          <LayerDockTooltipPreview
-            appliedShader={appliedShader}
-            effectLayer={effectLayer}
-            identity={identity}
-            imageCrop={assetLayer?.imageCrop}
-            previewUrl={previewUrl}
-            textAppearance={textAppearance}
-            textLayer={textLayer}
-          />
-        )}
-        title={layerLabel(layerId)}
-      >
-        <div
-          className='design-layer-inspector-row'
-          data-selected={selected ? 'true' : 'false'}
-          data-studio-context-trigger='layer'
-          data-visible={layerIsVisible ? 'true' : 'false'}
-          onContextMenu={openLayerMenu}
-          role='listitem'
-        >
-          <button
-            aria-keyshortcuts='Shift+F10'
-            className='design-layer-inspector-select'
-            onClick={() => selectLayerFromStack(layerId)}
-            onKeyDown={(event) => {
-              if (!((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu')) return;
-              event.preventDefault();
-              event.currentTarget.parentElement?.dispatchEvent(new MouseEvent('contextmenu', {
-                bubbles: true,
-                clientX: event.currentTarget.getBoundingClientRect().left + 24,
-                clientY: event.currentTarget.getBoundingClientRect().top + 18,
-              }));
-            }}
-            type='button'
-          >
-            <span><CanvasLayerKindIcon layerId={layerId} sticker={stickerLayer} /></span>
-            <span><strong>{layerLabel(layerId)}</strong><small>{String(index + 1).padStart(2, '0')} · {resolvedLayerKind(layerId)}{layerGroup ? ` · ${layerGroup.name}` : ''}</small></span>
-          </button>
-          <button
-            aria-label={`${layerIsVisible ? 'Hide' : 'Show'} ${layerLabel(layerId)}`}
-            aria-pressed={layerIsVisible}
-            className='design-layer-inspector-visibility'
-            onClick={() => toggleLayerVisibility(layerId)}
-            title={layerIsVisible ? 'Hide layer' : 'Show layer'}
-            type='button'
-          >
-            {layerIsVisible ? <Eye aria-hidden='true' /> : <EyeOff aria-hidden='true' />}
-          </button>
-        </div>
-      </StudioPreviewTooltip>
-    );
+    const props = layerRowProps(layerId, index);
+    if (!props) return null;
+    const { key, ...rowProps } = props;
+    return <DesignLabInspectorLayer key={key} {...rowProps} />;
   }
+
+  const inspectorActions = useStableHandlers<DesignLabInspectorActions>({
+    activateArtboard: (id) => {
+      deselectCanvasLayers();
+      void activateArtboard(id as DesignArtboardId, true);
+    },
+    addArtboard: (duplicate) => void addArtboard(duplicate),
+    addBrandMarkLayer: () => addBrandMarkLayer(),
+    addCanvasShader: () => addCanvasShader(),
+    addEffectLayer: () => addEffectLayer(),
+    addTextLayer: () => addTextLayer(),
+    arrangeArtboards: () => arrangeArtboards(),
+    clearTextRange,
+    copySetup: () => void copySetup(),
+    openImageImport: (placementMode) => openImageImport([], placementMode),
+    previewCanvasBackground,
+    previewEffectLayer,
+    previewSelectedContentOpacity,
+    previewSelectedImageCrop,
+    previewSelectedLogoAppearance,
+    previewSelectedShaderOpacity,
+    previewSelectedShaderSetting,
+    previewSelectedShaderSize,
+    previewSelectedStickerFinish,
+    previewSelectedTextAppearance,
+    previewSelectedTextLayer,
+    previewSelectedTextWidth,
+    rememberTextSelection,
+    removeActiveArtboard: () => removeActiveArtboard(),
+    removeShaderFromSelectedContent: () => removeShaderFromSelectedContent(),
+    renameActiveArtboard,
+    resetAssetTransform: (id) => updateAssetTransform(id, DEFAULT_LAYER_TRANSFORM),
+    resetLogoTransform: (id) => updateLogoTransform(id, DEFAULT_LAYER_TRANSFORM),
+    selectConvertedLogo,
+    selectEffectPreset,
+    selectImageEffect: (layer, effectId) => selectImageEffect(layer, effectId),
+    setImageCropAspect: (id, value) => void setImageCropAspect(id, value),
+    setImageCropEditing,
+    toggleWorkspaceTour: () => setWorkspaceTourOpen((value) => !value),
+    updateActiveArtboardDimensions,
+    updateAssetLayer,
+    updateCanvasBackground,
+    updateCanvasLayerTransform,
+    updateEffectLayer,
+    updateLogoLayer,
+    updateSelectedShader,
+    updateSetting,
+    updateTextFormatting,
+    updateTextLayer,
+  });
+  const inspectorComposition = useMemo(() => ({
+    effectCount: effectLayers.length,
+    listedLayerCount: listedLayerIds.length,
+    logoCount: logoLayers.length,
+    placedImageCount: compositionAssets.filter(({ kind }) => kind !== 'sticker').length,
+    savedAssetCount: identity.assets.length + identity.proofAssets.length,
+    shaderCount: shaderLayers.length,
+    stickerCount: compositionAssets.filter(({ kind }) => kind === 'sticker').length + textLayers.filter(({ kind }) => kind === 'sticker').length,
+    textCount: textLayers.filter(({ kind }) => kind !== 'sticker').length,
+    visibleLayerCount: visibleLayerIds.length,
+    visibleShaderCount: shaderLayers.filter(({ visible }) => visible).length,
+  }), [compositionAssets, effectLayers.length, identity.assets.length, identity.proofAssets.length, listedLayerIds.length,
+    logoLayers.length, shaderLayers, textLayers, visibleLayerIds.length]);
+  const inspectorArtboardsSignature = outputArtboards.map(({ id, name, snapshot }) => (
+    `${id}\u0000${name}\u0000${snapshot.dimensions.width}x${snapshot.dimensions.height}\u0000${snapshot.layerOrder.length}`
+  )).join('\u0001');
+  const inspectorArtboards = useMemo<DesignLabInspectorArtboard[]>(() => outputArtboards.map((artboard) => ({
+    id: artboard.id,
+    layerCount: artboard.snapshot.layerOrder.length,
+    name: resolvedDesignArtboardName(artboard.name),
+    sizeLabel: studioArtboardPresetForSize(artboard.snapshot.dimensions.width, artboard.snapshot.dimensions.height)?.label ?? 'Custom',
+  // The signature covers every displayed field; the artboard list changes with each edit.
+  })), [inspectorArtboardsSignature]);
+  const inspectorLayerRows = useMemo(
+    () => [...listedLayerIds].reverse().map(renderInspectorLayer),
+    // renderInspectorLayer reads only these values and stable row actions.
+    [hiddenLayerKey, identity, layerGroupByLayerId, layerOrder, layerShaders, listedLayerKey, selectedCanvasLayerIdSet, selectedLayerId, stageLayerById]
+  );
+  const convertedAssets = useMemo(() => convertedAssetLibrary, [
+    convertedAssetLibrary.assets,
+    convertedAssetLibrary.busy,
+    convertedAssetLibrary.error,
+  ]);
 
   function renderCanvasSelectionMenu() {
     const selectedAssetId = selectedAsset?.id;
@@ -9826,11 +7471,17 @@ export default function ShaderLabStudio({
             onSelect: () => void moveLayersToSurface(board.id),
           })),
         ] }}
+        arrangeUnitCount={selectionUnits().length}
         onAlign={alignCanvasAssembly}
+        onArrange={(arrangement) => { arrangeCanvasSelection(arrangement); }}
         onBringForward={() => moveCanvasSelection(1)}
         onBringToFront={() => moveCanvasSelectionToEdge('front')}
         onClose={() => setSelectionMenuPosition(null)}
+        canPasteStyle={Boolean(styleClipboardRef.current)}
         onCopy={() => void copyDesignLabSelectionFromMenu()}
+        onCopyStyle={() => { copyLayerStyle(); }}
+        onPasteStyle={() => { pasteLayerStyle(); }}
+        onToggleLock={toggleSelectionLock}
         onCrop={selectedAssetId ? () => setImageCropEditing(selectedAssetId, !cropEditing) : undefined}
         onCut={() => void cutDesignLabSelectionFromMenu(removeCanvasSelection)}
         onDelete={removeCanvasSelection}
@@ -9852,15 +7503,239 @@ export default function ShaderLabStudio({
     );
   }
 
+  const headerActions = useStableHandlers<DesignLabHeaderActions>({
+    applyCompositionSource,
+    dismissExportError: () => setExportError(null),
+    exportPng: () => void exportStill('png'),
+    openSource: () => setSourceOpen(true),
+    prepareProjectFile,
+    previewExportFormat,
+    refreshExportPreview,
+    updateExportSettings,
+  });
+  const artboardToolbarActions = useStableHandlers<DesignLabArtboardToolbarActions>({
+    addArtboard: (duplicate) => void addArtboard(duplicate),
+    editLooseCanvas: () => {
+      deselectCanvasLayers();
+      void activateArtboard(DESIGN_CANVAS_ID);
+    },
+    frameCanvasSelection: () => void frameCanvasSelection(),
+    removeActiveArtboard: () => removeActiveArtboard(),
+    renameActiveArtboard,
+    selectArtboardFromPicker: (id) => selectArtboardFromPicker(id as DesignArtboardId),
+    toggleWorkspaceTour: () => setWorkspaceTourOpen((value) => !value),
+    updateActiveArtboardDimensions,
+  });
+  const motionActions = useStableHandlers<DesignLabMotionStripActions>({
+    beginShaderTimeScrub,
+    closeMotionWorkspace: () => setMotionWorkspaceOpen(false),
+    exportShaderSequence: () => void exportMotion('mp4', 'sequence'),
+    freezeCurrentShaderFrame,
+    playShaderHistory,
+    previewShaderSequence,
+    previewTime: (timeMs) => {
+      previewLiveMaterialTime('design-lab', timeMs);
+      effectPreviewRedrawRef.current?.();
+    },
+    rememberLiveTime: (timeMs) => { previewTimeRef.current = timeMs; },
+    saveCurrentShaderFrame: () => void saveCurrentShaderFrame(),
+    seekShaderTime,
+    shuffleShaderSequence: () => updateShaderSequenceSettings({ sequenceOffset: normalizedShaderSequenceSettings.sequenceOffset + 1 }),
+    toggleMotionWorkspace: () => setMotionWorkspaceOpen((value) => !value),
+    updateShaderSequenceSettings,
+  });
+  const dockActions = useStableHandlers<DesignLabLayerDockActions>({
+    addBrandMarkLayer: () => addBrandMarkLayer(),
+    addCanvasShader: () => addCanvasShader(),
+    addEffectLayer: () => addEffectLayer(),
+    addLogoFiles: (files) => void addLogoFiles(files),
+    addTextLayer: () => addTextLayer(),
+    openImageImport: (files, placementMode) => openImageImport(files, placementMode),
+  });
+  const viewportActions = useStableHandlers({
+    arrangeArtboards: () => arrangeArtboards(),
+    backgroundClick: (point: { x: number; y: number }) => { void activateCanvasAtPoint(point); },
+    deselectCanvasLayers: () => deselectCanvasLayers(),
+  });
+  const dockLayerRows = useMemo(
+    () => [...listedLayerIds].reverse().map(renderDockLayer),
+    // renderDockLayer reads only these values and stable row actions.
+    [hiddenLayerKey, identity, layerGroupByLayerId, layerOrder, layerShaders, listedLayerKey, selectedCanvasLayerIdSet, selectedLayerId, stageLayerById]
+  );
+  const artboardNamesSignature = workspaceArtboards.map(({ id, name }) => `${id}\u0000${name}`).join('\u0001');
+  const artboardPickerOptions = useMemo(
+    () => workspaceArtboards.map(({ id, name }) => ({ id, name })),
+    // The signature covers every field the picker shows.
+    [artboardNamesSignature]
+  );
+  const artboardSummary = `${layerOrder.length} layer${layerOrder.length === 1 ? '' : 's'} · ${outputArtboards.length} artboard${outputArtboards.length === 1 ? '' : 's'}`;
+  const toggleShortcuts = useCallback(() => setShortcutsOpen((open) => !open), []);
+  const closeShortcuts = useCallback(() => setShortcutsOpen(false), []);
+  const previewQualityToggle = useMemo(() => (
+    <>
+      <span className='canvas-toolbar-divider' />
+      <DesignLabPreviewQualityToggle
+        automaticallyReduced={previewQuality.automaticallyReduced}
+        mode={previewQuality.mode}
+        quality={previewQuality.quality}
+      />
+      <DesignLabShortcutsButton onToggle={toggleShortcuts} open={shortcutsOpen} />
+    </>
+  ), [previewQuality.automaticallyReduced, previewQuality.mode, previewQuality.quality, shortcutsOpen, toggleShortcuts]);
+  const navigationItems = useMemo(() => workspaceArtboards.flatMap((artboard) => artboard.id === DESIGN_CANVAS_ID
+    ? [...artboard.snapshot.assets, ...artboard.snapshot.logos, ...artboard.snapshot.textLayers, ...artboard.snapshot.shaderLayers]
+      .filter(({ visible }) => visible).map((layer) => ({ id: `canvas-${layer.id}`, label: layer.name,
+        ...designLayerWorldBounds(artboard, layer), active: editingCanvas && selectedCanvasLayerIds.includes(layer.id) }))
+    : [{
+    id: artboard.id,
+    label: artboard.name,
+    x: artboard.x,
+    y: artboard.y,
+    ...designArtboardDisplaySize(artboard.snapshot.dimensions, artboard.displayScale),
+    active: artboard.id === activeArtboardId,
+  }]), [activeArtboardId, editingCanvas, selectedCanvasLayerIds, workspaceArtboards]);
+  const imageAssetLibrary = useMemo(
+    () => [...identity.assets, ...identity.proofAssets],
+    [identity.assets, identity.proofAssets]
+  );
+
+  function renderMotionStrip() {
+    return (
+      <DesignLabMotionStrip
+        actions={motionActions}
+        busy={frameCapturePending || Boolean(exporting) || sequencePreviewing || shaderTimelineRestoring}
+        canSeek={compositionCanSeek && compositionHasMotion}
+        capabilities={explorerCapabilities}
+        exporting={Boolean(exporting)}
+        motionWorkspaceOpen={motionWorkspaceOpen}
+        playing={active && !paused && captureTimeMs === null}
+        sequenceDurationMs={shaderSequenceDuration}
+        sequenceMaterialIds={sequenceMaterialIds}
+        sequencePreviewing={sequencePreviewing}
+        sequenceSettings={normalizedShaderSequenceSettings}
+        sequenceTargetOptions={sequenceTargetOptions}
+        timeMs={previewTimeMs}
+      />
+    );
+  }
+
+  function renderWorkspaceMenus() {
+    return (
+      <>
+        {artboardMenu ? <DesignArtboardContextMenu
+          activeArtboardId={activeArtboardId}
+          artboards={workspaceArtboards}
+          menu={artboardMenu}
+          onArrange={arrangeArtboards}
+          onClose={() => setArtboardMenu(null)}
+          onCopy={() => {
+            deselectCanvasLayers();
+            void copyDesignLabSelectionFromMenu(true);
+          }}
+          onDelete={removeActiveArtboard}
+          onDuplicate={() => addArtboard(true)}
+          onFocus={(id) => activateArtboard(id, true)}
+          onNew={() => addArtboard(false)}
+          onPaste={() => void pasteDesignLabSelectionFromMenu()}
+        /> : null}
+        {layerDockMenu ? <LayerDockContextMenu
+          canPasteStyle={Boolean(styleClipboardRef.current)}
+          layerKind={resolvedLayerKind}
+          layerLabel={layerLabel}
+          layerLocked={layerLocked}
+          layerOrder={layerOrder}
+          layerVisible={layerVisible}
+          menu={layerDockMenu}
+          onClose={() => setLayerDockMenu(null)}
+          onCopy={(id) => {
+            selectLayerFromStack(id);
+            void copyDesignLabSelectionFromMenu(false, [id]);
+          }}
+          onCopyStyle={(id) => { copyLayerStyle(id); }}
+          onCut={(id) => {
+            selectLayerFromStack(id);
+            void cutDesignLabSelectionFromMenu(() => removeLayer(id), [id]);
+          }}
+          onPasteStyle={(id) => { pasteLayerStyle([id]); }}
+          onToggleLock={toggleLayerLock}
+          onDelete={removeLayer}
+          onDuplicate={duplicateLayer}
+          onMove={moveLayer}
+          onMoveToEdge={moveLayerToEdge}
+          onPaste={() => void pasteDesignLabSelectionFromMenu()}
+          onToggleVisibility={toggleLayerVisibility}
+        /> : null}
+        {selectedCanvasLayerIds.length > 1 && selectedCanvasBounds ? (
+          <CanvasSelectionAssemblyOverlay
+            bounds={selectedCanvasBounds}
+            canvasHeight={canvasDimensions.height}
+            canvasWidth={canvasDimensions.width}
+            label={selectedCanvasGroup?.name ?? `${selectedCanvasLayerIds.length} layers`}
+            stageRef={stageRef}
+          />
+        ) : null}
+        {selectionMenuPosition ? renderCanvasSelectionMenu() : null}
+      </>
+    );
+  }
+
+  function renderStudioDialogs() {
+    return (
+      <>
+        {renderSourceEditor()}
+        {imageImportOpen ? <ImageAssetModal
+          assets={imageAssetLibrary}
+          busy={imageImportState.status === 'importing'}
+          error={imageImportError}
+          onClose={() => {
+            if (imageImportState.status === 'importing') return;
+            setImageImportOpen(false);
+            setImageImportRequest(null);
+            setImageImportError(null);
+          }}
+          onCreateTextSticker={() => {
+            addTextLayer('sticker');
+            setImageImportOpen(false);
+            setImageImportRequest(null);
+            setImageImportState({ message: 'Added an editable text sticker.', status: 'success' });
+          }}
+          onDelete={deleteSavedAsset}
+          onImport={importAndSaveImages}
+          onPlace={placeSavedAsset}
+          open={imageImportOpen}
+          placementMode={imagePlacementMode}
+          request={imageImportRequest}
+        /> : null}
+      </>
+    );
+  }
+
   function renderStudio() {
     return (
     <div
       className='shader-lab-v2 tool-shell h-full min-h-0'
       onKeyDownCapture={beginCanvasHistoryKey}
       onPointerDownCapture={beginCanvasHistoryPointer}
+      onPointerEnter={() => { pointerInEditorRef.current = true; }}
+      onPointerLeave={() => { pointerInEditorRef.current = false; }}
       ref={studioRootRef}
     >
-      {renderStudioHeader()}
+      <DesignLabHeader
+        actions={headerActions}
+        currentExportSettingsSignature={lastExport ? currentExportSettingsSignature : ''}
+        exportError={exportError}
+        exporting={exporting}
+        frameCapturePending={frameCapturePending}
+        lastExport={lastExport}
+        lastExportFormat={lastExportRequest?.format ?? null}
+        navigation={navigation}
+        normalizedExportSettings={normalizedExportSettings}
+        previewNeedsRefresh={previewNeedsRefresh}
+        ratioOption={ratioOption}
+        sourceAvailable={portableDesignLab.source !== null}
+        title={tool.name}
+        toolId={tool.id}
+      />
       {projectTypography?.id === identity.id ? <BrandFontFaces identity={identity} /> : null}
 
       <div className='shader-lab-v2-layout studio-scroll-area'>
@@ -9893,7 +7768,18 @@ export default function ShaderLabStudio({
               <small>They will be centered, fitted, and kept at their original aspect ratio.</small>
             </div>
           ) : null}
-          {renderArtboardToolbar()}
+          <DesignLabArtboardToolbar
+            actions={artboardToolbarActions}
+            activeArtboardId={activeArtboardId}
+            artboards={artboardPickerOptions}
+            canFrameSelection={editingCanvas && selectedCanvasLayerIds.length > 0}
+            canvasDimensions={canvasDimensions}
+            editingCanvas={editingCanvas}
+            statusStore={canvasStatusStore}
+            summary={artboardSummary}
+            workspaceTourOpen={workspaceTourOpen}
+          />
+          {shortcutsOpen ? <DesignLabShortcutsPanel onClose={closeShortcuts} /> : null}
           {workspaceTourOpen ? (
             <DesignArtboardTour
               onClose={() => setWorkspaceTourOpen(false)}
@@ -9906,32 +7792,21 @@ export default function ShaderLabStudio({
           <CanvasViewport
             actionHistory={canvasActionHistory}
             className='shader-lab-v2-composer-viewport'
-            toolbarActions={renderPreviewQualityToggle()}
+            toolbarActions={previewQualityToggle}
             draftKey='shader-lab-v6-workspace-zoom'
             fitKey={workspaceFitRevision}
             focusKey={artboardFocusRequest ? `${artboardFocusRequest.id}:${artboardFocusRequest.revision}` : undefined}
             focusOffsetY={16}
             identityId={identity.id}
-            initialPan={{ x: 0, y: -40 }}
+            initialPan={DESIGN_LAB_INITIAL_PAN}
             initialViewReady={compositionAutosaveState !== 'loading' && Boolean(artboardFocusRequest)}
             initialZoom={40}
             maxZoom={800}
             minZoom={5}
-            navigationItems={workspaceArtboards.flatMap((artboard) => artboard.id === DESIGN_CANVAS_ID
-              ? [...artboard.snapshot.assets, ...artboard.snapshot.logos, ...artboard.snapshot.textLayers, ...artboard.snapshot.shaderLayers]
-                .filter(({ visible }) => visible).map((layer) => ({ id: `canvas-${layer.id}`, label: layer.name,
-                  ...designLayerWorldBounds(artboard, layer), active: editingCanvas && selectedCanvasLayerIds.includes(layer.id) }))
-              : [{
-              id: artboard.id,
-              label: artboard.name,
-              x: artboard.x,
-              y: artboard.y,
-              ...designArtboardDisplaySize(artboard.snapshot.dimensions, artboard.displayScale),
-              active: artboard.id === activeArtboardId,
-            }])}
-            onArrangeArtboards={arrangeArtboards}
-            onDeselect={deselectCanvasLayers}
-            onBackgroundClick={(point) => { void activateCanvasAtPoint(point); }}
+            navigationItems={navigationItems}
+            onArrangeArtboards={viewportActions.arrangeArtboards}
+            onDeselect={viewportActions.deselectCanvasLayers}
+            onBackgroundClick={viewportActions.backgroundClick}
             stageClassName='design-artboard-viewport-stage'
             toolId={tool.id}
           >
@@ -9942,365 +7817,67 @@ export default function ShaderLabStudio({
               {workspaceArtboards.map(renderArtboard)}
             </div>
           </CanvasViewport>
-          <DesignArtboardContextMenu
-            activeArtboardId={activeArtboardId}
-            artboards={workspaceArtboards}
-            menu={artboardMenu}
-            onArrange={arrangeArtboards}
-            onClose={() => setArtboardMenu(null)}
-            onCopy={() => {
-              deselectCanvasLayers();
-              void copyDesignLabSelectionFromMenu(true);
-            }}
-            onDelete={removeActiveArtboard}
-            onDuplicate={() => addArtboard(true)}
-            onFocus={(id) => activateArtboard(id, true)}
-            onNew={() => addArtboard(false)}
-            onPaste={() => void pasteDesignLabSelectionFromMenu()}
+          {renderWorkspaceMenus()}
+          {renderMotionStrip()}
+          <DesignLabLayerDockPanel
+            actions={dockActions}
+            editingCanvas={editingCanvas}
+            importState={imageImportState}
+            layerCount={listedLayerIds.length}
+            logoInputRef={logoInputRef}
+            rows={dockLayerRows}
           />
-          <LayerDockContextMenu
-            layerKind={resolvedLayerKind}
-            layerLabel={layerLabel}
-            layerOrder={layerOrder}
-            layerVisible={layerVisible}
-            menu={layerDockMenu}
-            onClose={() => setLayerDockMenu(null)}
-            onCopy={(id) => {
-              selectLayerFromStack(id);
-              void copyDesignLabSelectionFromMenu(false, [id]);
-            }}
-            onCut={(id) => {
-              selectLayerFromStack(id);
-              void cutDesignLabSelectionFromMenu(() => removeLayer(id), [id]);
-            }}
-            onDelete={removeLayer}
-            onDuplicate={duplicateLayer}
-            onMove={moveLayer}
-            onMoveToEdge={moveLayerToEdge}
-            onPaste={() => void pasteDesignLabSelectionFromMenu()}
-            onToggleVisibility={toggleLayerVisibility}
-          />
-          {selectedCanvasLayerIds.length > 1 && selectedCanvasBounds ? (
-            <CanvasSelectionAssemblyOverlay
-              bounds={selectedCanvasBounds}
-              canvasHeight={canvasDimensions.height}
-              canvasWidth={canvasDimensions.width}
-              label={selectedCanvasGroup?.name ?? `${selectedCanvasLayerIds.length} layers`}
-              stageRef={stageRef}
-            />
-          ) : null}
-          {renderCanvasSelectionMenu()}
-          <div className='design-motion-strip' data-canvas-selection-preserve>
-            {renderShaderTimeExplorer()}
-            <button aria-expanded={motionWorkspaceOpen} aria-label='Shader sequence' onClick={() => setMotionWorkspaceOpen((value) => !value)} title='Shader sequence' type='button'><Clapperboard aria-hidden='true' /><span>Shader sequence</span></button>
-            <a aria-label='Open Animation Studio' href='/studio?tool=animation' title='Open Animation Studio'><ExternalLink aria-hidden='true' /><span>Animation</span></a>
-          </div>
-          {motionWorkspaceOpen ? (
-            <aside className='design-motion-workspace' data-canvas-selection-preserve>
-              <header><span><Clapperboard aria-hidden='true' /><strong>Shader sequence</strong></span><button aria-label='Close shader sequence' onClick={() => setMotionWorkspaceOpen(false)} type='button'><X aria-hidden='true' /></button></header>
-              <p>Build and preview a cut sequence for this artboard. Animation Studio opens a separate workspace for keyframe animation.</p>
-              <ShaderSequenceControls
-                disabled={Boolean(exporting)}
-                durationMs={shaderSequenceDuration}
-                materialIds={sequenceMaterialIds}
-                onChange={updateShaderSequenceSettings}
-                onExport={() => void exportMotion('mp4', 'sequence')}
-                onPreview={previewShaderSequence}
-                onShuffle={() => updateShaderSequenceSettings({ sequenceOffset: normalizedShaderSequenceSettings.sequenceOffset + 1 })}
-                previewing={sequencePreviewing}
-                settings={normalizedShaderSequenceSettings}
-                targetOptions={sequenceTargetOptions}
-              />
-              <a href='/studio?tool=animation'><ExternalLink aria-hidden='true' />Open Animation Studio</a>
-            </aside>
-          ) : null}
-          <div className='shader-lab-v2-bottom-dock' data-canvas-selection-preserve>
-            <input accept='image/*,.svg,.avif,.bmp' aria-label='Choose logos for the canvas' className='sr-only' multiple onChange={(event) => void addLogoFiles(event.target.files)} ref={logoInputRef} type='file' />
-            <div className='shader-lab-v2-dock-create'>
-              <div className='shader-lab-v2-dock-heading'>
-                <span><Layers3 aria-hidden='true' />Layers</span>
-                <small>{listedLayerIds.length} total · front to back</small>
-              </div>
-              <div className='shader-lab-v2-dock-add' aria-label='Add canvas layer' role='group'>
-                <button aria-label='Add text layer' onClick={() => addTextLayer()} type='button'><Type aria-hidden='true' /><span>Text</span></button>
-                <button aria-label='Add shader layer' onClick={() => addCanvasShader()} type='button'><Sparkles aria-hidden='true' /><span>Shader</span></button>
-                <button aria-label='Add effect layer' disabled={editingCanvas} title={editingCanvas ? 'Frame your selection to apply composition-wide effects' : 'Add effect layer'} onClick={() => addEffectLayer()} type='button'><Grid3X3 aria-hidden='true' /><span>Effect</span></button>
-                <button aria-label='Add brand mark' onClick={addBrandMarkLayer} type='button'><Layers3 aria-hidden='true' /><span>Mark</span></button>
-                <button aria-label='Add sticker layer' onClick={() => openImageImport([], 'sticker')} type='button'><Sticker aria-hidden='true' /><span>Sticker</span></button>
-                <button aria-label='Add image layer' className='shader-lab-v2-dock-add-image' onClick={() => openImageImport()} title='Open the shared Asset library or import new images' type='button'><ImagePlus aria-hidden='true' /><span>Image</span></button>
-              </div>
-              <span aria-live='polite' className='shader-lab-v2-image-import-status' data-state={imageImportState.status}>
-                {imageImportState.message || 'Images keep their aspect ratio when added.'}
-              </span>
-            </div>
-
-            <div
-              aria-label='Canvas layer stack'
-              className='shader-lab-v2-dock-stack studio-scroll-area'
-              onWheel={scrollLayerDockWithWheel}
-              role='region'
-              tabIndex={0}
-            >
-              {[...listedLayerIds].reverse().map(renderDockLayer)}
-            </div>
-          </div>
         </section>
 
-        <StudioSidebar className='shader-lab-v2-inspector' kind='inspector' label='Design Lab controls' side='right' storageKey='design-lab-inspector'>
-          <LabPanelHeading
-            className='shader-lab-v2-inspector-intro'
-            description={designLabInspectorDescription({
-              hasContent: Boolean(selectedContentLayerId),
-              hasEffect: Boolean(selectedEffectLayer),
-              hasLayerShader: Boolean(selectedLayerShader),
-              hasShader: Boolean(selectedShaderLayer),
-              materialName: material.name,
-            })}
-            title={selectedLayerId ? layerLabel(selectedLayerId) : 'Design Lab'}
-          />
-
-          <ConditionalRender when={!selectedLayerId}>{() => <>
-            {!editingCanvas ? <LabInspectorSection className='shader-lab-v2-control-section shader-lab-v2-composition-setup design-composition-inspector' meta={`${canvasDimensions.width} × ${canvasDimensions.height}`} title='Composition'>
-              <ArtboardSetupFields
-                artboardName={activeArtboardRawName}
-                className='design-artboard-inline-setup'
-                dimensions={canvasDimensions}
-                onArtboardNameChange={renameActiveArtboard}
-                onDimensionsChange={updateActiveArtboardDimensions}
-              />
-              <div className='design-composition-appearance'>
-                <div className='shader-lab-v2-composition-subhead'><h3>Appearance</h3><span>Active artboard</span></div>
-                <ColorControl
-                  ariaLabel='Artboard background color'
-                  label='Background color'
-                  onChange={updateCanvasBackground}
-                  onPreview={previewCanvasBackground}
-                  value={canvasBackground}
-                />
-              </div>
-              <dl className='shader-lab-v2-composition-metrics'>
-                <div><dt>Layers</dt><dd>{visibleLayerIds.length} / {listedLayerIds.length}</dd></div>
-                <div><dt>Shaders</dt><dd>{shaderLayers.filter(({ visible }) => visible).length}</dd></div>
-                <div><dt>Motion</dt><dd>{paused ? 'Paused' : 'Live'}</dd></div>
-              </dl>
-            </LabInspectorSection> : <LabInspectorSection title='Canvas' meta='Loose layers'>
-              <p className='design-canvas-hint'>Explore anywhere. Drag a layer into an artboard when it belongs in an output. Only artboards export; the whole canvas saves with your project.</p>
-            </LabInspectorSection>}
-
-            <LabInspectorSection className='shader-lab-v2-control-section design-artboard-inspector' meta={`${outputArtboards.length} total`} title='Artboards'>
-              <div className='design-artboard-list' aria-label='Workspace artboards' role='group'>
-                {outputArtboards.map((artboard, index) => (
-                  <button aria-pressed={artboard.id === activeArtboardId} key={artboard.id} onClick={() => {
-                    deselectCanvasLayers();
-                    activateArtboard(artboard.id, true);
-                  }} type='button'>
-                    <Frame aria-hidden='true' />
-                    <span><strong>{resolvedDesignArtboardName(artboard.name)}</strong><small>{studioArtboardPresetForSize(artboard.snapshot.dimensions.width, artboard.snapshot.dimensions.height)?.label ?? 'Custom'} · {artboard.snapshot.layerOrder.length} layers</small></span>
-                    <i>{String(index + 1).padStart(2, '0')}</i>
-                  </button>
-                ))}
-              </div>
-              <div className='design-artboard-inspector-actions'>
-                <button onClick={() => addArtboard(false)} type='button'><Plus aria-hidden='true' />New artboard</button>
-                <button disabled={editingCanvas} onClick={() => addArtboard(true)} type='button'><Copy aria-hidden='true' />Duplicate</button>
-                <button onClick={arrangeArtboards} type='button'><LayoutGrid aria-hidden='true' />Arrange all</button>
-                <button disabled={editingCanvas} onClick={removeActiveArtboard} type='button'><Trash2 aria-hidden='true' />Delete</button>
-                <button aria-pressed={workspaceTourOpen} onClick={() => setWorkspaceTourOpen((value) => !value)} type='button'><span aria-hidden='true'>?</span>Artboard guide</button>
-              </div>
-            </LabInspectorSection>
-
-            <LabInspectorSection className='shader-lab-v2-control-section design-layers-inspector' meta={`${listedLayerIds.length} total`} title='Layers'>
-              <div className='shader-lab-v2-composition-subhead'><h3>Add layer</h3><span>To front</span></div>
-              <div className='shader-lab-v2-composition-add' aria-label='Add composition layer' role='group'>
-                <button onClick={() => addTextLayer()} type='button'><Type aria-hidden='true' /><span><strong>Text</strong><small>{textLayers.filter(({ kind }) => kind !== 'sticker').length} layers</small></span></button>
-                <button onClick={() => addCanvasShader()} type='button'><Sparkles aria-hidden='true' /><span><strong>Shader</strong><small>{shaderLayers.length} layers</small></span></button>
-                <button disabled={editingCanvas} title={editingCanvas ? 'Frame your selection to apply composition-wide effects' : 'Add effect layer'} onClick={() => addEffectLayer()} type='button'><Grid3X3 aria-hidden='true' /><span><strong>Effect</strong><small>{effectLayers.length} layers</small></span></button>
-                <button onClick={addBrandMarkLayer} type='button'><Layers3 aria-hidden='true' /><span><strong>Mark</strong><small>{logoLayers.length} layers</small></span></button>
-                <button onClick={() => openImageImport([], 'sticker')} type='button'><Sticker aria-hidden='true' /><span><strong>Sticker</strong><small>{compositionAssets.filter(({ kind }) => kind === 'sticker').length + textLayers.filter(({ kind }) => kind === 'sticker').length} layers</small></span></button>
-                <button onClick={() => openImageImport()} title='Open the shared Asset library or import new images' type='button'><ImagePlus aria-hidden='true' /><span><strong>Image</strong><small>{compositionAssets.filter(({ kind }) => kind !== 'sticker').length} placed · {identity.assets.length + identity.proofAssets.length} saved</small></span></button>
-              </div>
-              <div aria-label='Composition layers, front to back' className='design-layer-inspector-list' role='list'>
-                {listedLayerIds.length > 0
-                  ? [...listedLayerIds].reverse().map(renderInspectorLayer)
-                  : <p className='design-layer-inspector-empty'>No layers yet. Add one above to begin.</p>}
-              </div>
-            </LabInspectorSection>
-          </>}</ConditionalRender>
-
-          <OptionalRender value={selectedEffectLayer}>{(selectedEffectLayer) => (
-            <DesignLabEffectInspector
-              previewEffectLayer={previewEffectLayer}
-              selectEffectPreset={selectEffectPreset}
-              selectedEffectLayer={selectedEffectLayer}
-              updateEffectLayer={updateEffectLayer}
-            />
-          )}</OptionalRender>
-
-          <OptionalRender value={editingShader}>{(editingShader) => (
-            <DesignLabShaderInspector
-              brandPalette={brandPalette}
-              editingShader={editingShader}
-              initialSettings={initialSettings}
-              material={material}
-              previewSelectedShaderOpacity={previewSelectedShaderOpacity}
-              previewSelectedShaderSize={previewSelectedShaderSize}
-              previewSelectedShaderSetting={previewSelectedShaderSetting}
-              settings={settings}
-              shaderSize={shaderSize}
-              updateSelectedShader={updateSelectedShader}
-              updateSetting={updateSetting}
-            />
-          )}</OptionalRender>
-          <OptionalRender value={selectedShaderLayer}>{(selectedShaderLayer) => (
-            <DesignLabShaderFrameInspector
-              canvasHeight={canvasDimensions.height}
-              canvasWidth={canvasDimensions.width}
-              layer={selectedShaderLayer}
-              onChange={(transform) => updateCanvasLayerTransform(selectedShaderLayer.id, transform)}
-            />
-          )}</OptionalRender>
-          <OptionalRender value={selectedContentLayerId}>{(selectedContentLayerId) => <LabInspectorSection className='shader-lab-v2-control-section shader-lab-v2-layer-inspector' data-canvas-selection-preserve meta={resolvedLayerKind(selectedContentLayerId)} title='Selected layer'>
-            <OptionalRender value={selectedTextInspector}>{(selection) => (
-              <DesignLabTextLayerInspector
-                key={selection.layer.id}
-                canvasHeight={canvasDimensions.height}
-                canvasWidth={canvasDimensions.width}
-                identity={identity}
-                previewSelectedContentOpacity={previewSelectedContentOpacity}
-                previewSelectedTextAppearance={previewSelectedTextAppearance}
-                previewSelectedTextLayer={previewSelectedTextLayer}
-                previewSelectedTextWidth={previewSelectedTextWidth}
-                selectedCanvasLayerCount={selectedCanvasLayerIds.length}
-                selection={selection}
-                stageRef={stageRef}
-                textRenderedWeight={selectedTextRenderedWeight}
-                textWeightRange={selectedTextWeightRange}
-                textRange={textSelection?.layerId === selection.layer.id ? textSelection : null}
-                clearTextRange={clearTextRange}
-                onTextSelection={(range) => rememberTextSelection(selection.layer.id, range)}
-                updateTextLayer={updateTextFormatting}
-                updateTextBox={updateTextLayer}
-              />
-            )}</OptionalRender>
-            <OptionalRender value={selectedLogoInspector}>{({ appearance: selectedLogoAppearance, layer: selectedLogoLayer }) => (
-              <div aria-label='Mark appearance' className='shader-lab-v2-layer-settings' role='group'>
-                <div className='shader-lab-v2-layer-settings-heading'>
-                  <strong>Mark appearance</strong>
-                  <span>SVG-safe</span>
-                </div>
-                <ColorControl
-                  ariaLabel='Mark color'
-                  label='Mark color'
-                  onChange={(color) => updateLogoLayer(selectedLogoLayer.id, { color })}
-                  onPreview={(color) => previewSelectedLogoAppearance({}, color)}
-                  value={selectedLogoLayer.color ?? '#FFFFFF'}
-                />
-                <RangeControl
-                  formatValue={(value) => `${Math.round(value * 100)}%`}
-                  label='Layer opacity'
-                  max={1}
-                  min={0}
-                  onChange={(opacity) => updateLogoLayer(selectedLogoLayer.id, { opacity })}
-                  onPreview={previewSelectedContentOpacity}
-                  step={0.01}
-                  value={selectedLogoLayer.opacity ?? 1}
-                />
-                <LogoAppearanceControls
-                  onChange={(patch) => updateLogoLayer(selectedLogoLayer.id, { appearance: { ...selectedLogoAppearance, ...patch } })}
-                  onPreview={previewSelectedLogoAppearance}
-                  settings={selectedLogoAppearance}
-                />
-                <details className='shader-lab-v2-asset-conversion'>
-                  <summary><span>SVG conversion & mark library</span><ChevronDown aria-hidden='true' /></summary>
-                  <AssetConversionLibrary
-                    compact
-                    library={convertedAssetLibrary}
-                    onSelect={selectConvertedLogo}
-                    selectedAssetId={selectedLogoLayer.convertedAssetId ?? null}
-                  />
-                </details>
-              </div>
-            )}</OptionalRender>
-            <OptionalRender value={selectedAssetInspector}>{({ appearance: selectedAssetAppearance, asset: selectedAsset }) => (
-              <DesignLabAssetLayerInspector
-                appearance={selectedAssetAppearance}
-                asset={selectedAsset}
-                cropAspect={imageCropAspectValue(selectedAsset.transform, layerGeometry(selectedAsset.id, canvasDimensions))}
-                cropEditing={cropEditingLayerId === selectedAsset.id}
-                onCropAspectChange={(value) => void setImageCropAspect(selectedAsset.id, value)}
-                onCropEditingChange={(editing) => setImageCropEditing(selectedAsset.id, editing)}
-                previewAppearance={previewSelectedLogoAppearance}
-                previewImageCrop={previewSelectedImageCrop}
-                previewOpacity={previewSelectedContentOpacity}
-                previewStickerFinish={previewSelectedStickerFinish}
-                updateAsset={(update) => updateAssetLayer(selectedAsset.id, update)}
-              />
-            )}</OptionalRender>
-            {selectedLayerShader ? (
-              <Button className='mt-2 w-full' onClick={removeShaderFromSelectedContent} size='sm' type='button' variant='ghost'>
-                <X aria-hidden='true' />Remove shader from layer
-              </Button>
-            ) : null}
-            {selectedLogoLayer ? <Button className='mt-2 w-full' onClick={() => updateLogoTransform(selectedLogoLayer.id, DEFAULT_LAYER_TRANSFORM)} size='sm' type='button' variant='ghost'><RotateCcw aria-hidden='true' />Reset mark position</Button> : null}
-            {selectedAsset ? <Button className='mt-2 w-full' onClick={() => updateAssetTransform(selectedAsset.id, DEFAULT_LAYER_TRANSFORM)} size='sm' type='button' variant='ghost'><RotateCcw aria-hidden='true' />Reset image position</Button> : null}
-            {selectedTextLayer ? (
-              <Button
-                className='mt-2 w-full'
-                onClick={() => updateTextLayer(selectedTextLayer.id, { transform: DEFAULT_TEXT_LAYER_TRANSFORM })}
-                size='sm'
-                type='button'
-                variant='ghost'
-              ><RotateCcw aria-hidden='true' />Reset text box</Button>
-            ) : null}
-          </LabInspectorSection>}</OptionalRender>
-
-          <OptionalRender value={editingShader}>{() => <details className='shader-lab-v2-advanced'>
-            <summary>Advanced <ChevronDown aria-hidden='true' /></summary>
-            <div className='shader-lab-v2-ranges'>
-              {ADVANCED_CONTROLS.map((control) => (
-                <RangeControl
-                  {...control}
-                  key={control.key}
-                  onChange={(value) => updateSetting(control.key, value)}
-                  onPreview={(value) => previewSelectedShaderSetting(control.key, value)}
-                  value={settings[control.key]}
-                />
-              ))}
-            </div>
-          </details>}</OptionalRender>
-
-          <section className='shader-lab-v2-handoff'>
-            <Code2 aria-hidden='true' />
-            <div><strong>Developer handoff</strong><span>Layer order + exact shader settings</span></div>
-            <button onClick={() => void copySetup()} type='button'>{copied ? <Check aria-hidden='true' /> : 'Copy'}</button>
-            {copyError ? <p className='shader-lab-v2-handoff-error' role='alert'>{copyError}</p> : null}
-          </section>
-        </StudioSidebar>
+        <DesignLabInspectorPanel
+          actions={inspectorActions}
+          activeArtboardId={activeArtboardId}
+          activeArtboardRawName={activeArtboardRawName}
+          brandPalette={brandPalette}
+          canvasBackground={canvasBackground}
+          canvasDimensions={canvasDimensions}
+          composition={inspectorComposition}
+          contentKind={selectedContentLayerId ? resolvedLayerKind(selectedContentLayerId) : null}
+          convertedAssetLibrary={convertedAssets}
+          copied={copied}
+          copyError={copyError}
+          cropEditingLayerId={cropEditingLayerId}
+          imageEffectStatusStore={imageEffectStatusStore}
+          description={designLabInspectorDescription({
+            hasContent: Boolean(selectedContentLayerId),
+            hasEffect: Boolean(selectedEffectLayer),
+            hasLayerShader: Boolean(selectedLayerShader),
+            hasShader: Boolean(selectedShaderLayer),
+            materialName: material.name,
+          })}
+          editingCanvas={editingCanvas}
+          editingShader={editingShader}
+          identity={identity}
+          initialSettings={initialSettings}
+          layerRows={inspectorLayerRows}
+          material={material}
+          outputArtboards={inspectorArtboards}
+          paused={paused}
+          selectedAssetInspector={selectedAssetInspector}
+          selectedCanvasLayerCount={selectedCanvasLayerIds.length}
+          selectedContentLayerId={selectedContentLayerId}
+          selectedEffectLayer={selectedEffectLayer}
+          selectedLayerId={selectedLayerId}
+          selectedLayerShader={selectedLayerShader}
+          selectedLogoInspector={selectedLogoInspector}
+          selectedShaderLayer={selectedShaderLayer}
+          selectedTextInspector={selectedTextInspector}
+          settings={settings}
+          shaderSize={shaderSize}
+          stageRef={stageRef}
+          textSelectionStore={textSelectionStore}
+          textRenderedWeight={selectedTextRenderedWeight}
+          textWeightRange={selectedTextWeightRange}
+          title={selectedLayerId ? layerLabel(selectedLayerId) : 'Design Lab'}
+          workspaceTourOpen={workspaceTourOpen}
+        />
       </div>
-      {renderSourceEditor()}
-      <ImageAssetModal
-        assets={[...identity.assets, ...identity.proofAssets]}
-        busy={imageImportState.status === 'importing'}
-        error={imageImportError}
-        onClose={() => {
-          if (imageImportState.status === 'importing') return;
-          setImageImportOpen(false);
-          setImageImportRequest(null);
-          setImageImportError(null);
-        }}
-        onCreateTextSticker={() => {
-          addTextLayer('sticker');
-          setImageImportOpen(false);
-          setImageImportRequest(null);
-          setImageImportState({ message: 'Added an editable text sticker.', status: 'success' });
-        }}
-        onDelete={deleteSavedAsset}
-        onImport={importAndSaveImages}
-        onPlace={placeSavedAsset}
-        open={imageImportOpen}
-        placementMode={imagePlacementMode}
-        request={imageImportRequest}
-      />
+      {renderStudioDialogs()}
     </div>
     );
   }

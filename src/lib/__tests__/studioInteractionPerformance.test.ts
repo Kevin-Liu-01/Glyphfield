@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+import { readDesignLabSource } from './designLabSource';
 
 const readSource = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
 
@@ -11,7 +12,8 @@ describe('Studio interaction performance contracts', () => {
 
     expect(source).toContain('pointerFrameRef.current = window.requestAnimationFrame');
     expect(source).toContain('parentBounds,');
-    expect(source).toContain('snapTargets: { x: targetX, y: targetY }');
+    // Snap lines are collected once, at pointerdown, and kept on the session.
+    expect(source).toContain('snapTargets: siblingSnapTargets(layer, parentBounds,');
     expect(source).toContain('const bounds = session.parentBounds;');
     expect(source).toContain("window.addEventListener('pointermove', handleWindowPointerMove)");
     expect(source).not.toContain('frame = requestAnimationFrame(measure)');
@@ -106,7 +108,7 @@ describe('Studio interaction performance contracts', () => {
   });
 
   it('keeps Design Lab playhead and inspector previews off the full editor render path', () => {
-    const designLab = readSource('src/components/ShaderLabStudio.tsx');
+    const designLab = readDesignLabSource();
     const liveMaterial = readSource('src/components/LiveMaterialCanvas.tsx');
     const rangeControl = readSource('src/components/DesignLabRangeControl.tsx');
     const frameHistory = readSource('src/components/ShaderTimeExplorer.tsx');
@@ -137,7 +139,7 @@ describe('Studio interaction performance contracts', () => {
   });
 
   it('keeps sequence-preview substitution separate from persisted shader frame capture', () => {
-    const studio = readSource('src/components/ShaderLabStudio.tsx');
+    const studio = readDesignLabSource();
     const capture = studio.slice(studio.indexOf('async function captureCompositionFrame('), studio.indexOf('async function prepareCompositionSource('));
     expect(capture.includes('if (sequencePreviewingRef.current) throw')).toBe(true);
     expect(studio.includes('paused && !sequencePreviewing && captureTimeMs === null')).toBe(true);
@@ -164,7 +166,7 @@ describe('Studio interaction performance contracts', () => {
 
   it('retains expensive workspaces while pausing their hidden renderers', () => {
     const source = readSource('src/components/StudioApp.tsx');
-    const designLab = readSource('src/components/ShaderLabStudio.tsx');
+    const designLab = readDesignLabSource();
     const liveMaterial = readSource('src/components/LiveMaterialCanvas.tsx');
     const styles = readSource('src/app/globals.css');
 
@@ -228,7 +230,7 @@ describe('Studio interaction performance contracts', () => {
   });
 
   it('hashes only changed Design Lab artboards for history and persistence signatures', () => {
-    const designLab = readSource('src/components/ShaderLabStudio.tsx');
+    const designLab = readDesignLabSource();
 
     expect(designLab).toContain('const signatureArtboardViews = new WeakMap<DesignArtboard, DesignArtboard>();');
     expect(designLab).toContain('artboards: artboards.map(signatureArtboardView)');

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+import { readDesignLabSource } from './designLabSource';
 
 function source(path: string) {
   return readFileSync(join(process.cwd(), path), 'utf8');
@@ -10,7 +11,7 @@ function source(path: string) {
 describe('Studio context-menu system', () => {
   it('uses one shared menu across high-value editing surfaces', () => {
     const canvas = source('src/components/CanvasViewport.tsx');
-    const designLab = source('src/components/ShaderLabStudio.tsx');
+    const designLab = readDesignLabSource();
     const projects = source('src/components/StudioApp.tsx');
     const timeline = source('src/components/TimelinePanel.tsx');
     const assets = source('src/components/AssetConversionLibrary.tsx');

@@ -10,12 +10,12 @@ import { LiveMaterialSourceTag } from '@/components/LiveMaterialSourceLabel';
 import { Button } from '@/components/ui/Button';
 import ShaderLibraryFilters from '@/components/ShaderLibraryFilters';
 import {
-  DISCOVERABLE_LIVE_MATERIAL_OPTIONS,
   type LiveMaterialId,
   type LiveMaterialOption,
 } from '@/lib/liveMaterials';
 import {
   SHADER_LAB_CATEGORIES,
+  SHADER_LIBRARY_MATERIAL_COUNT,
   shaderLabMaterials,
   type ShaderLabCategory,
   type ShaderLabKind,
@@ -100,7 +100,7 @@ function ShaderLibraryBrowser({
             </Button>
             ) : null}
             density='compact'
-            description={`${DISCOVERABLE_LIVE_MATERIAL_OPTIONS.length} materials · shared with Shaders`}
+            description={`${SHADER_LIBRARY_MATERIAL_COUNT} materials · shared with Shaders`}
             title={<T>Shader library</T>}
           />
         )}

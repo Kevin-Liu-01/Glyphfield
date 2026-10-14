@@ -17,7 +17,14 @@ Canvas/WebGL/Lottie rendering, export UI, and documentation presentation.
   editor in `tools/` as its own `next/dynamic` chunk and exports
   `preloadToolModule` for hover/focus prefetch. `tools/ToolShell.tsx` and
   `tools/ToolFields.tsx` hold the shared shell and inspector fields.
-- `ShaderLabStudio.tsx` is Design Lab despite the historical filename.
+- `ShaderLabStudio.tsx` is Design Lab despite the historical filename. It owns
+  state, history, export and the Browser API adapter; rendering lives in memoized
+  modules: `DesignLabStage` (layers, live materials, artboards),
+  `DesignLabLayerDock` (dock and layer list), `DesignLabInspector`,
+  `DesignLabChrome` (title bar, artboard toolbar, motion strip, shortcuts) and
+  `DesignLabCanvasContent`. Pass editor actions through `useStableHandlers` and
+  memoized data so a commit re-renders only what changed; transient values that
+  change per keystroke or pointer move belong in `useValueStore` stores.
 - `CanvasEditableText` retains native text selection and plain paste, with optional
   rich runs. Range styles use existing inspector controls; layout/effects stay
   layer-wide. Flush pending text before formatting or document undo/redo, and do
@@ -25,6 +32,10 @@ Canvas/WebGL/Lottie rendering, export UI, and documentation presentation.
 - `AnimationStudio.tsx`, `TimelinePanel.tsx`, and audio components own motion.
 - `CanvasViewport`, `EditableCanvasLayer`, layer panels, `ColorControl`,
   `StudioSelect`, and range controls are reusable editor primitives.
+  `EditableCanvasLayer` rotates when a host passes `rotation` and `onRotate`
+  (the frame turns with the layer), snaps to extra `snapTargets` such as
+  `canvasThirdsSnapTargets`, and lets a host re-base geometry on commit: its
+  preview clears once the committed props draw the same box.
 - `StudioArtboardBar` shares Animation's artboard controls with Design Lab.
   `DesignVersionProvider` owns one saved-design state; split history/file-action
   consumers can sit in different bars without duplicating persistence.

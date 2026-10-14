@@ -1,0 +1,35 @@
+/* Very long layer lists stay in the DOM and the accessibility tree; rows
+   outside the scroll viewport skip layout and paint until they approach it.
+   Short lists keep full painting so the selected row's outer shadow shows. */
+.lazyDockRow {
+  contain-intrinsic-size: auto 178px auto 134px;
+  content-visibility: auto;
+}
+
+.lazyListRow {
+  contain-intrinsic-size: auto auto auto 42px;
+  content-visibility: auto;
+}
+
+/* Canvas layers add a lock toggle; converters keep the original five actions. */
+.lockableActions.lockableActions {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.lockableRow.lockableRow {
+  grid-template-columns: minmax(0, 1fr) 34px 34px;
+}
+
+/* A locked layer's toggle reads at full strength, like other pressed controls. */
+.lockableActions [data-locked='true'],
+.lockableRow [data-locked='true'] {
+  color: hsl(var(--foreground));
+}
+
+/* An image effect layer shows its library thumbnail in the converter frame. */
+.imageEffectThumbnail img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

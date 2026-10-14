@@ -2,9 +2,10 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+import { readDesignLabSource } from './designLabSource';
 
 const playground = readFileSync(join(process.cwd(), 'src/components/SurfaceLabStudio.tsx'), 'utf8');
-const designLab = readFileSync(join(process.cwd(), 'src/components/ShaderLabStudio.tsx'), 'utf8');
+const designLab = readDesignLabSource();
 const studioWorkspace = readFileSync(join(process.cwd(), 'src/components/StudioToolWorkspace.tsx'), 'utf8');
 const editableCanvasLayer = readFileSync(join(process.cwd(), 'src/components/EditableCanvasLayer.tsx'), 'utf8');
 const animationStudio = readFileSync(join(process.cwd(), 'src/components/AnimationStudio.tsx'), 'utf8');
@@ -262,7 +263,8 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain('onPointerDownCapture={(event) => {');
     expect(designLab).toContain('beginArtboardMove(event, artboard);');
     expect(designLab).toContain("window.addEventListener('pointercancel', cancelPointer)");
-    expect(designLab).toContain('navigationItems={workspaceArtboards.flatMap');
+    expect(designLab).toContain('const navigationItems = useMemo(() => workspaceArtboards.flatMap');
+    expect(designLab).toContain('navigationItems={navigationItems}');
     expect(designLab).toContain('onKeyDown={(event) => nudgeArtboard(event, artboard)}');
     expect(designLab).toContain('dragHandle.setPointerCapture(pointerId);');
     expect(studioStyles).toMatch(/\.design-artboard-label\s*\{[\s\S]*?height: 34px;[\s\S]*?transform: scale\(var\(--canvas-zoom-inverse, 1\)\);[\s\S]*?touch-action: none;/);
@@ -289,7 +291,8 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain("ariaLabel='Shader sequence background layer'");
     expect(designLab).toContain("ariaLabel='Shader sequence cut count'");
     expect(designLab).toContain("ariaLabel='Shader sequence final hold'");
-    expect(designLab).toContain("onExport={() => void exportMotion('mp4', 'sequence')}");
+    expect(designLab).toContain("exportShaderSequence: () => void exportMotion('mp4', 'sequence')");
+    expect(designLab).toContain('onExport={actions.exportShaderSequence}');
     expect(designLab).toContain('shaderSequenceSegmentAt(shaderSequenceTimeline, frame.timeMs)');
     expect(designLab).toContain("motionMode === 'sequence' ? shaderSequenceDuration : durationMs");
     expect(designLab).toContain("motionMode === 'sequence' ? '-shader-sequence' : ''");
@@ -299,7 +302,8 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain("'design.export.shader-sequence.mp4'");
     expect(designLab).toContain("if (request.download) downloadStudioArtifact(asset);");
     expect(designLab).toContain("sequenceOffset: Math.max(0, Math.round(next.sequenceOffset))");
-    expect(designLab).toContain('onShuffle={() => updateShaderSequenceSettings({ sequenceOffset: normalizedShaderSequenceSettings.sequenceOffset + 1 })}');
+    expect(designLab).toContain('shuffleShaderSequence: () => updateShaderSequenceSettings({ sequenceOffset: normalizedShaderSequenceSettings.sequenceOffset + 1 })');
+    expect(designLab).toContain('onShuffle={actions.shuffleShaderSequence}');
     expect(designLab).toContain('New cuts');
     expect(designLab).toContain('Open Animation Studio');
   });
@@ -388,7 +392,10 @@ describe('Playground optional layers', () => {
   });
 
   it('renders the production converter thumbnail inside each effect layer card', () => {
-    expect(designLab).toContain('<CompositionEffectThumbnail kind={effectLayer.settings.kind} settings={effectLayer.settings} />');
+    expect(designLab).toContain('<CompositionEffectThumbnail kind={layer.settings.kind} settings={layer.settings} />');
+    expect(designLab).toContain('<EffectLayerThumbnail layer={effectLayer} />');
+    // An image effect shows its library thumbnail instead.
+    expect(designLab).toContain('src={shaderPreviewAssetPath(effectId)}');
     expect(designLab).not.toContain("className='shader-lab-v2-effect-swatch'");
     expect(studioStyles).toContain(".shader-lab-v2-dock-layer[data-kind='converter'] .composition-effect-thumbnail {");
   });
@@ -533,7 +540,8 @@ describe('Design Lab image import and selection chrome', () => {
     expect(designLab.includes('remapDesignLabClipboardSnapshot(anchored, payload.kind')).toBe(true);
     expect(designLab.includes('await hydrateDesignLabClipboardFrames(payload)')).toBe(true);
     expect(designLab).toContain("`Pasted ${nextArtboard.name} · autosaving`");
-    expect(designLab).toContain("{canvasClipboardStatus ?? `${layerOrder.length} layer");
+    expect(designLab).toContain('{canvasClipboardStatus ?? summary}');
+    expect(designLab).toContain("const artboardSummary = `${layerOrder.length} layer");
     expect(designLab).not.toContain('workspaceAutosaveLabel');
   });
 

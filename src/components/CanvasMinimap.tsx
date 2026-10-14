@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react';
-import { useGT } from 'gt-next';
 import { LayoutGrid, Maximize2, Minus, PanelsTopLeft, Target } from '@/components/ui/SolidIcons';
+import { useCachedGT } from '@/hooks/useCachedGT';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
 import { useCanvasMapDock } from '@/hooks/useCanvasMapDock';
 import { useMountEffect } from '@/hooks/useMountEffect';
@@ -24,7 +24,7 @@ export default function CanvasMinimap({ items, view, onPan, onFitAll, onCenterSe
   onArrange?: () => void;
   ref?: Ref<CanvasMinimapHandle>;
 }) {
-  const gt = useGT();
+  const gt = useCachedGT();
   const [openOverride, setOpenOverride] = useState<boolean | null>(null);
   const compact = view.height < 300;
   const open = openOverride ?? !compact;

@@ -516,6 +516,7 @@ export const AGENT_MANIFEST = {
       'Preserve unknown document fields and make the smallest targeted change.',
       'Apply through the active tool validator; do not mutate React state or storage directly.',
       'Do not run browser exports concurrently because they share renderer and encoder resources.',
+      'Shaders.com image effects (/api/materials imageEffects) are Design Lab Effect layers, not shader materials: use design.effects.add { effectId } and design.effects.configure { layerId, effectProps }. They need WebGPU; check design.effects.describe status before exporting.',
     ],
     never: [
       'Do not invent catalog IDs, accessible labels, source fields, or enum values.',

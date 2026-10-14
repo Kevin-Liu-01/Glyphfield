@@ -2,40 +2,49 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
-import { MoveDiagonal2 } from '@/components/ui/SolidIcons';
+import { MoveDiagonal2, RotateCw } from '@/components/ui/SolidIcons';
 
 import CanvasSelectionClip, { canvasSelectionLocalBounds, canvasSelectionProjector, paintCanvasSelectionBounds, trackCanvasSelectionNavigation } from '@/components/CanvasSelectionClip';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
 import {
-  MIN_CANVAS_LAYER_SCALE,
   canvasLayerBounds,
   canvasLayerDimensions,
+  canvasRotationFromPointer,
   isAdditiveCanvasSelection,
+  resizeCanvasLayerBox,
   resizeCanvasLayerScale,
+  rotateCanvasVector,
+  rotatedCanvasExtent,
+  sameCanvasLayerBox,
   shouldDeselectCanvasLayer,
   snapCanvasLayer,
   type CanvasLayerBounds,
+  type CanvasLayerGeometry,
   type CanvasLayerResizeMode,
   type CanvasLayerTransform,
   type CanvasPointerMode,
   type CanvasSmartGuides,
   type CanvasSnapTargets,
 } from '@/lib/canvasInteraction';
+import styles from './EditableCanvasLayer.module.css';
 
 type PointerSession = {
   captureTarget: HTMLElement;
-  groupElements: Array<{ element: HTMLElement; height: number; width: number }>;
+  groupElements: Array<{ element: HTMLElement; height: number; rotation: number; width: number }>;
   groupOverlay: HTMLElement | null;
   moved: boolean;
   mode: CanvasPointerMode;
   parentBounds: { height: number; left: number; top: number; width: number };
   pointerId: number;
+  /** Client-space center of the layer, for rotate drags. */
+  rotationCenter: { x: number; y: number };
   selectionProjector: ReturnType<typeof canvasSelectionProjector> | null;
   snapTargets: CanvasSnapTargets;
   startSelected: boolean;
   startClientX: number;
   startClientY: number;
   startHeightScale: number;
+  startRotation: number;
   startScale: number;
   startTransform: CanvasLayerTransform;
   startWidthScale: number;
@@ -57,19 +66,83 @@ type BeginPointer = (
 ) => void;
 
 const CANVAS_SELECTION_SIDES = ['top', 'right', 'bottom', 'left'] as const;
-const RESIZE_FROM_RIGHT = new Set<CanvasPointerMode>(['resize', 'resize-right', 'resize-top-right']);
-const RESIZE_FROM_LEFT = new Set<CanvasPointerMode>(['resize-left', 'resize-top-left', 'resize-bottom-left']);
-const RESIZE_FROM_BOTTOM = new Set<CanvasPointerMode>(['resize', 'resize-bottom', 'resize-bottom-left']);
-const RESIZE_FROM_TOP = new Set<CanvasPointerMode>(['resize-top', 'resize-top-left', 'resize-top-right']);
+/** Shift-drag rotates in these steps. */
+const ROTATION_STEP_DEGREES = 15;
+
+function rotationStyle(rotation: number): string | undefined {
+  return rotation ? `${rotation}deg` : undefined;
+}
+
+/**
+ * The client rect of the layer's own box. A rotated layer's bounding rect is
+ * the axis-aligned hull, so take its center and the unrotated layout size.
+ */
+function unrotatedClientRect(layer: HTMLElement, rotation: number): DOMRect {
+  const hull = layer.getBoundingClientRect();
+  const parent = layer.parentElement;
+  if (!rotation || !parent || !layer.offsetWidth || !parent.offsetWidth) return hull;
+  const zoom = parent.getBoundingClientRect().width / parent.offsetWidth;
+  const width = layer.offsetWidth * zoom;
+  const height = layer.offsetHeight * zoom;
+  return new DOMRect(hull.left + hull.width / 2 - width / 2, hull.top + hull.height / 2 - height / 2, width, height);
+}
 
 function findCanvasAssemblyOverlay(layer: Element): HTMLElement | null {
   return layer.closest('.canvas-viewport')?.querySelector<HTMLElement>('.canvas-selection-assembly') ?? null;
+}
+
+/** Editable content (such as text) keeps the pointer instead of starting a move. */
+function pointerStartsContentEdit(target: EventTarget, allowContentInteraction: boolean): boolean {
+  return allowContentInteraction && target instanceof HTMLElement && target.closest('[data-canvas-editable="true"]') !== null;
+}
+
+/** Canvas edges and center, the host's extra lines, and every other unselected layer's edges and center. */
+function siblingSnapTargets(
+  layer: HTMLElement,
+  parentBounds: { height: number; left: number; top: number; width: number },
+  canvas: { height: number; width: number },
+  extra: Partial<CanvasSnapTargets> | undefined
+): CanvasSnapTargets {
+  const x = [0, canvas.width / 2, canvas.width, ...(extra?.x ?? [])];
+  const y = [0, canvas.height / 2, canvas.height, ...(extra?.y ?? [])];
+  Array.from(layer.parentElement?.children ?? []).forEach((sibling) => {
+    if (
+      !(sibling instanceof HTMLElement)
+      || sibling === layer
+      || !sibling.classList.contains('editable-canvas-layer')
+      || sibling.dataset.canvasSelectionMember === 'true'
+    ) return;
+    const bounds = sibling.getBoundingClientRect();
+    const left = (bounds.left - parentBounds.left) / parentBounds.width * canvas.width;
+    const right = (bounds.right - parentBounds.left) / parentBounds.width * canvas.width;
+    const top = (bounds.top - parentBounds.top) / parentBounds.height * canvas.height;
+    const bottom = (bounds.bottom - parentBounds.top) / parentBounds.height * canvas.height;
+    x.push(left, (left + right) / 2, right);
+    y.push(top, (top + bottom) / 2, bottom);
+  });
+  return { x, y };
+}
+
+/** The other layers of a moving selection, with their own rotation so previews move them along screen axes. */
+function selectionMemberElements(parent: HTMLElement): PointerSession['groupElements'] {
+  return Array.from(parent.children).flatMap((sibling) => {
+    if (
+      !(sibling instanceof HTMLElement)
+      || !sibling.classList.contains('editable-canvas-layer')
+      || sibling.dataset.canvasSelectionMember !== 'true'
+    ) return [];
+    const rotation = Number.parseFloat(sibling.style.rotate) || 0;
+    const bounds = unrotatedClientRect(sibling, rotation);
+    return [{ element: sibling, height: bounds.height, rotation, width: bounds.width }];
+  });
 }
 
 function CanvasLayerSelectionOverlay({
   beginPointer,
   label,
   resizeMode,
+  rotatable,
+  rotation,
   selectionMode,
   selectionBounds,
   selectionOverlayRef,
@@ -77,6 +150,8 @@ function CanvasLayerSelectionOverlay({
   beginPointer: BeginPointer;
   label: string;
   resizeMode: CanvasLayerResizeMode;
+  rotatable: boolean;
+  rotation: number;
   selectionMode: 'crop' | 'default';
   selectionBounds: SelectionBounds | null;
   selectionOverlayRef: RefObject<HTMLDivElement | null>;
@@ -90,9 +165,21 @@ function CanvasLayerSelectionOverlay({
         data-canvas-selection-preserve
         data-selection-mode={selectionMode}
         ref={selectionOverlayRef}
-        style={bounds}
+        style={{ ...bounds, rotate: rotationStyle(rotation) }}
       >
         <span aria-hidden='true' className='editable-canvas-layer-name'>{label}</span>
+        {rotatable ? (
+          <button
+            aria-label={`Rotate ${label}`}
+            className={styles.rotate}
+            onPointerDown={(event) => beginPointer(event, 'rotate')}
+            tabIndex={-1}
+            title={`Rotate ${label}. Hold Shift for ${ROTATION_STEP_DEGREES}° steps.`}
+            type='button'
+          >
+            <RotateCw aria-hidden='true' />
+          </button>
+        ) : null}
         {CANVAS_SELECTION_SIDES.map((side) => (
           <button
             aria-label={`Move ${label} from ${side} edge`}
@@ -281,6 +368,7 @@ function canvasLayerStyle({
   contentHeight,
   fitContentHeight,
   height,
+  rotation,
   width,
   zIndex,
 }: {
@@ -291,10 +379,12 @@ function canvasLayerStyle({
   contentHeight: number | null;
   fitContentHeight: boolean;
   height: number;
+  rotation: number;
   width: number;
   zIndex: number;
 }): CSSProperties {
   return {
+    rotate: rotationStyle(rotation),
     height: fitContentHeight && contentHeight !== null
       ? `max(${(height / canvasHeight) * 100}%, ${contentHeight}px)`
       : `${(height / canvasHeight) * 100}%`,
@@ -338,6 +428,7 @@ function useCanvasLayerSelectionBounds({
   contentHeight,
   height,
   layerRef,
+  rotation,
   selected,
   selectionOverlayRef,
   transform,
@@ -346,6 +437,7 @@ function useCanvasLayerSelectionBounds({
   contentHeight: number | null;
   height: number;
   layerRef: RefObject<HTMLDivElement | null>;
+  rotation: number;
   selected: boolean;
   selectionOverlayRef: RefObject<HTMLDivElement | null>;
   transform: CanvasLayerTransform;
@@ -359,7 +451,7 @@ function useCanvasLayerSelectionBounds({
       setSelectionBounds(null);
       return;
     }
-    const bounds = layer?.getBoundingClientRect();
+    const bounds = layer ? unrotatedClientRect(layer, rotation) : undefined;
     if (!bounds || bounds.width <= 0 || bounds.height <= 0) return;
     const viewport = layer?.closest<HTMLElement>('.canvas-viewport');
     if (!viewport) return;
@@ -381,7 +473,7 @@ function useCanvasLayerSelectionBounds({
       && current.viewport === next.viewport
       ? current
       : next);
-  }, [layerRef, selectionOverlayRef]);
+  }, [layerRef, rotation, selectionOverlayRef]);
 
   useLayoutEffect(() => {
     if (!selected) {
@@ -454,11 +546,14 @@ export default function EditableCanvasLayer({
   onContextMenu,
   onDoubleClick,
   onDeselect,
+  onRotate,
   onSelect,
   resizeMode = 'scale',
+  rotation = 0,
   selected,
   selectionMember = false,
   showSelectionControls = true,
+  snapTargets,
   transform,
   zIndex,
 }: {
@@ -482,18 +577,29 @@ export default function EditableCanvasLayer({
   onContextMenu?: (event: ReactMouseEvent<HTMLDivElement>) => void;
   onDoubleClick?: (event: ReactMouseEvent<HTMLDivElement>) => void;
   onDeselect: () => void;
+  /** Shows a rotate handle; receives the new rotation in degrees, (-180, 180], when a rotate drag ends. */
+  onRotate?: (rotation: number) => void;
   onSelect: (additive?: boolean) => void;
   resizeMode?: CanvasLayerResizeMode;
+  /** Degrees clockwise about the layer's center. The selection frame turns with it. */
+  rotation?: number;
   selected: boolean;
   selectionMember?: boolean;
   showSelectionControls?: boolean;
+  /** Extra canvas-space lines to snap to, such as thirds or custom guides. */
+  snapTargets?: Partial<CanvasSnapTargets>;
+  /**
+   * After a gesture, the preview stays until these props draw the same box,
+   * so a host may re-base (move offsets into baseX/baseY, or scale into
+   * baseWidth/baseHeight) when it commits.
+   */
   transform: CanvasLayerTransform;
   zIndex: number;
 }) {
   const layerRef = useRef<HTMLDivElement>(null);
   const selectionOverlayRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef<PointerSession | null>(null);
-  const pendingPointerRef = useRef<{ clientX: number; clientY: number; pointerId: number } | null>(null);
+  const pendingPointerRef = useRef<{ clientX: number; clientY: number; pointerId: number; shiftKey: boolean } | null>(null);
   const pointerFrameRef = useRef<number | null>(null);
   const [smartGuides, setSmartGuides] = useState<CanvasSmartGuides>({ x: null, y: null });
   const resizePreviewTransformRef = useRef<CanvasLayerTransform | null>(null);
@@ -501,12 +607,15 @@ export default function EditableCanvasLayer({
   const directPreviewCommitPendingRef = useRef(false);
   const directPreviewElementsRef = useRef<HTMLElement[]>([]);
   const directPreviewOverlayRef = useRef<HTMLElement | null>(null);
+  const committedPreviewGeometryRef = useRef<CanvasLayerGeometry | null>(null);
+  const rotationPreviewRef = useRef<number | null>(null);
   const { height, width } = canvasLayerDimensions(transform, { baseHeight, baseWidth });
   const contentHeight = useCanvasLayerContentHeight({ fitContentHeight, layerRef, width });
   const { measureSelectionBounds, selectionBounds } = useCanvasLayerSelectionBounds({
     contentHeight,
     height,
     layerRef,
+    rotation,
     selected,
     selectionOverlayRef,
     transform,
@@ -548,8 +657,10 @@ export default function EditableCanvasLayer({
     if (overlay) updateSelectionPreview(overlay, nextTransform, session);
     const startDimensions = canvasLayerDimensions(session.startTransform, { baseHeight, baseWidth });
     const nextDimensions = canvasLayerDimensions(nextTransform, { baseHeight, baseWidth });
-    const translateX = (nextTransform.x - session.startTransform.x) / Math.max(startDimensions.width, 0.001) * 100;
-    const translateY = (nextTransform.y - session.startTransform.y) / Math.max(startDimensions.height, 0.001) * 100;
+    // `transform` applies inside the layer's rotation, so express the move in its own axes.
+    const shift = rotateCanvasVector({ x: nextTransform.x - session.startTransform.x, y: nextTransform.y - session.startTransform.y }, -rotation);
+    const translateX = shift.x / Math.max(startDimensions.width, 0.001) * 100;
+    const translateY = shift.y / Math.max(startDimensions.height, 0.001) * 100;
     const scaleX = nextDimensions.width / Math.max(startDimensions.width, 0.001);
     const scaleY = nextDimensions.height / Math.max(startDimensions.height, 0.001);
     layer.style.transform = `translate3d(${translateX}%, ${translateY}%, 0) scale3d(${scaleX}, ${scaleY}, 1)`;
@@ -600,9 +711,10 @@ export default function EditableCanvasLayer({
       const delta = session.selectionProjector({ left: 0, top: 0, width: deltaX, height: deltaY });
       session.groupOverlay.style.transform = `translate3d(${delta.width}px, ${delta.height}px, 0)`;
     }
-    session.groupElements.forEach(({ element, height: elementHeight, width: elementWidth }) => {
-      const translateX = deltaX / Math.max(elementWidth, 0.001) * 100;
-      const translateY = deltaY / Math.max(elementHeight, 0.001) * 100;
+    session.groupElements.forEach(({ element, height: elementHeight, rotation: elementRotation, width: elementWidth }) => {
+      const shift = rotateCanvasVector({ x: deltaX, y: deltaY }, -elementRotation);
+      const translateX = shift.x / Math.max(elementWidth, 0.001) * 100;
+      const translateY = shift.y / Math.max(elementHeight, 0.001) * 100;
       element.style.transform = `translate3d(${translateX}%, ${translateY}%, 0)`;
       element.style.willChange = 'transform';
       element.dataset.interactionPreview = 'gpu-group';
@@ -613,21 +725,40 @@ export default function EditableCanvasLayer({
     directPreviewActiveRef.current = true;
   }
 
+  function previewRotation(nextRotation: number) {
+    const value = rotationStyle(nextRotation) ?? '';
+    const layer = layerRef.current;
+    if (layer) {
+      layer.style.rotate = value;
+      layer.dataset.interactionPreview = 'rotate';
+    }
+    if (selectionOverlayRef.current) selectionOverlayRef.current.style.rotate = value;
+    rotationPreviewRef.current = nextRotation;
+  }
+
+  function clearRotationPreview(restore: boolean) {
+    const layer = layerRef.current;
+    if (layer?.dataset.interactionPreview === 'rotate') delete layer.dataset.interactionPreview;
+    rotationPreviewRef.current = null;
+    if (!restore) return;
+    const value = rotationStyle(rotation) ?? '';
+    if (layer) layer.style.rotate = value;
+    if (selectionOverlayRef.current) selectionOverlayRef.current.style.rotate = value;
+  }
+
   useLayoutEffect(() => {
     if (!directPreviewActiveRef.current || !directPreviewCommitPendingRef.current) return;
     const preview = resizePreviewTransformRef.current;
-    if (
-      !preview
-      || preview.x !== transform.x
-      || preview.y !== transform.y
-      || preview.scale !== transform.scale
-      || preview.widthScale !== transform.widthScale
-      || preview.heightScale !== transform.heightScale
-    ) return;
+    const previewGeometry = committedPreviewGeometryRef.current;
+    if (!preview || !previewGeometry || !sameCanvasLayerBox(
+      { geometry: previewGeometry, transform: preview },
+      { geometry: { baseHeight, baseWidth, baseX, baseY }, transform }
+    )) return;
     clearDirectInteractionPreview();
     resizePreviewTransformRef.current = null;
+    committedPreviewGeometryRef.current = null;
     measureSelectionBounds();
-  }, [measureSelectionBounds, transform.heightScale, transform.scale, transform.widthScale, transform.x, transform.y]);
+  }, [baseHeight, baseWidth, baseX, baseY, measureSelectionBounds, transform]);
 
   const updatePointerRef = useCommittedRef(updatePointer);
   const endPointerRef = useCommittedRef(endPointer);
@@ -640,7 +771,7 @@ export default function EditableCanvasLayer({
     }
     const pending = pendingPointerRef.current;
     pendingPointerRef.current = null;
-    if (pending) updatePointerRef.current(pending.clientX, pending.clientY, pending.pointerId);
+    if (pending) updatePointerRef.current(pending.clientX, pending.clientY, pending.pointerId, pending.shiftKey);
   }, [updatePointerRef]);
 
   const handleWindowPointerMove = useCallback((event: PointerEvent) => {
@@ -649,13 +780,14 @@ export default function EditableCanvasLayer({
       clientX: event.clientX,
       clientY: event.clientY,
       pointerId: event.pointerId,
+      shiftKey: event.shiftKey,
     };
     if (pointerFrameRef.current === null) {
       pointerFrameRef.current = window.requestAnimationFrame(() => {
         pointerFrameRef.current = null;
         const pending = pendingPointerRef.current;
         pendingPointerRef.current = null;
-        if (pending) updatePointerRef.current(pending.clientX, pending.clientY, pending.pointerId);
+        if (pending) updatePointerRef.current(pending.clientX, pending.clientY, pending.pointerId, pending.shiftKey);
       });
     }
   }, [updatePointerRef]);
@@ -667,6 +799,7 @@ export default function EditableCanvasLayer({
         clientX: event.clientX,
         clientY: event.clientY,
         pointerId: event.pointerId,
+        shiftKey: event.shiftKey,
       };
       flushPendingPointer();
     } else {
@@ -725,16 +858,8 @@ export default function EditableCanvasLayer({
     if (event.button !== 0) return;
     event.stopPropagation();
     const additive = isAdditiveCanvasSelection(event);
-    if (
-      mode === 'move'
-      && allowContentInteraction
-      && event.target instanceof HTMLElement
-      && event.target.closest('[data-canvas-editable="true"]')
-    ) {
-      onSelect(additive);
-      return;
-    }
     onSelect(additive);
+    if (mode === 'move' && pointerStartsContentEdit(event.target, allowContentInteraction)) return;
     if (mode === 'move' && additive && selected) return;
     setSmartGuides({ x: null, y: null });
     const layer = layerRef.current;
@@ -743,48 +868,29 @@ export default function EditableCanvasLayer({
     const parentBounds = parent.getBoundingClientRect();
     if (parentBounds.width <= 0 || parentBounds.height <= 0) return;
     const startingTransform = resizePreviewTransformRef.current ?? transform;
+    const startingRotation = rotationPreviewRef.current ?? rotation;
     clearDirectInteractionPreview();
+    clearRotationPreview(false);
     resizePreviewTransformRef.current = null;
-    const targetX = [0, canvasWidth / 2, canvasWidth];
-    const targetY = [0, canvasHeight / 2, canvasHeight];
-    Array.from(parent.children).forEach((sibling) => {
-      if (
-        !(sibling instanceof HTMLElement)
-        || sibling === layer
-        || !sibling.classList.contains('editable-canvas-layer')
-        || sibling.dataset.canvasSelectionMember === 'true'
-      ) return;
-      const siblingBounds = sibling.getBoundingClientRect();
-      const left = (siblingBounds.left - parentBounds.left) / parentBounds.width * canvasWidth;
-      const right = (siblingBounds.right - parentBounds.left) / parentBounds.width * canvasWidth;
-      const top = (siblingBounds.top - parentBounds.top) / parentBounds.height * canvasHeight;
-      const bottom = (siblingBounds.bottom - parentBounds.top) / parentBounds.height * canvasHeight;
-      targetX.push(left, (left + right) / 2, right);
-      targetY.push(top, (top + bottom) / 2, bottom);
-    });
+    committedPreviewGeometryRef.current = null;
     const viewport = layer.closest<HTMLElement>('.canvas-viewport');
+    const hull = layer.getBoundingClientRect();
     sessionRef.current = {
       captureTarget: event.currentTarget,
       selectionProjector: viewport ? canvasSelectionProjector(viewport) : null,
-      groupElements: movementBounds ? Array.from(parent.children).flatMap((sibling) => {
-        if (
-          !(sibling instanceof HTMLElement)
-          || !sibling.classList.contains('editable-canvas-layer')
-          || sibling.dataset.canvasSelectionMember !== 'true'
-        ) return [];
-        const siblingBounds = sibling.getBoundingClientRect();
-        return [{ element: sibling, height: siblingBounds.height, width: siblingBounds.width }];
-      }) : [],
+      groupElements: movementBounds ? selectionMemberElements(parent) : [],
       groupOverlay: movementBounds ? findCanvasAssemblyOverlay(parent) : null,
       moved: false,
       mode,
       parentBounds,
       pointerId: event.pointerId,
-      snapTargets: { x: targetX, y: targetY },
+      rotationCenter: { x: hull.left + hull.width / 2, y: hull.top + hull.height / 2 },
+      snapTargets: siblingSnapTargets(layer, parentBounds, { height: canvasHeight, width: canvasWidth }, snapTargets),
       startSelected: selected && !additive,
       startClientX: event.clientX,
       startClientY: event.clientY,
       startHeightScale: startingTransform.heightScale ?? startingTransform.scale,
+      startRotation: startingRotation,
       startScale: startingTransform.scale,
       startTransform: startingTransform,
       startWidthScale: startingTransform.widthScale ?? startingTransform.scale,
@@ -795,69 +901,50 @@ export default function EditableCanvasLayer({
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
-  function updatePointer(clientX: number, clientY: number, pointerId: number) {
-    const session = sessionRef.current;
-    if (!session || session.pointerId !== pointerId) return;
-    const bounds = session.parentBounds;
-    if (Math.hypot(clientX - session.startClientX, clientY - session.startClientY) > 3) {
-      session.moved = true;
-    }
-    const deltaX = ((clientX - session.startClientX) / bounds.width) * canvasWidth;
-    const deltaY = ((clientY - session.startClientY) / bounds.height) * canvasHeight;
-    if (!session.moved) return;
-
-    if (session.mode !== 'move') {
-      if (session.mode === 'resize' && resizeMode === 'scale') {
-        const scaleDelta = (deltaX + deltaY) / Math.max(baseWidth, baseHeight);
-        const nextTransform = resizeCanvasLayerScale(session.startTransform, scaleDelta);
-        applyDirectInteractionPreview(nextTransform, session);
-        return;
-      }
-      let heightScale = session.startHeightScale;
-      let widthScale = session.startWidthScale;
-      let x = session.startX;
-      let y = session.startY;
-      if (RESIZE_FROM_RIGHT.has(session.mode)) {
-        widthScale = Math.max(session.startWidthScale + deltaX / baseWidth, MIN_CANVAS_LAYER_SCALE);
-        x += baseWidth * (widthScale - session.startWidthScale) / 2;
-      }
-      if (RESIZE_FROM_LEFT.has(session.mode)) {
-        widthScale = Math.max(session.startWidthScale - deltaX / baseWidth, MIN_CANVAS_LAYER_SCALE);
-        x -= baseWidth * (widthScale - session.startWidthScale) / 2;
-      }
-      if (RESIZE_FROM_BOTTOM.has(session.mode)) {
-        heightScale = Math.max(session.startHeightScale + deltaY / baseHeight, MIN_CANVAS_LAYER_SCALE);
-        y += baseHeight * (heightScale - session.startHeightScale) / 2;
-      }
-      if (RESIZE_FROM_TOP.has(session.mode)) {
-        heightScale = Math.max(session.startHeightScale - deltaY / baseHeight, MIN_CANVAS_LAYER_SCALE);
-        y -= baseHeight * (heightScale - session.startHeightScale) / 2;
-      }
-      const nextTransform = { ...session.startTransform, heightScale, widthScale, x, y };
-      applyDirectBoxResizePreview(nextTransform, session);
+  /** Box or uniform resize, read along the layer's own axes. */
+  function previewResize(delta: { x: number; y: number }, session: PointerSession) {
+    if (session.mode === 'resize' && resizeMode === 'scale') {
+      const local = rotateCanvasVector(delta, -rotation);
+      const scaleDelta = (local.x + local.y) / Math.max(baseWidth, baseHeight);
+      applyDirectInteractionPreview(resizeCanvasLayerScale(session.startTransform, scaleDelta), session);
       return;
     }
+    const nextTransform = resizeCanvasLayerBox(session.startTransform, { baseHeight, baseWidth }, session.mode, delta, rotation);
+    applyDirectBoxResizePreview(nextTransform, session);
+  }
 
+  /**
+   * The frame that snapping measures: the group's bounds when moving an
+   * assembly, the rotated layer's hull when rotated, else the layer itself.
+   */
+  function movementSnapFrame(proposed: CanvasLayerTransform, session: PointerSession) {
+    if (movementBounds) {
+      return {
+        geometry: { baseHeight: movementBounds.height, baseWidth: movementBounds.width, baseX: movementBounds.left, baseY: movementBounds.top },
+        transform: { scale: 1, x: proposed.x - session.startX, y: proposed.y - session.startY },
+      };
+    }
+    if (!rotation) return { geometry: { baseHeight, baseWidth, baseX, baseY }, transform: proposed };
+    const dimensions = canvasLayerDimensions(proposed, { baseHeight, baseWidth });
+    const hull = rotatedCanvasExtent(dimensions.width, dimensions.height, rotation);
+    return {
+      geometry: { baseHeight: hull.height, baseWidth: hull.width, baseX: baseX + (baseWidth - hull.width) / 2, baseY: baseY + (baseHeight - hull.height) / 2 },
+      transform: { scale: 1, x: proposed.x, y: proposed.y },
+    };
+  }
+
+  function previewMove(delta: { x: number; y: number }, session: PointerSession) {
+    const bounds = session.parentBounds;
     const proposedTransform = {
       ...session.startTransform,
       scale: session.startScale,
-      x: session.startX + deltaX,
-      y: session.startY + deltaY,
+      x: session.startX + delta.x,
+      y: session.startY + delta.y,
     };
-    const movementGeometry = movementBounds ? {
-      baseHeight: movementBounds.height,
-      baseWidth: movementBounds.width,
-      baseX: movementBounds.left,
-      baseY: movementBounds.top,
-    } : { baseHeight, baseWidth, baseX, baseY };
-    const movementTransform = movementBounds ? {
-      scale: 1,
-      x: proposedTransform.x - session.startX,
-      y: proposedTransform.y - session.startY,
-    } : proposedTransform;
+    const frame = movementSnapFrame(proposedTransform, session);
     const snapped = snapCanvasLayer(
-      movementTransform,
-      movementGeometry,
+      frame.transform,
+      frame.geometry,
       session.snapTargets,
       6 / bounds.width * canvasWidth,
       6 / bounds.height * canvasHeight
@@ -869,7 +956,7 @@ export default function EditableCanvasLayer({
       ...proposedTransform,
       x: session.startX + snapped.transform.x,
       y: session.startY + snapped.transform.y,
-    } : snapped.transform;
+    } : { ...proposedTransform, x: snapped.transform.x, y: snapped.transform.y };
     if (movementBounds) {
       applyDirectGroupMovePreview(nextTransform, session);
       return;
@@ -878,9 +965,52 @@ export default function EditableCanvasLayer({
     applyDirectInteractionPreview(nextTransform, session);
   }
 
+  function updatePointer(clientX: number, clientY: number, pointerId: number, shiftKey = false) {
+    const session = sessionRef.current;
+    if (!session || session.pointerId !== pointerId) return;
+    const bounds = session.parentBounds;
+    if (Math.hypot(clientX - session.startClientX, clientY - session.startClientY) > 3) {
+      session.moved = true;
+    }
+    if (!session.moved) return;
+    if (session.mode === 'rotate') {
+      previewRotation(canvasRotationFromPointer(
+        session.startRotation,
+        session.rotationCenter,
+        { x: session.startClientX, y: session.startClientY },
+        { x: clientX, y: clientY },
+        shiftKey ? ROTATION_STEP_DEGREES : undefined
+      ));
+      return;
+    }
+    const delta = {
+      x: ((clientX - session.startClientX) / bounds.width) * canvasWidth,
+      y: ((clientY - session.startClientY) / bounds.height) * canvasHeight,
+    };
+    if (session.mode === 'move') previewMove(delta, session);
+    else previewResize(delta, session);
+  }
+
+  function endRotation(eventType: string, session: PointerSession) {
+    const preview = rotationPreviewRef.current;
+    if (eventType === 'pointercancel' || preview === null || !session.moved) {
+      clearRotationPreview(true);
+      return;
+    }
+    // Keep the previewed angle on screen; the host's rotation prop replaces it.
+    clearRotationPreview(false);
+    onRotate?.(preview);
+  }
+
   function endPointer(eventType: string, pointerId: number) {
     const session = sessionRef.current;
     if (!session || session.pointerId !== pointerId) return;
+    if (session.mode === 'rotate') {
+      sessionRef.current = null;
+      if (session.captureTarget.hasPointerCapture(pointerId)) session.captureTarget.releasePointerCapture(pointerId);
+      endRotation(eventType, session);
+      return;
+    }
     const resizePreview = resizePreviewTransformRef.current;
     const usedDirectPreview = directPreviewActiveRef.current;
     sessionRef.current = null;
@@ -896,6 +1026,7 @@ export default function EditableCanvasLayer({
     }
     if (resizePreview) {
       directPreviewCommitPendingRef.current = usedDirectPreview;
+      committedPreviewGeometryRef.current = { baseHeight, baseWidth, baseX, baseY };
       if (!usedDirectPreview) resizePreviewTransformRef.current = null;
       onChange(resizePreview);
       if (session.mode === 'move' && session.moved) {
@@ -951,6 +1082,7 @@ export default function EditableCanvasLayer({
     contentHeight,
     fitContentHeight,
     height,
+    rotation,
     width,
     zIndex,
   });
@@ -1003,6 +1135,8 @@ export default function EditableCanvasLayer({
         beginPointer={beginPointer}
         label={label}
         resizeMode={resizeMode}
+        rotatable={Boolean(onRotate) && !cropEditing}
+        rotation={rotation}
         selectionMode={cropEditing ? 'crop' : 'default'}
         selectionBounds={interactive && presentation.selectionBounds ? selectionBounds : null}
         selectionOverlayRef={selectionOverlayRef}
