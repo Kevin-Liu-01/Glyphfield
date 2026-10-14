@@ -4,7 +4,7 @@ description: Generate templates, backgrounds, resolved brand-element briefs, and
 icon: WandSparkles
 ---
 
-`POST /api/generate` accepts `application/json`. The request `kind` selects one of four generators.
+`POST /api/generate` accepts `application/json`. The request `kind` selects one of four generators: `template` (the default), `background`, `element-brief`, and `design-sequence`. `GET /api/generate` returns the current contract (`schemaVersion` 3) with the request schema, enums, limits, and examples. Read it before building a request.
 
 ## Output selection
 
@@ -15,7 +15,7 @@ icon: WandSparkles
 
 ## Design sequence
 
-Design sequence creates the same versioned composition used by Design Lab. It supports an identity-aware brand mark, multiple text layers, a Bayer/ASCII/halftone/posterize converter, any material returned by `/api/materials`, 8–12 cuts, and a 3–6 second final hold.
+Design sequence creates the same versioned composition used by Design Lab. It supports an identity-aware brand mark, up to 32 text layers, a Bayer, ASCII, halftone, or posterize converter, any material listed by `/api/materials`, 8–12 cuts, and a 3–6 second final hold. Unlisted (retired) material IDs are rejected. Image effects are added in the browser with `design.effects.add` after the document is applied.
 
 ```json
 {
@@ -64,9 +64,9 @@ const artifact = await window.glyphfield.studio.invoke(
 
 Choose `png`, `jpg`, `gif`, or `mp4`. Shader-sequence mode is available for GIF and MP4. The export action resolves to the real UI artifact object and uses the authentic shader canvases, composition effects, text, marks, layer order, and output settings; `download: true` also saves it.
 
-## Template
+## Templates
 
-Template renders the Studio's brand templates as standalone SVG: OpenGraph images, terminal cards, slides, blog covers, and partnership lockups. Output uses the same layouts and renderer as the Studio and embeds the brand's font files and images, so it renders in the brand face in a plain `<img>`. Without copy, the identity supplies it: its headline and voice, its proof figures for metrics, its strategy pillars for agendas, and its own proof partner (or a written **Partner** placeholder) for lockups.
+Template renders the Studio's brand templates as standalone SVG: OpenGraph images, terminal cards, slides, blog covers, and partnership lockups. Output uses the same layouts and renderer as the Studio and embeds the brand's font files and images, so it renders in the brand face in a plain `<img>`. A font whose data URL exceeds 560,000 characters is not embedded. Each request renders one page. Without copy, the identity supplies it: its headline and voice, its proof figures for metrics, its strategy pillars for agendas, and its own proof partner (or a written **Partner** placeholder) for lockups.
 
 ```json
 {
@@ -90,13 +90,25 @@ Template renders the Studio's brand templates as standalone SVG: OpenGraph image
 - `format`: `opengraph | wide | square | portrait | story | linkedin | lockup`; slides `16x9 | 4x3 | square`
 - `language` (terminal): `typescript | tsx | javascript | python | bash | json | html | css`
 
-`body` is the list for slides (one item per line), the code for terminal, and supporting copy elsewhere. Default sizes are 1600 × 900 for slides, 1200 × 630 for OpenGraph, terminal, and blog, and 1200 × 600 for partnership; `format` changes them.
+| Field | Values |
+| --- | --- |
+| `template` | Default `slides` |
+| `layout`, `slideLayout` | One of the template's layouts. `slideLayout` applies to slides; `layout` is also accepted for slides. Sending both is an error |
+| `title` | Up to 240 characters |
+| `body` | Up to 1000 characters, or 4000 for `terminal`. The list for slides (one item per line), the code for terminal, and the supporting copy on layouts that have a supporting-copy slot; other layouts ignore it |
+| `background`, `foreground` | Six-digit HEX overrides |
+| `backgroundImageDataUrl` | A base64 image data URL, up to 5 MB |
+| `partnerId` | A partner for `partnership`: a proof asset ID of the identity, another built-in identity, or `template-northstar` |
+| `partnerLogoDataUrl` | A base64 partner logo, up to 5 MB |
+| `output` | `json` (default) or `raw` |
 
-`identity` accepts `{ preset }` with optional overrides, `{ id }` with an ID from `/api/identities`, or the complete identity object from `/api/identities` (custom identities included). Any other field next to `preset` is rejected with `unknown_field` rather than silently rendering Starter.
+Default sizes are 1600 × 900 for slides, 1200 × 630 for OpenGraph, terminal, and blog, and 1200 × 600 for partnership; `format` changes them. The file name is `<identity slug>-<template>-<width>x<height>.svg`.
+
+`identity` accepts `{ preset }` with optional overrides, `{ id }` with an ID from `/api/identities`, or the complete identity object from `/api/identities` (custom identities included). The default preset is `starter`. An unknown `id` returns `unknown_identity` and an invalid full identity returns `invalid_identity`. Any other field next to `preset` is rejected with `unknown_field` rather than silently rendering Starter. See [Identities and custom assets](/docs/agents/identity-assets).
 
 ## Background
 
-Background generates gradient, grain-gradient, dither, and pattern SVGs.
+Background generates gradient, grain-gradient, dither, pattern, and tactile surface SVGs. [Tactile backgrounds](/docs/studio/logo-background) lists every setting, including the `surface*` fields and the CC0 surface references.
 
 ```json
 {
@@ -128,7 +140,7 @@ Background generates gradient, grain-gradient, dither, and pattern SVGs.
 }
 ```
 
-Width and height must each be 64–4096, and the total may not exceed 12,000,000 pixels.
+Width and height must each be 64–4096 (`invalid_dimensions`), and the total may not exceed 12,000,000 pixels (`pixel_limit`).
 
 ## Element brief
 
@@ -147,7 +159,7 @@ Element brief resolves a stable record from `/api/elements` against an identity.
 }
 ```
 
-The response describes the element, dimensions, format, keywords, resolved identity, settings, and preview family. It does not rasterize an image.
+The response is `{ element, generation: { previewFamily, source: '/api/elements' }, identity, schemaVersion: 1 }`. `element` is the catalog record (ID, name, category, dimensions, format, symbol, keywords). `identity` holds the resolved colors, description, ID, name, positioning, short name, tagline, typography, voice, and website. The HTTP brief has no editor settings and does not rasterize an image; the Studio's **Download element brief** adds the element's current settings.
 
 ## JSON artifact envelope
 
@@ -156,7 +168,7 @@ The response describes the element, dimensions, format, keywords, resolved ident
   "schemaVersion": 1,
   "artifact": {
     "content": "<svg ...>...</svg>",
-    "filename": "gt-slides-agenda.svg",
+    "filename": "general-translation-slides-1600x900.svg",
     "mimeType": "image/svg+xml",
     "width": 1600,
     "height": 900
@@ -171,3 +183,7 @@ Check `schemaVersion`, `mimeType`, and dimensions before storing the content.
 The **Code** drawer inside `/studio` serializes the active browser tool. It supports exact edits for identities, boards, Animation, Lottie, Design Lab, templates, foundations, and components. Design Lab uses CanvasDocument schema 2 with Design Lab metadata source version 4. Browser documents are intentionally shaped around each interactive tool and are not interchangeable with the `POST /api/generate` request body.
 
 Use the HTTP contract on this page for deterministic remote generation. `design-sequence` is deliberately a bridge: it emits a compact, apply-ready compatibility document for programmatic browser rendering, and the browser normalizes it to current Studio source. For every other tool, use the active `window.glyphfield.studio` API to read/apply source or operate visible controls.
+
+## Errors
+
+Errors return `{ error: { code, field, message }, schemaVersion: 1 }`. Codes include `invalid_json`, `unknown_field`, `invalid_request`, `unknown_identity`, `invalid_identity`, `invalid_dimensions`, `pixel_limit`, `request_too_large` (413, body over 5,250,000 bytes), `unsupported_media_type` (415), and `generation_failed` (500). See [Errors and limits](/docs/agents/errors).

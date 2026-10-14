@@ -22,7 +22,7 @@ Validation failures use a structured response:
 | Status | Meaning | Response |
 | --- | --- | --- |
 | 400 | Malformed JSON or invalid field | Correct the named field |
-| 413 | Request body exceeds 5 MB | Reduce or recompress embedded assets |
+| 413 | Request body exceeds 5 MB (5,250,000 bytes) | Reduce or recompress embedded assets |
 | 415 | Content-Type is not JSON | Send `Content-Type: application/json` |
 | 429 | Production request rate limit exceeded | Wait for the limit window before retrying |
 | 500 | Artifact generation failed | Log the response and retry only if appropriate |
@@ -37,12 +37,13 @@ For transient 5xx responses, use bounded exponential backoff and retain the orig
 
 ## Important limits
 
-- Request body: 5 MB maximum
+- Request body: 5 MB maximum (5,250,000 bytes)
 - Data URL asset: 5 MB maximum
 - Background width and height: 64–4096
 - Background total pixels: 12,000,000 maximum
 - Template title: 240 characters
-- Template body: 1000 characters
+- Template body: 1000 characters; 4000 for `terminal`
+- Design sequence text layers: 32
 - Remote asset URLs: unsupported
 
 ## Contract drift

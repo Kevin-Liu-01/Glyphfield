@@ -4,18 +4,18 @@ description: Social preview images in seven formats, built from the identity's o
 icon: Images
 ---
 
-OpenGraph starts from the identity's brand template: its headline, its promise as supporting copy, a proof chip, the brand mark, and the identity's graphic device or photograph as the media panel. General Translation gets its language field, Stripe its programmable field, Ramp its campaign photograph, Tailwind CSS its utility wave.
+OpenGraph (tool ID `opengraph`) makes social preview images. It starts from the identity's brand template: its headline, its promise as supporting copy, a proof chip, the brand mark, and the identity's graphic device or photograph as the media panel. General Translation gets its language field, Stripe its programmable field, Ramp its campaign photograph, Tailwind CSS its utility wave.
 
 <DocsMediaGrid>
-  <DocsMedia alt='General Translation OpenGraph card in the expression editor, dark Studio chrome' caption='Split layout' meta='1200 × 630 · dark chrome' src='/screenshots/studio-gt-opengraph-dark-2026.png' />
-  <DocsMedia alt='General Translation OpenGraph card in the expression editor, light Studio chrome' caption='Same card, light chrome' meta='Theme-independent output' src='/screenshots/studio-gt-opengraph-light-2026.png' />
+  <DocsMedia alt='General Translation OpenGraph card in the expression editor, dark Studio chrome' caption='Split layout' meta='1200 × 630 · dark chrome' src='/screenshots/studio-gt-opengraph-dark-2026.webp' />
+  <DocsMedia alt='General Translation OpenGraph card in the expression editor, light Studio chrome' caption='Same card, light chrome' meta='Theme-independent output' src='/screenshots/studio-gt-opengraph-light-2026.webp' />
 </DocsMediaGrid>
 
 ## Content controls
 
 - **Headline**, **Typography role**, and **Font weight** edit the headline layer.
-- **Surface** switches the page between **Base white** and **Base dark**; text and marks switch with it.
-- **Add supporting image** replaces the media panel with a local image. **Identity evidence** picks an image from the identity library, or **Brand device** to go back to the generated device.
+- **Surface** switches the page between **Base white** and **Base dark**; text and marks switch with it. **Page surface** in Format and layout sets any brand color role. General Translation defaults to ink.
+- On the Split and Full bleed layouts, which have a media panel, **Add supporting image** replaces the panel with a local image and **Identity evidence** picks an image from the identity library, or **Brand device** to return to the generated device.
 - **Replace logo** and **Brand logo asset** change the mark. Select the logo layer for **Logo effects** (invert, dither, outline, shadow).
 - **Add font file** loads a local font for the headline.
 
@@ -23,7 +23,11 @@ Every layer is also editable on the canvas; see [Expression tools](/docs/studio/
 
 ## Formats and layouts
 
-Formats: OpenGraph 1200 × 630, Wide 1600 × 900, Square 1080 × 1080, Portrait 1080 × 1350, Story 1080 × 1920, LinkedIn 1200 × 627, and Lockup 1200 × 600. Layouts: **Split** (copy beside the media panel; stacked on tall formats), **Statement** (one large headline with a ruled footer), **Full bleed** (media behind the headline with a scrim), **Centered**, and **Editorial** (a large headline from the top edge, ruled footer with logo and website).
+Formats: `opengraph` 1200 × 630, `wide` 1600 × 900, `square` 1080 × 1080, `portrait` 1080 × 1350, `story` 1080 × 1920, `linkedin` 1200 × 627, and `lockup` 1200 × 600. Layouts: **Split** (`split`; copy beside the media panel, stacked on tall formats), **Statement** (`statement`; one large headline with a ruled footer), **Full bleed** (`media`; media behind the headline with a scrim), **Centered** (`centered`), and **Editorial** (`editorial`; a large headline from the top edge and a ruled footer with logo and website).
+
+## Export
+
+**Export PNG** renders the artboard at 2× (2400 × 1260 for the default format). **More exports → Export SVG** downloads a self-contained SVG. For the deployed site's own social images, see [Social previews](/docs/reference/social-previews).
 
 ## Browser actions
 
@@ -37,4 +41,8 @@ Formats: OpenGraph 1200 × 630, Wide 1600 × 900, Square 1080 × 1080, Portrait 
 | `opengraph.format.set` / `opengraph.layout.apply` / `opengraph.template.reset` | Format, layout, and template |
 | `opengraph.history.undo` / `opengraph.history.redo` | History |
 
-Agents can also set the labelled controls with `studio.set('Headline', 'Ship every locale')`.
+Agents can also set the labelled controls with `studio.set('Headline', 'Ship every locale')`. The shared actions are described in [Expression tools](/docs/studio/templates#browser-api).
+
+## HTTP
+
+`POST /api/generate` with `{ kind: 'template', template: 'opengraph', layout?, format? }` returns the same template as SVG. `body` fills the supporting copy only on layouts that have it. See [Generation API](/docs/agents/generate#templates).
