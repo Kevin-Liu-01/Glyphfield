@@ -23,6 +23,7 @@ import {
   resolveShaderGradientMotionClock,
   SHADER_GRADIENT_SOURCE_URL,
   WEBGL_FLUID_SOURCE_URL,
+  shaderGradientPathRadius,
 } from '../liveMaterials';
 
 describe('live materials', () => {
@@ -223,3 +224,12 @@ describe('live materials', () => {
     });
   });
 });
+
+describe('ShaderGradient path radius', () => {
+  it('keeps the sphere\'s loop path near the preset radius at every speed', () => {
+    expect(shaderGradientPathRadius(0)).toBe(0);
+    expect(shaderGradientPathRadius(1)).toBeCloseTo(0.4);
+    expect(shaderGradientPathRadius(10)).toBeLessThanOrEqual(0.5);
+  });
+});
+

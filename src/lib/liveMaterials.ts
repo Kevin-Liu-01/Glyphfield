@@ -240,6 +240,15 @@ export function liveMaterialMotionRate(speed: number): number {
   return Math.min(3, Math.sqrt(Math.min(1.5, speed)) * 2.1);
 }
 
+/**
+ * ShaderGradient's uSpeed is the radius of its loop path, not a clock rate, and its presets keep it
+ * near 0.4. Feeding it the shared motion rate (up to 3) swung the sphere across the frame every loop.
+ */
+export function shaderGradientPathRadius(speed: number): number {
+  if (!Number.isFinite(speed) || speed <= 0) return 0;
+  return Math.min(0.5, 0.4 * Math.sqrt(Math.min(1.5, speed)));
+}
+
 export function liveMaterialMotionTimeMs(timeMs: number, speed: number): number {
   if (!Number.isFinite(timeMs) || timeMs <= 0) return 0;
   return timeMs * liveMaterialMotionRate(speed);

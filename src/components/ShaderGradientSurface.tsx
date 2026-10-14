@@ -4,7 +4,7 @@ import { ShaderGradient, ShaderGradientCanvas } from '@shadergradient/react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useRef, useState } from 'react';
 
-import { liveMaterialMotionRate, type LiveMaterialSettings } from '@/lib/liveMaterials';
+import { shaderGradientPathRadius, type LiveMaterialSettings } from '@/lib/liveMaterials';
 import { resolveLiveMaterialPixelRatio } from '@/lib/liveMaterialRenderBudget';
 import { createLiveMaterialClock } from '@/lib/liveMaterialClock';
 import { normalizeLiveMaterialFrameState, registerLiveMaterialRuntime, type LiveMaterialFrameState } from '@/lib/liveMaterialPreview';
@@ -175,7 +175,7 @@ export default function ShaderGradientSurface({
           uAmplitude={settings.amplitude}
           uDensity={settings.density}
           uFrequency={settings.frequency}
-          uSpeed={liveMaterialMotionRate(settings.speed)}
+          uSpeed={shaderGradientPathRadius(settings.speed)}
           uStrength={settings.strength}
           uTime={0}
           wireframe={false}
