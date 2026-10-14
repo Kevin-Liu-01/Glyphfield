@@ -4,6 +4,7 @@ import {
   browserSupportsWebGL2,
   markWebGLContextUnavailable,
   resetWebGLContextAvailability,
+  scheduleWebGLContextRelease,
 } from '../webglContext';
 
 describe('WebGL context availability', () => {
@@ -65,5 +66,31 @@ describe('WebGL context availability', () => {
     currentTime = 2_001;
     expect(browserSupportsWebGL2()).toBe(true);
     expect(getContext).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('scheduled WebGL context release', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  function releasedCanvas(state: { isConnected: boolean; dataset: Record<string, string> }) {
+    vi.useFakeTimers();
+    vi.stubGlobal('window', { clearTimeout, setTimeout });
+    const loseContext = vi.fn();
+    const context = { getExtension: vi.fn(() => ({ loseContext })) } as unknown as WebGL2RenderingContext;
+    scheduleWebGLContextRelease(state as unknown as HTMLCanvasElement, context);
+    vi.advanceTimersByTime(250);
+    return loseContext;
+  }
+
+  it('loses the context of a canvas that left the document', () => {
+    expect(releasedCanvas({ dataset: {}, isConnected: false })).toHaveBeenCalledOnce();
+  });
+
+  it('keeps a canvas that was mounted again or pooled by Paper Shaders', () => {
+    expect(releasedCanvas({ dataset: {}, isConnected: true })).not.toHaveBeenCalled();
+    expect(releasedCanvas({ dataset: { paperShaderPooled: '' }, isConnected: false })).not.toHaveBeenCalled();
   });
 });

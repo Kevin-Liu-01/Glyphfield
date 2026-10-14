@@ -1,0 +1,132 @@
+diff --git a/dist/shader-mount.js b/dist/shader-mount.js
+index 5cf3dfe98acca473afa58329e5828e4a79d0f478..55324962ff2150c135ff9aad8ead0993977a8177 100644
+--- a/dist/shader-mount.js
++++ b/dist/shader-mount.js
+@@ -5,6 +5,61 @@
+ 
+ import { vertexShaderSource } from "./vertex-shader.js";
+ const DEFAULT_MAX_PIXEL_COUNT = 1920 * 1080 * 4;
++// Creating a WebGL context and compiling the same shader again cost 70-130 ms on
++// every remount (switching projects or materials). A disposed mount returns its
++// canvas, context and compiled programs here for the next mount with the same
++// context attributes. The pool is small and drops contexts that were lost.
++const POOLED_CANVAS_LIMIT = 2;
++const CACHED_PROGRAM_LIMIT = 6;
++const canvasPool = [];
++const programCaches = /* @__PURE__ */ new WeakMap();
++function contextKey(webGlContextAttributes) {
++  return JSON.stringify(webGlContextAttributes ?? {});
++}
++function takePooledCanvas(ownerDocument, key) {
++  for (let index = canvasPool.length - 1; index >= 0; index -= 1) {
++    const entry = canvasPool[index];
++    if (entry.key !== key || entry.canvas.ownerDocument !== ownerDocument) continue;
++    canvasPool.splice(index, 1);
++    delete entry.canvas.dataset.paperShaderPooled;
++    if (entry.gl.isContextLost()) continue;
++    return entry;
++  }
++  return null;
++}
++function releaseContext(gl) {
++  gl.getExtension("WEBGL_lose_context")?.loseContext();
++}
++function poolCanvas(canvas, gl, key) {
++  if (gl.isContextLost()) return;
++  canvas.dataset.paperShaderPooled = "";
++  canvasPool.push({ canvas, gl, key });
++  while (canvasPool.length > POOLED_CANVAS_LIMIT) {
++    const evicted = canvasPool.shift();
++    delete evicted.canvas.dataset.paperShaderPooled;
++    releaseContext(evicted.gl);
++  }
++}
++function cachedProgram(gl, fragmentShaderSource) {
++  const cache = programCaches.get(gl);
++  const program = cache?.get(fragmentShaderSource);
++  if (!program) return null;
++  cache.delete(fragmentShaderSource);
++  return program;
++}
++function cacheProgram(gl, fragmentShaderSource, program) {
++  let cache = programCaches.get(gl);
++  if (!cache) {
++    cache = /* @__PURE__ */ new Map();
++    programCaches.set(gl, cache);
++  }
++  cache.set(fragmentShaderSource, program);
++  while (cache.size > CACHED_PROGRAM_LIMIT) {
++    const [oldest, oldProgram] = cache.entries().next().value;
++    cache.delete(oldest);
++    gl.deleteProgram(oldProgram);
++  }
++}
+ class ShaderMount {
+   parentElement;
+   canvasElement;
+@@ -52,7 +107,9 @@ class ShaderMount {
+       styleElement.setAttribute("data-paper-shader", "");
+       this.ownerDocument.head.prepend(styleElement);
+     }
+-    const canvasElement = this.ownerDocument.createElement("canvas");
++    this.contextKey = contextKey(webGlContextAttributes);
++    const pooled = takePooledCanvas(this.ownerDocument, this.contextKey);
++    const canvasElement = pooled?.canvas ?? this.ownerDocument.createElement("canvas");
+     this.canvasElement = canvasElement;
+     this.parentElement.prepend(canvasElement);
+     this.fragmentShader = fragmentShader;
+@@ -61,11 +118,16 @@ class ShaderMount {
+     this.currentFrame = frame;
+     this.minPixelRatio = minPixelRatio;
+     this.maxPixelCount = maxPixelCount;
+-    const gl = canvasElement.getContext("webgl2", webGlContextAttributes);
++    const gl = pooled?.gl ?? canvasElement.getContext("webgl2", webGlContextAttributes);
+     if (!gl) {
+       throw new Error("Paper Shaders: WebGL is not supported in this browser");
+     }
+     this.gl = gl;
++    if (pooled) {
++      // Never show the previous mount's last frame.
++      gl.clearColor(0, 0, 0, 0);
++      gl.clear(gl.COLOR_BUFFER_BIT);
++    }
+     this.initProgram();
+     this.setupPositionAttribute();
+     this.setupUniforms();
+@@ -79,13 +141,14 @@ class ShaderMount {
+     this.ownerDocument.addEventListener("visibilitychange", this.handleDocumentVisibilityChange);
+   }
+   initProgram = () => {
+-    const program = createProgram(this.gl, vertexShaderSource, this.fragmentShader);
++    const program = cachedProgram(this.gl, this.fragmentShader) ?? createProgram(this.gl, vertexShaderSource, this.fragmentShader);
+     if (!program) return;
+     this.program = program;
+   };
+   setupPositionAttribute = () => {
+     const positionAttributeLocation = this.gl.getAttribLocation(this.program, "a_position");
+     const positionBuffer = this.gl.createBuffer();
++    this.positionBuffer = positionBuffer;
+     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, positionBuffer);
+     const positions = [-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1];
+     this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(positions), this.gl.STATIC_DRAW);
+@@ -394,8 +457,11 @@ class ShaderMount {
+         this.gl.deleteTexture(texture);
+       });
+       this.textures.clear();
+-      this.gl.deleteProgram(this.program);
++      if (this.gl.isContextLost()) this.gl.deleteProgram(this.program);
++      else cacheProgram(this.gl, this.fragmentShader, this.program);
+       this.program = null;
++      if (this.positionBuffer) this.gl.deleteBuffer(this.positionBuffer);
++      this.positionBuffer = null;
+       this.gl.bindBuffer(this.gl.ARRAY_BUFFER, null);
+       this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, null);
+       this.gl.bindRenderbuffer(this.gl.RENDERBUFFER, null);
+@@ -414,6 +480,7 @@ class ShaderMount {
+     this.ownerDocument.removeEventListener("visibilitychange", this.handleDocumentVisibilityChange);
+     this.uniformLocations = {};
+     this.canvasElement.remove();
++    if (this.gl) poolCanvas(this.canvasElement, this.gl, this.contextKey);
+     delete this.parentElement.paperShaderMount;
+   };
+ }
