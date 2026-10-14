@@ -35,7 +35,8 @@ describe('interactive cursor semantics', () => {
   });
 
   it('does not regress specialized canvas and resize affordances', () => {
-    const styles = source('src/app/globals.css');
+    // The color proof's crosshair moved into the Color tokens CSS module.
+    const styles = `${source('src/app/globals.css')}\n${source('src/components/tools/color/ColorTool.module.css')}`;
 
     expect(styles).toContain('cursor: grab;');
     expect(styles).toContain('cursor: grabbing;');

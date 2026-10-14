@@ -2,6 +2,8 @@ import {
   normalizeBrandIdentity,
   type BrandIdentity,
 } from './brandIdentity';
+import { BRAND_TYPE_STEPS } from './brandTokens';
+import { parseColorRef, SEMANTIC_COLOR_ROLES } from './colorSystem';
 
 /**
  * The BrandIdentity source contract shared by the Brand identity source drawer,
@@ -13,6 +15,7 @@ export const BRAND_SOURCE_SCHEMA_VERSION = 1;
 
 type StringFormat =
   | 'color-id'
+  | 'color-ref'
   | 'email'
   | 'hex'
   | 'local-file'
@@ -89,6 +92,12 @@ const ASSET_SPEC: ObjectSpec = {
   required: ['id', 'label', 'path', 'surface', 'type'],
 };
 
+const COLOR_REF_SPEC: FieldSpec = { format: 'color-ref', kind: 'string', maxLength: 48, minLength: 1 };
+const SEMANTIC_ROLE_FIELDS: Record<string, FieldSpec> = Object.fromEntries(
+  SEMANTIC_COLOR_ROLES.map(({ id, usage }) => [id, { ...COLOR_REF_SPEC, description: usage }])
+);
+const TYPE_STEP_NAMES = BRAND_TYPE_STEPS.map(({ name }) => name);
+
 const IDENTITY_SPEC: ObjectSpec = {
   description: 'A complete Glyphfield BrandIdentity. Unknown fields are kept as-is.',
   fields: {
@@ -124,6 +133,26 @@ const IDENTITY_SPEC: ObjectSpec = {
       kind: 'object',
       required: ['background', 'foreground', 'usage'],
     }, 32, 'Foreground/background color pairs intended for text or icons. Merged by foreground and background.', 'pair'),
+    colorSystem: {
+      description: 'Semantic light and dark color roles and per-color OKLCH scale settings. Role values are color refs: a colors[].id such as "ink" or one of its scale steps such as "ink.700" (steps 50, 100 … 900, 950). Omitted roles are derived from the palette.',
+      fields: {
+        dark: { description: 'Role overrides for dark mode.', fields: SEMANTIC_ROLE_FIELDS, kind: 'object' },
+        light: { description: 'Role overrides for light mode.', fields: SEMANTIC_ROLE_FIELDS, kind: 'object' },
+        scales: records({
+          fields: {
+            anchor: { description: 'Snap the nearest step to the exact palette HEX (default true).', kind: 'boolean' },
+            chroma: number(0, 200, 'Chroma as a percentage of the palette color (default 100).'),
+            darkest: number(0, 0.5, 'OKLCH lightness of step 950 (default 0.22).'),
+            hueShift: number(-90, 90, 'Hue rotation in degrees from step 50 to step 950 (default 0).'),
+            id: { description: 'The colors[].id this scale belongs to.', format: 'color-id', kind: 'string', maxLength: 40, minLength: 1 },
+            lightest: number(0.5, 1, 'OKLCH lightness of step 50 (default 0.975).'),
+          },
+          kind: 'object',
+          required: ['id'],
+        }, 32, 'Per-color scale settings. Merged by id.', 'id'),
+      },
+      kind: 'object',
+    },
     colors: records({
       fields: {
         hex: { description: 'Six-digit HEX such as #1A2B3C.', format: 'hex', kind: 'string', maxLength: 7, minLength: 7 },
@@ -250,7 +279,15 @@ const IDENTITY_SPEC: ObjectSpec = {
     tagline: text(200),
     typeScale: {
       description: 'Modular type scale: size = basePx × ratio^step.',
-      fields: { basePx: number(10, 24), ratio: number(1.067, 1.8) },
+      fields: {
+        basePx: number(10, 24),
+        ratio: number(1.067, 1.8),
+        roleSteps: {
+          description: `The scale step each role is set at; omitted roles use Display display, Body body, Accent lead, Code small. Steps: ${TYPE_STEP_NAMES.join(', ')}.`,
+          fields: Object.fromEntries(TYPOGRAPHY_ROLES.map((role) => [role, oneOf(TYPE_STEP_NAMES)])),
+          kind: 'object',
+        },
+      },
       kind: 'object',
       required: ['basePx', 'ratio'],
     },
@@ -260,7 +297,9 @@ const IDENTITY_SPEC: ObjectSpec = {
         fontId: recordId('ID of a fonts[] record that renders this role.'),
         letterSpacing: number(-12, 24, 'Tracking in px.'),
         lineHeight: number(0.7, 2.4),
+        opticalSize: number(6, 144, 'Fixed optical size on the opsz axis; omit for automatic optical sizing.'),
         role: oneOf(TYPOGRAPHY_ROLES),
+        slant: number(-20, 20, 'Oblique angle in degrees, positive leans right; uses the slnt axis when the font has one.'),
         usage: text(300),
         weight: number(100, 900),
       },
@@ -297,6 +336,7 @@ type RemovableCollection = (typeof REMOVABLE_COLLECTIONS)[number];
 
 const PATTERNS: Record<StringFormat, RegExp> = {
   'color-id': /^[a-z][a-z0-9-]{0,39}$/,
+  'color-ref': /^[a-z][a-z0-9-]{0,39}(?:\.(?:50|100|200|300|400|500|600|700|800|900|950))?$/,
   email: /^(?:[^\s@]+@[^\s@]+\.[^\s@]+)?$/,
   hex: /^#[0-9A-Fa-f]{6}$/,
   'local-file': /^(?:$|data:[^,]*,|\/(?!\/))/,
@@ -307,6 +347,7 @@ const PATTERNS: Record<StringFormat, RegExp> = {
 
 const FORMAT_HINTS: Record<StringFormat, string> = {
   'color-id': 'a token-safe ID such as "ink" or "brand-lime" (lowercase letters, digits and hyphens, starting with a letter)',
+  'color-ref': 'a colors[].id such as "ink" or one of its scale steps such as "ink.700"',
   email: 'an email address or an empty string',
   hex: 'a six-digit HEX color such as "#1A2B3C"',
   'local-file': 'a data: URL or a root-relative path such as "/brands/acme/logo.svg"',
@@ -519,6 +560,26 @@ function duplicateIds(items: unknown, key: string, path: string, issues: BrandSo
   return seen;
 }
 
+/** Role refs and scale ids in colorSystem must name colors[].id values. */
+function colorSystemReferences(system: unknown, colorIds: ReadonlySet<string>, issues: BrandSourceIssue[]) {
+  if (!isRecord(system)) return;
+  const known = [...colorIds].join(', ') || 'none defined';
+  for (const mode of ['light', 'dark'] as const) {
+    const roles = system[mode];
+    if (!isRecord(roles)) continue;
+    for (const [role, ref] of Object.entries(roles)) {
+      const id = typeof ref === 'string' ? parseColorRef(ref)?.id : undefined;
+      if (id && !colorIds.has(id)) issue(issues, 'reference', `colorSystem.${mode}.${role}`, `colorSystem.${mode}.${role} "${String(ref)}" does not match any colors[].id (${known}).`);
+    }
+  }
+  if (!Array.isArray(system.scales)) return;
+  system.scales.forEach((scale, index) => {
+    if (isRecord(scale) && typeof scale.id === 'string' && !colorIds.has(scale.id)) {
+      issue(issues, 'reference', `colorSystem.scales[${index}].id`, `colorSystem.scales[${index}].id "${scale.id}" does not match any colors[].id.`);
+    }
+  });
+}
+
 function crossReferences(identity: Record<string, unknown>, issues: BrandSourceIssue[]) {
   duplicateIds(identity.colors, 'id', 'colors', issues);
   duplicateIds(identity.proofAssets, 'id', 'proofAssets', issues, duplicateIds(identity.assets, 'id', 'assets', issues));
@@ -542,6 +603,8 @@ function crossReferences(identity: Record<string, unknown>, issues: BrandSourceI
       }
     });
   }
+
+  colorSystemReferences(identity.colorSystem, colorIds, issues);
 
   const fonts = Array.isArray(identity.fonts) ? identity.fonts.filter(isRecord) : [];
   const fontIds = new Set(fonts.flatMap((font) => typeof font.id === 'string' ? [font.id] : []));
@@ -822,7 +885,7 @@ export const BRAND_IDENTITY_PATCH_SCHEMA: JsonSchema = {
 };
 
 export const BRAND_SOURCE_MERGE_RULES = [
-  'Objects (strategy, voice, graphicSystem, dossier, artDirection, style, typeScale) merge by key.',
+  'Objects (strategy, voice, graphicSystem, dossier, artDirection, style, typeScale, colorSystem) merge by key; colorSystem.scales merge by id.',
   'Record arrays merge by id: a matching id updates that record, a new id appends one, and records you omit are kept.',
   'typography merges by role; colorPairings merge by foreground and background.',
   'String lists (pillars, phrases, audiences, products, proof, rules…) and voice.examples are replaced as a whole.',
