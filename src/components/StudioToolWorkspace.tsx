@@ -15,46 +15,31 @@ const BackgroundStudio = dynamic(() => import('@/components/BackgroundStudio'), 
   loading: ToolModuleLoading,
   ssr: false,
 });
-const BrandBook = dynamic(() => import('@/components/BrandBook'), {
-  loading: ToolModuleLoading,
-});
-const BrandElementsStudio = dynamic(() => import('@/components/BrandElementsStudio'), {
-  loading: ToolModuleLoading,
-});
-const BrandSettingsStudio = dynamic(() => import('@/components/BrandSettingsStudio'), {
-  loading: ToolModuleLoading,
-});
-const ColorTool = dynamic(() => import('@/components/tools/ColorTool'), {
-  loading: ToolModuleLoading,
-});
-const ComponentLibraryTool = dynamic(() => import('@/components/tools/ComponentLibraryTool'), {
-  loading: ToolModuleLoading,
-});
-const DesignBoard = dynamic(() => import('@/components/DesignBoard'), {
-  loading: ToolModuleLoading,
-});
+// Tool editors suspend to the Studio workspace boundary (see StudioApp), which
+// keeps the previous tool visible until the next one has loaded.
+const BrandBook = dynamic(() => import('@/components/BrandBook'));
+const BrandElementsStudio = dynamic(() => import('@/components/BrandElementsStudio'));
+const BrandSettingsStudio = dynamic(() => import('@/components/BrandSettingsStudio'));
+const ColorTool = dynamic(() => import('@/components/tools/ColorTool'));
+const ComponentLibraryTool = dynamic(() => import('@/components/tools/ComponentLibraryTool'));
+const DesignBoard = dynamic(() => import('@/components/DesignBoard'));
 const LogoShaderStudio = dynamic(() => import('@/components/LogoShaderStudio'), {
   loading: ToolModuleLoading,
   ssr: false,
 });
-const OpenGraphTool = dynamic(() => import('@/components/tools/OpenGraphTool'), {
-  loading: ToolModuleLoading,
-});
-const TemplateTool = dynamic(() => import('@/components/tools/TemplateTool'), {
-  loading: ToolModuleLoading,
-});
-const TerminalTool = dynamic(() => import('@/components/tools/TerminalTool'), {
-  loading: ToolModuleLoading,
-});
-const TypographyTool = dynamic(() => import('@/components/tools/TypographyTool'), {
-  loading: ToolModuleLoading,
-});
+const OpenGraphTool = dynamic(() => import('@/components/tools/OpenGraphTool'));
+const TemplateTool = dynamic(() => import('@/components/tools/TemplateTool'));
+const TerminalTool = dynamic(() => import('@/components/tools/TerminalTool'));
+const TypographyTool = dynamic(() => import('@/components/tools/TypographyTool'));
 
-// Hover/focus prefetch for the per-tool chunks above (see StudioApp's preloadStudioTool).
+// Hover/focus and idle prefetch for the per-tool chunks above (see StudioApp).
 const TOOL_MODULE_LOADERS: Partial<Record<StudioToolId, () => Promise<unknown>>> = {
   blog: () => import('@/components/tools/TemplateTool'),
+  'brand-book': () => import('@/components/BrandBook'),
+  'brand-elements': () => import('@/components/BrandElementsStudio'),
   buttons: () => import('@/components/tools/ComponentLibraryTool'),
   colors: () => import('@/components/tools/ColorTool'),
+  'design-board': () => import('@/components/DesignBoard'),
   opengraph: () => import('@/components/tools/OpenGraphTool'),
   partnership: () => import('@/components/tools/TemplateTool'),
   slides: () => import('@/components/tools/TemplateTool'),
