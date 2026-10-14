@@ -1757,7 +1757,8 @@ export const DesignLabInspectorPanel = memo(function DesignLabInspectorPanel({
         ) : null}
       </LabInspectorSection>}</OptionalRender>
 
-      <OptionalRender value={editingShader}>{() => <details className='shader-lab-v2-advanced'>
+      {/* Shaders.com materials read only their native props, speed and zoom, so Advanced does not apply to them. */}
+      <OptionalRender value={editingShader && !getShaderEffect(editingShader.materialId) ? editingShader : null}>{() => <details className='shader-lab-v2-advanced'>
         <summary>Advanced <ChevronDown aria-hidden='true' /></summary>
         <div className='shader-lab-v2-ranges'>
           {ADVANCED_CONTROLS.map((control) => (

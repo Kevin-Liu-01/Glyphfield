@@ -25,6 +25,10 @@ describe('agent discovery catalogs', () => {
     expect(AGENT_SHADER_LIBRARY.sharedBy).toEqual(['animation', 'material']);
   });
 
+  it('publishes the speed range every speed slider uses, where motion stops getting faster', () => {
+    expect(AGENT_SHADER_LIBRARY.controls.speed).toMatchObject({ maximum: 1.5, minimum: 0 });
+  });
+
   it('publishes each native effect control set once, on its material', () => {
     expect(AGENT_SHADER_LIBRARY.shaderEffects.components.every((component) => !('controls' in component) && !('props' in component))).toBe(true);
     const native = AGENT_SHADER_LIBRARY.materials.filter((material) => 'nativeControls' in material);

@@ -7,7 +7,24 @@ import { getShaderEffect, type ShaderEffectControl, type ShaderEffectProps, type
 export type ShaderEffectPalette = Pick<LiveMaterialSettings, 'colorA' | 'colorB' | 'colorC'>;
 export type ShaderEffectSettings = ShaderEffectPalette & Pick<LiveMaterialSettings, 'effectProps'>;
 
-const CONTROLS = controls as unknown as Readonly<Record<string, Readonly<Record<string, ShaderEffectControl>>>>;
+type EffectControls = Readonly<Record<string, ShaderEffectControl>>;
+
+/**
+ * Upstream declares font weights without bounds. Give them the CSS weight
+ * steps so the inspector slider, validation and /api/materials nativeControls
+ * all read the same range.
+ */
+function withDeclaredRange(control: ShaderEffectControl): ShaderEffectControl {
+  if (typeof control.default !== 'number' || ![control.type].flat().includes('font-weight')) return control;
+  return { ...control, max: control.max ?? 900, min: control.min ?? 100, step: control.step ?? 100 };
+}
+
+const CONTROLS: Readonly<Record<string, EffectControls>> = Object.fromEntries(
+  Object.entries(controls as unknown as Record<string, EffectControls>).map(([id, effectControls]) => [
+    id,
+    Object.fromEntries(Object.entries(effectControls).map(([key, control]) => [key, withDeclaredRange(control)])),
+  ])
+);
 
 export function getShaderEffectControls(id: string): Readonly<Record<string, ShaderEffectControl>> | undefined {
   return Object.hasOwn(CONTROLS, id) ? CONTROLS[id] : undefined;

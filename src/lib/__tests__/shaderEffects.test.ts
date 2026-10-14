@@ -111,6 +111,18 @@ describe('Shaders.com native library', () => {
       expect(visibleShaderEffectControls(id, resolveShaderEffectProps(id, { ...PALETTE, effectProps: {} })).map(([name]) => name)).not.toContain('speed');
     });
   });
+  it('declares a range for every numeric control, so the slider, validation and /api/materials agree', () => {
+    for (const { id } of SHADER_EFFECTS) {
+      for (const [key, control] of Object.entries(getShaderEffectControls(id) ?? {})) {
+        if (typeof control.default !== 'number') continue;
+        expect([id, key, typeof control.min, typeof control.max]).toEqual([id, key, 'number', 'number']);
+      }
+    }
+    expect(getShaderEffectControls('shader-effects-text')?.fontWeight).toMatchObject({ max: 900, min: 100, step: 100 });
+    expect(validateShaderEffectProps('shader-effects-text', { fontWeight: 700 })).toEqual({ fontWeight: 700 });
+    expect(() => validateShaderEffectProps('shader-effects-text', { fontWeight: 950 })).toThrow(/outside its numeric range/);
+  });
+
   it('shows only the controls whose upstream conditions hold', () => {
     const names = (id: string, effectProps = {}) => visibleShaderEffectControls(id, resolveShaderEffectProps(id, { ...PALETTE, effectProps })).map(([name]) => name);
     expect(names('shader-effects-halftone')).not.toContain('cyanColor');
