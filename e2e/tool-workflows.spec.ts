@@ -137,6 +137,8 @@ test('Browser API values commit to controlled text fields and sliders', async ({
   await page.evaluate(() => window.glyphfield!.studio.set('Terminal source code', 'const committed = true;'));
   await expect.poll(() => readValue(page, ['code'])).toBe('const committed = true;');
   await page.locator('.studio-nav').getByRole('button', { name: 'Lottie', exact: true }).click();
+  // The API still serves Terminal until Lottie's workspace takes over.
+  await expect.poll(() => page.evaluate(() => window.glyphfield!.studio.activeTool())).toBe('lottie');
   await waitForStudioSource(page);
   for (const speed of [1.5, 2]) {
     await page.evaluate((speed) => window.glyphfield!.studio.set('Speed', speed), speed);

@@ -13,6 +13,20 @@ export async function waitForStudioSource(page: Page) {
   })).toBe(true);
 }
 
+/** After Add text layer: waits until the source is readable and has the new text element. */
+export async function waitForTextLayer(page: Page) {
+  await expect.poll(() => page.evaluate(() => {
+    try {
+      return Object.values(JSON.parse(window.glyphfield!.studio.readSource()).elements)
+        .some((element) => (element as { kind: string }).kind === 'text');
+    } catch (error) {
+      // The portable source is regenerated after an edit; it is briefly unreadable.
+      if (error instanceof Error && /prepar/i.test(error.message)) return false;
+      throw error;
+    }
+  })).toBe(true);
+}
+
 export async function openSourceEditor(page: Page) {
   await waitForStudioSource(page);
   await page.locator('[data-studio-tool-header]:visible').getByRole('button', { name: 'File', exact: true }).click();

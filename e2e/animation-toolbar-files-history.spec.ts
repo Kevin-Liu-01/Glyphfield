@@ -72,8 +72,14 @@ async function semanticSource(page: Page) {
 
 async function pixels(studio: Locator) {
   return studio.locator('canvas[aria-label="Animation preview canvas"]').evaluate((canvas: HTMLCanvasElement) => {
-    const context = canvas.getContext('2d');
+    // Read a copy: repeated reads of the preview itself can move Chrome's accelerated
+    // canvas to the CPU mid-test, which rasterizes the same frame slightly differently.
+    const copy = document.createElement('canvas');
+    copy.width = canvas.width;
+    copy.height = canvas.height;
+    const context = copy.getContext('2d', { willReadFrequently: true });
     if (!context) throw new Error('Animation preview has no 2D context');
+    context.drawImage(canvas, 0, 0);
     const rgba = context.getImageData(0, 0, canvas.width, canvas.height).data;
     let hash = 2166136261;
     let ink = 0;

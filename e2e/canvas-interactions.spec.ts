@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import type { CanvasElement } from '../src/lib/canvasDocument';
+import { waitForTextLayer } from './studio-ui-helpers';
 
 type FixtureText = CanvasElement & { content: string; data: { fontSize: number; transform: { scale: number } } };
 type FixtureShader = CanvasElement & { data: { materialId: string; settings: { speed: number; strength: number } } };
@@ -13,6 +14,7 @@ test.beforeEach(async ({ browser }, testInfo) => {
 async function prepareText(page: Page) {
   await page.goto('/studio?tool=material');
   await page.getByRole('button', { name: 'Add text layer', exact: true }).click();
+  await waitForTextLayer(page);
   await page.evaluate(async () => {
     const studio = window.glyphfield!.studio;
     const source = JSON.parse(studio.readSource() as string);

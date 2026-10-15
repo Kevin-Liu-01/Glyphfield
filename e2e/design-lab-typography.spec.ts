@@ -10,8 +10,19 @@ type TextLayer = {
 };
 
 async function typographySource(page: Page) {
-  return page.evaluate(() => {
-    const source = JSON.parse(window.glyphfield!.studio.readSource() as string);
+  return page.evaluate(async () => {
+    // readSource throws while the portable source is regenerated after an edit.
+    let serialized = '';
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        serialized = window.glyphfield!.studio.readSource() as string;
+        break;
+      } catch (error) {
+        if (attempt >= 200 || !/prepar/i.test(String(error))) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+    }
+    const source = JSON.parse(serialized);
     const text = (Object.values(source.elements) as Array<{ kind: string; data: TextLayer }>)
       .filter((element) => element.kind === 'text').map((element) => element.data);
     return { text, page: source.pages[source.pageIds[0]] as { width: number; height: number },

@@ -1,11 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
 import type { CanvasElement } from '../src/lib/canvasDocument';
+import { waitForTextLayer } from './studio-ui-helpers';
 
 type FixtureKind = 'tiny-height' | 'tiny-width' | 'effect-overflow' | 'image' | 'image-crop' | 'image-no-viewbox' | 'image-explicit-stretch' | 'logo';
 
 async function prepareOverflowFixture(page: Page, kind: FixtureKind) {
   await page.goto('/studio?tool=material');
   await page.getByRole('button', { name: 'Add text layer', exact: true }).click();
+  await waitForTextLayer(page);
   await page.evaluate(async (kind) => {
     const studio = window.glyphfield!.studio;
     const source = JSON.parse(studio.readSource() as string);
@@ -159,7 +161,8 @@ for (const kind of ['tiny-height', 'tiny-width', 'effect-overflow', 'image', 'im
         for (let y = 0; y < canvas.height; y += 1) {
           for (let x = 0; x < canvas.width; x += 1) {
             const offset = (y * canvas.width + x) * 4;
-            if (pixels[offset] < 160 || pixels[offset + 1] < 160 || pixels[offset + 2] < 160) continue;
+            // Light ink on the black artboard. Thin stems of 8 px text peak near 140 on screen.
+            if (pixels[offset] < 96 || pixels[offset + 1] < 96 || pixels[offset + 2] < 96) continue;
             left = Math.min(left, x); right = Math.max(right, x);
             top = Math.min(top, y); bottom = Math.max(bottom, y);
           }
