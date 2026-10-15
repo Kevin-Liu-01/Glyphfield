@@ -330,3 +330,15 @@ export function remapDesignLabClipboardSnapshot(
     snapshot,
   };
 }
+
+/**
+ * What Cut removes: the canvas selection, or the layer chosen in the layer list.
+ * A locked layer chosen in the list is only copied, as Delete leaves it in place.
+ */
+export function designLabCutTarget({ canvasSelectionCount, chosenLayerLocked }: {
+  canvasSelectionCount: number;
+  chosenLayerLocked: boolean;
+}): 'canvas-selection' | 'chosen-layer' | 'copy-only' {
+  if (canvasSelectionCount > 0) return 'canvas-selection';
+  return chosenLayerLocked ? 'copy-only' : 'chosen-layer';
+}

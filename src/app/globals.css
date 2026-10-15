@@ -5164,6 +5164,11 @@ html.dark .studio-app .studio-app-header > a img {
   animation: none;
 }
 
+/* A replaced shader disappears at once; its fade is an inline style, so this needs !important. */
+.studio-app[data-studio-motion='reduced'] [data-live-material-held] {
+  transition-duration: 0ms !important;
+}
+
 .tool-shell {
   container-name: tool-shell;
   container-type: inline-size;

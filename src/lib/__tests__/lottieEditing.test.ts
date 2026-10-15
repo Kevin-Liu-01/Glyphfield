@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  appendLottieMarker,
   applyLottieEdits,
   brandLottieColorMap,
   EMPTY_LOTTIE_EDITS,
@@ -8,6 +9,7 @@ import {
   listLottieLayers,
   listLottieMarkers,
   listLottieTextLayers,
+  MAX_LOTTIE_MARKERS,
   normalizeLottieEdits,
 } from '../lottieEditing';
 import { LOTTIE_EXAMPLES, type LottieDocument } from '../lottieExamples';
@@ -92,5 +94,17 @@ describe('Lottie motion export timing', () => {
     expect(lottieExportFrameAt(750, { ...timing, mode: 'bounce' })).toBe(90);
     expect(lottieExportFrameAt(250, { ...timing, mode: 'reverse-bounce' })).toBe(90);
     expect(lottieExportFrameAt(999, { ...timing, mode: 'reverse-bounce' })).toBeCloseTo(119.88, 1);
+  });
+});
+
+describe('Lottie marker limit', () => {
+  const marker = (index: number) => ({ duration: 10, frame: index, name: `Segment ${index + 1}` });
+
+  it('adds markers up to the limit that a saved draft can restore', () => {
+    const almostFull = Array.from({ length: MAX_LOTTIE_MARKERS - 1 }, (_, index) => marker(index));
+    const full = appendLottieMarker(almostFull, marker(MAX_LOTTIE_MARKERS - 1));
+    expect(full).toHaveLength(MAX_LOTTIE_MARKERS);
+    expect(() => normalizeLottieEdits({ markers: full })).not.toThrow();
+    expect(appendLottieMarker(full, marker(MAX_LOTTIE_MARKERS))).toBe(full);
   });
 });

@@ -62,7 +62,7 @@ With reduced motion on, playback starts paused at the middle of the segment.
 
 ## Markers
 
-Markers name segments of the timeline. `Play marker <name>` sets the in and out frames to that segment and plays it. **Add marker** creates "Segment N" from the current frame to the out point. Each marker has a name field (up to 64 characters) and `Remove marker <name>`. The Browser API and saved sources accept at most 64 markers. JSON markers are written into the exported document's `markers`. Markers in a `.lottie` bundle are read from the bundle and play the same way.
+Markers name segments of the timeline. `Play marker <name>` sets the in and out frames to that segment and plays it. **Add marker** creates "Segment N" from the current frame to the out point. Each marker has a name field (up to 64 characters) and `Remove marker <name>`. An animation keeps at most 64 markers. **Add marker** is unavailable at 64, and editing the markers of an imported file with more keeps its first 64. JSON markers are written into the exported document's `markers`. Markers in a `.lottie` bundle are read from the bundle and play the same way.
 
 ## Layers and text
 
@@ -86,7 +86,7 @@ Markers name segments of the timeline. `Play marker <name>` sets the in and out 
 
 For a `.lottie` bundle, **Appearance** shows only the canvas size and fit. **Show brand logo** appears only for JSON documents and only when the identity has a logo.
 
-**Corner radius** and **Stroke width** apply to every static rectangle radius and every static stroke width in a JSON document. A radius is limited to half the rectangle's shorter side. In the built-in studies, strokes named with `weight=N` keep their relative weights. In other documents every static stroke takes the **Stroke width** value.
+**Corner radius** and **Stroke width** appear while **Palette recolours every paint** is on. They then apply to every static rectangle radius and every static stroke width in a JSON document. A radius is limited to half the rectangle's shorter side. In the built-in studies, strokes named with `weight=N` keep their relative weights. In other documents every static stroke takes the **Stroke width** value. With the switch off, imported JSON keeps its authored radii and stroke widths.
 
 The built-in studies recolor through the three palette slots. When **Palette recolours every paint** is off, imported JSON keeps its authored colors and **Document colours** lists the 16 most used static fill, stroke, gradient stop, and text colors. Replace a color with the picker or a brand token. **Brand tokens** maps every document color at once, and **Authored** restores the originals. Brand mapping sends colors with an OKLCH chroma of at least 0.06 to the brand's accents in order of chroma, and sends neutrals to the brand neutral nearest in lightness.
 

@@ -37,7 +37,8 @@ type LottieRecord = Record<string, unknown>;
 
 const LAYER_TYPES: Record<number, LottieLayerSummary['type']> = { 0: 'precomp', 1: 'solid', 2: 'image', 3: 'null', 4: 'shape', 5: 'text' };
 const MAX_EDITED_TEXT = 500;
-const MAX_MARKERS = 64;
+/** A saved draft restores at most this many markers, so Add marker stops here too. */
+export const MAX_LOTTIE_MARKERS = 64;
 
 function isRecord(value: unknown): value is LottieRecord {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -203,6 +204,11 @@ function editText(layer: LottieRecord, text: string): LottieRecord {
   };
 }
 
+/** Adds a marker unless the list is already at the limit. */
+export function appendLottieMarker(markers: readonly LottieMarker[], marker: LottieMarker): readonly LottieMarker[] {
+  return markers.length >= MAX_LOTTIE_MARKERS ? markers : [...markers, marker];
+}
+
 export function lottieEditsAreEmpty(edits: LottieEdits): boolean {
   return edits.hiddenLayers.length === 0
     && Object.keys(edits.colorMap).length === 0
@@ -268,8 +274,8 @@ export function normalizeLottieEdits(value: unknown): LottieEdits {
   if (!Array.isArray(hiddenLayers) || !hiddenLayers.every((key) => typeof key === 'string')) {
     throw new TypeError('edits.hiddenLayers must be an array of layer keys.');
   }
-  if (value.markers !== undefined && (!Array.isArray(value.markers) || value.markers.length > MAX_MARKERS)) {
-    throw new TypeError(`edits.markers must be an array of at most ${MAX_MARKERS} markers.`);
+  if (value.markers !== undefined && (!Array.isArray(value.markers) || value.markers.length > MAX_LOTTIE_MARKERS)) {
+    throw new TypeError(`edits.markers must be an array of at most ${MAX_LOTTIE_MARKERS} markers.`);
   }
   const markers = Array.isArray(value.markers) ? value.markers.map(normalizeMarker) : undefined;
   return {

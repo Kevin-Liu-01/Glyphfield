@@ -292,6 +292,17 @@ describe('Lottie product presets', () => {
     expect(result.shapes).toMatchObject([{ g: { k: { k: [0, 0, 0, 1, 1, 1, 0, 0] } } }]);
   });
 
+  it('keeps authored stroke widths and corner radii when no geometry is given', () => {
+    const imported = { shapes: [
+      { ty: 'st', w: { a: 0, k: 3.5 }, c: { a: 0, k: [0, 0, 0, 1] } },
+      { ty: 'rc', r: { a: 0, k: 12 }, s: { a: 0, k: [100, 60] } },
+    ] };
+    const kept = customizeLottieDocument(imported, { colors: ['#111111'] });
+    expect(kept.shapes).toMatchObject([{ w: { k: 3.5 } }, { r: { k: 12 } }]);
+    const restyled = customizeLottieDocument(imported, { colors: ['#111111'], cornerRadius: 4, strokeWidth: 2 });
+    expect(restyled.shapes).toMatchObject([{ w: { k: 2 } }, { r: { k: 4 } }]);
+  });
+
   it('keeps the editorial composition visible from the first frame', () => {
     for (const { data } of LOTTIE_EXAMPLES) {
       const layers = data.layers as Record<string, unknown>[];

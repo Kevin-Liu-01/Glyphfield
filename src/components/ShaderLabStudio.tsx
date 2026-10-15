@@ -159,6 +159,7 @@ import {
 } from '@/lib/artboardSizes';
 import {
   DESIGN_LAB_CLIPBOARD_MIME,
+  designLabCutTarget,
   hydrateDesignLabClipboardFrames,
   parseDesignLabClipboard,
   reanchorDesignLabClipboardSnapshot,
@@ -2748,7 +2749,7 @@ const LayerDockContextMenu = memo(function LayerDockContextMenu({
         {
           items: [
             { icon: <Copy aria-hidden='true' />, id: 'copy-layer', label: 'Copy layer', onSelect: () => onCopy(layerId), shortcut: '⌘C' },
-            { icon: <Scissors aria-hidden='true' />, id: 'cut-layer', label: 'Cut layer', onSelect: () => onCut(layerId), shortcut: '⌘X' },
+            { disabled: locked, icon: <Scissors aria-hidden='true' />, id: 'cut-layer', label: 'Cut layer', onSelect: () => onCut(layerId), shortcut: '⌘X' },
             { icon: <Copy aria-hidden='true' />, id: 'paste-layer', label: 'Paste', onSelect: onPaste, shortcut: '⌘V' },
             { icon: <Files aria-hidden='true' />, id: 'duplicate-layer', label: 'Duplicate layer', onSelect: () => onDuplicate(layerId), shortcut: '⌘D' },
           ],
@@ -5178,7 +5179,17 @@ export default function ShaderLabStudio({
     const layerIds = canvasClipboardLayerIds();
     if (layerIds.length === 0) return;
     event.preventDefault();
-    const remove = selectedCanvasLayerIds.length > 0 ? removeCanvasSelection : () => removeLayer(layerIds[0]!);
+    const target = designLabCutTarget({
+      canvasSelectionCount: selectedCanvasLayerIds.length,
+      chosenLayerLocked: layerLocked(layerIds[0]!),
+    });
+    if (target === 'copy-only') {
+      void copyDesignLabSelectionFromMenu(false, layerIds).then((copied) => {
+        if (copied) announceCanvasClipboard('The layer is locked, so it was copied and not cut');
+      });
+      return;
+    }
+    const remove = target === 'canvas-selection' ? removeCanvasSelection : () => removeLayer(layerIds[0]!);
     void cutDesignLabSelectionFromMenu(remove, layerIds);
   }
 

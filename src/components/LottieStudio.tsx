@@ -71,6 +71,7 @@ import {
   type LottieRecolorMode,
 } from '@/lib/lottieCanvasDocument';
 import {
+  appendLottieMarker,
   applyLottieEdits,
   brandLottieColorMap,
   EMPTY_LOTTIE_EDITS,
@@ -78,6 +79,7 @@ import {
   listLottieLayers,
   listLottieMarkers,
   listLottieTextLayers,
+  MAX_LOTTIE_MARKERS,
   normalizeLottieEdits,
   type LottieEdits,
   type LottieMarker,
@@ -225,13 +227,15 @@ function customizeSource(
   brandLogo: LottieAppearance['brandLogo'],
   recolor: LottieRecolorMode,
 ): LottieDocument {
+  // Palette mode restyles the whole file; source mode keeps its authored colours and geometry.
+  const palette = recolor === 'palette';
   return customizeLottieDocument(source.data as LottieDocument, {
     brandLogo,
     colors,
-    cornerRadius,
+    cornerRadius: palette ? cornerRadius : undefined,
     fontFamily,
-    recolorUnnamed: recolor === 'palette',
-    strokeWidth,
+    recolorUnnamed: palette,
+    strokeWidth: palette ? strokeWidth : undefined,
   });
 }
 
@@ -1323,13 +1327,15 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
   }
 
   function setMarkers(markers: LottieMarker[]) {
-    updateEdits((current) => ({ ...current, markers }));
+    // A draft restores at most MAX_LOTTIE_MARKERS, including edits to an imported file with more.
+    updateEdits((current) => ({ ...current, markers: markers.slice(0, MAX_LOTTIE_MARKERS) }));
   }
 
   function addMarker() {
     const frame = Math.round(frames.frameRef.current);
     const end = frame < segmentEndRef.current ? segmentEndRef.current : Math.max(frame + 1, totalFrames - 1);
-    setMarkers([...activeMarkers, { duration: Math.max(1, end - frame), frame, name: `Segment ${activeMarkers.length + 1}` }]);
+    const next = appendLottieMarker(activeMarkers, { duration: Math.max(1, end - frame), frame, name: `Segment ${activeMarkers.length + 1}` });
+    if (next !== activeMarkers) setMarkers([...next]);
   }
 
   function playMarker(marker: LottieMarker) {
@@ -1798,8 +1804,12 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
                 <BrandTokenChips onSelect={panelActions.updateSecondaryColor} target={gt('Secondary')} tokens={brandTokens} value={secondaryColor} />
                 <ColorControl ariaLabel={gt('Accent artwork color')} label={<T>Accent</T>} onChange={updateAccentColor} value={accentColor} />
                 <BrandTokenChips onSelect={panelActions.updateAccentColor} target={gt('Accent')} tokens={brandTokens} value={accentColor} />
-                <RangeControl label={<T>Corner radius</T>} max={48} min={0} onChange={updateCornerRadius} suffix=' px' value={cornerRadius} />
-                <RangeControl label={<T>Stroke width</T>} max={16} min={1} onChange={updateStrokeWidth} suffix=' px' value={strokeWidth} />
+                {recolor === 'palette' ? (
+                  <>
+                    <RangeControl label={<T>Corner radius</T>} max={48} min={0} onChange={updateCornerRadius} suffix=' px' value={cornerRadius} />
+                    <RangeControl label={<T>Stroke width</T>} max={16} min={1} onChange={updateStrokeWidth} suffix=' px' value={strokeWidth} />
+                  </>
+                ) : null}
                 <LottieRecolorModeToggle checked={recolor === 'palette'} onChange={(checked) => setRecolorMode(checked ? 'palette' : 'source')} />
                 {brandLogoAsset ? <LottieBrandLogoToggle checked={showBrandLogo} onChange={setBrandLogoVisible} /> : null}
                 {recolor === 'source' ? (

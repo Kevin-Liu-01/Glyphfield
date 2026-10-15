@@ -9,7 +9,7 @@ import { Eye, EyeOff, Pause, Play, Plus, RotateCcw, Trash2 } from '@/components/
 import StudioCheckbox from '@/components/ui/StudioCheckbox';
 import StudioRange from '@/components/ui/StudioRange';
 import { useMotionGT } from '@/components/MotionTranslation';
-import type { LottieColorSummary, LottieLayerSummary, LottieMarker, LottieTextLayer } from '@/lib/lottieEditing';
+import { MAX_LOTTIE_MARKERS, type LottieColorSummary, type LottieLayerSummary, type LottieMarker, type LottieTextLayer } from '@/lib/lottieEditing';
 
 const T = memo(GTText);
 T.displayName = 'LottieEditorTranslation';
@@ -111,7 +111,10 @@ export const LottieMarkerControls = memo(function LottieMarkerControls({
         </ol>
       )}
       {editable ? (
-        <Button aria-label={gt('Add marker at the current frame')} className='h-8' onClick={onAddMarker} size='sm' type='button' variant='outline'><Plus aria-hidden='true' /><T>Add marker</T></Button>
+        <>
+          <Button aria-label={gt('Add marker at the current frame')} className='h-8' disabled={markers.length >= MAX_LOTTIE_MARKERS} onClick={onAddMarker} size='sm' type='button' variant='outline'><Plus aria-hidden='true' /><T>Add marker</T></Button>
+          {markers.length >= MAX_LOTTIE_MARKERS ? <p className='text-xs leading-5 text-muted-foreground'><T>Glyphfield keeps at most 64 markers per animation.</T></p> : null}
+        </>
       ) : <p className='text-xs leading-5 text-muted-foreground'><T>Markers come from the .lottie bundle and play as named segments.</T></p>}
     </div>
   );

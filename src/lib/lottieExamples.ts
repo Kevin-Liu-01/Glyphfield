@@ -16,7 +16,8 @@ export type LottieAppearance = {
     width: number;
   };
   colors: readonly string[];
-  cornerRadius: number;
+  /** Static rectangle corner radius. Undefined keeps each file's authored radii. */
+  cornerRadius?: number;
   fontFamily?: string;
   /**
    * Legacy palette mode also recolours paints without a `Palette N` name to the
@@ -24,7 +25,8 @@ export type LottieAppearance = {
    * explicit colour map instead.
    */
   recolorUnnamed?: boolean;
-  strokeWidth: number;
+  /** Static stroke width. Undefined keeps each file's authored widths. */
+  strokeWidth?: number;
 };
 
 type LottieColor = [number, number, number, number];
@@ -554,13 +556,13 @@ function customizeLottieGradient(record: LottieRecord, next: LottieRecord, color
 }
 
 function customizeLottieGeometry(record: LottieRecord, next: LottieRecord, appearance: LottieAppearance) {
-  if (record.ty === 'st' && record.w && typeof record.w === 'object') {
+  if (record.ty === 'st' && record.w && typeof record.w === 'object' && appearance.strokeWidth !== undefined) {
     const widthProperty = record.w as LottieRecord;
     const authoredWeight = typeof record.nm === 'string' ? /weight=([\d.]+)/.exec(record.nm) : null;
     const weight = authoredWeight ? Number(authoredWeight[1]) : 1;
     if (widthProperty.a === 0) next.w = { ...widthProperty, k: appearance.strokeWidth * weight };
   }
-  if (record.ty !== 'rc' || !record.r || typeof record.r !== 'object') return;
+  if (record.ty !== 'rc' || !record.r || typeof record.r !== 'object' || appearance.cornerRadius === undefined) return;
   const radiusProperty = record.r as LottieRecord;
   const sizeProperty = record.s as LottieRecord | undefined;
   const size = sizeProperty?.a === 0 && Array.isArray(sizeProperty.k) ? sizeProperty.k.filter((entry): entry is number => typeof entry === 'number') : [];
