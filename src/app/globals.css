@@ -872,70 +872,6 @@ body {
   background: color-mix(in srgb, var(--docs-bg) 96%, transparent);
 }
 
-.glyphfield-docs-toc-actions {
-  position: absolute;
-  z-index: 2;
-  top: 0;
-  right: 0;
-  left: 0;
-  height: 52px;
-  padding: 8px 16px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: 34px;
-  gap: 6px;
-  border-bottom: 1px solid var(--docs-line);
-  background: color-mix(in srgb, var(--docs-bg) 94%, transparent);
-  backdrop-filter: blur(14px);
-}
-
-.glyphfield-docs-toc-actions :is(a, button) {
-  height: 34px;
-  min-width: 0;
-  padding: 0 8px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  overflow: hidden;
-  border: 1px solid var(--docs-line);
-  border-radius: var(--docs-radius-sm) !important;
-  color: var(--docs-fg);
-  background: var(--docs-raised);
-  font-size: 0.68rem;
-  font-weight: 520;
-  line-height: 1;
-  text-decoration: none;
-  white-space: nowrap;
-  transition: color 140ms ease, border-color 140ms ease, background-color 140ms ease;
-}
-
-.glyphfield-docs-toc-actions :is(a, button):hover {
-  border-color: var(--docs-fg);
-  color: var(--docs-bg);
-  background: var(--docs-fg);
-}
-
-.glyphfield-docs-toc-actions svg {
-  width: 13px;
-  height: 13px;
-  flex: none;
-}
-
-.glyphfield-docs-toc-actions .github-star-button {
-  justify-content: space-between;
-}
-
-.glyphfield-docs-toc-actions .github-star-button__count {
-  border-left-color: var(--docs-line);
-  color: var(--docs-muted);
-}
-
-.glyphfield-docs-toc-actions .github-star-button:hover .github-star-button__count {
-  border-left-color: color-mix(in srgb, var(--docs-bg) 30%, transparent);
-  color: var(--docs-bg);
-}
-
 .glyphfield-docs #toc-title {
   margin-top: 0;
   color: var(--docs-fg);
@@ -7485,11 +7421,6 @@ html.dark .studio-app .studio-app-header > a img {
   max-height: none;
 }
 
-.animation-background-scope-options button:focus-visible {
-  outline: 2px solid hsl(var(--focus-ring));
-  outline-offset: 2px;
-}
-
 .animation-layer-create {
   display: grid;
   min-width: 0;
@@ -8101,75 +8032,6 @@ html.dark .studio-app .studio-app-header > a img {
   .animation-sequence-layer-actions button {
     width: 22px;
   }
-}
-
-.animation-background-scope {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.animation-background-scope-options {
-  display: grid;
-  min-width: 0;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.animation-background-scope-options button {
-  display: flex;
-  min-width: 0;
-  min-height: 52px;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 3px;
-  padding: 8px 10px;
-  border: 1px solid hsl(var(--border));
-  border-radius: var(--studio-corner-sm);
-  color: hsl(var(--foreground));
-  background: hsl(var(--background));
-  text-align: left;
-  transition: border-color 120ms ease, background-color 120ms ease;
-}
-
-.animation-background-scope-options button:hover:not(:disabled) {
-  border-color: hsl(var(--foreground) / 0.55);
-}
-
-.animation-background-scope-options button[aria-pressed='true'] {
-  border-color: hsl(var(--foreground));
-  background: hsl(var(--muted));
-  box-shadow: inset 3px 0 0 hsl(var(--foreground));
-}
-
-.animation-background-scope-options button:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
-.animation-background-scope-options strong {
-  overflow: hidden;
-  max-width: 100%;
-  font-size: var(--studio-control-value-size);
-  font-weight: 620;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.animation-background-scope-options small,
-.animation-background-scope-description {
-  color: hsl(var(--muted-foreground));
-  font-size: var(--studio-control-meta-size);
-  line-height: 1.45;
-}
-
-.animation-background-scope-options small {
-  overflow: hidden;
-  max-width: 100%;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .animation-shader-controls {

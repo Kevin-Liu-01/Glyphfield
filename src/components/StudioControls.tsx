@@ -173,71 +173,6 @@ function InspectorSection({
 
 const RangeControl = AnimationRangeControl;
 
-function BackgroundScopeControl({
-  hasOverride,
-  onChange,
-  onClearOverrides,
-  onResetOverride,
-  overrideCount,
-  scope,
-  selected,
-  sourceCount,
-}: {
-  hasOverride: boolean;
-  onChange: (scope: 'sequence' | 'frame') => void;
-  onClearOverrides: () => void;
-  onResetOverride: () => void;
-  overrideCount: number;
-  scope: 'sequence' | 'frame';
-  selected: boolean;
-  sourceCount: number;
-}) {
-  const gt = useMotionGT();
-  const effectiveScope = scope === 'frame' && selected ? 'frame' : 'sequence';
-  return (
-    <div className='animation-background-scope'>
-      <div className='animation-background-scope-options' role='group' aria-label={gt('Background scope')}>
-        <button
-          aria-pressed={effectiveScope === 'sequence'}
-          onClick={() => onChange('sequence')}
-          type='button'
-        >
-          <strong><T>Sequence</T></strong>
-          <small>{sourceCount} {sourceCount === 1 ? <T>frame</T> : <T>frames</T>}</small>
-        </button>
-        <button
-          aria-pressed={effectiveScope === 'frame'}
-          disabled={!selected}
-          onClick={() => onChange('frame')}
-          type='button'
-        >
-          <strong><T>Frame</T></strong>
-          <small>{hasOverride ? <T>Custom</T> : <T>Selected only</T>}</small>
-        </button>
-      </div>
-      <div className='animation-background-scope-description'>
-        <p>
-          {effectiveScope === 'sequence'
-            ? <T>Changes update every frame that follows the sequence background.</T>
-            : hasOverride
-              ? <T>This frame has its own background.</T>
-              : <T>Your next change creates an override for this frame.</T>}
-        </p>
-      </div>
-      {effectiveScope === 'frame' && hasOverride ? (
-        <Button className='w-full' onClick={onResetOverride} size='sm' type='button' variant='outline'>
-          <T>Use sequence background</T>
-        </Button>
-      ) : null}
-      {effectiveScope === 'sequence' && overrideCount > 0 ? (
-        <Button className='w-full' onClick={onClearOverrides} size='sm' type='button' variant='ghost'>
-          <T>Make all frames follow sequence</T> · {overrideCount}
-        </Button>
-      ) : null}
-    </div>
-  );
-}
-
 function animationBackgroundPreviewStyle(background: StudioFrameSettings['background'] | undefined): CSSProperties {
   if (!background) return {};
   if (background.style === 'solid') return { backgroundColor: background.colorA };
@@ -543,7 +478,6 @@ type AnimationBackgroundControlsProps = {
   editableBackground: StudioFrameSettings['background'];
   frameMaterialSettings: typeof DEFAULT_LIVE_MATERIAL_SETTINGS;
   shaderGallerySettings: typeof DEFAULT_LIVE_MATERIAL_SETTINGS;
-  showScope?: boolean;
 };
 
 function AnimationBackgroundControls({
@@ -551,37 +485,16 @@ function AnimationBackgroundControls({
   editableBackground,
   frameMaterialSettings,
   shaderGallerySettings,
-  showScope = true,
 }: AnimationBackgroundControlsProps) {
   const gt = useMotionGT();
   const {
-    backgroundOverrideCount,
-    backgroundScope,
     compact = false,
-    hasSelectedBackgroundOverride,
     onBackgroundChange,
-    onBackgroundScopeChange,
-    onClearBackgroundOverrides,
     onLibraryBackgroundChange,
-    onResetSelectedBackgroundOverride,
-    selectedSource,
     settings,
-    sources,
   } = controls;
   return (
     <>
-      {showScope ? (
-        <BackgroundScopeControl
-          hasOverride={hasSelectedBackgroundOverride}
-          onChange={onBackgroundScopeChange}
-          onClearOverrides={onClearBackgroundOverrides}
-          onResetOverride={onResetSelectedBackgroundOverride}
-          overrideCount={backgroundOverrideCount}
-          scope={backgroundScope}
-          selected={Boolean(selectedSource)}
-          sourceCount={sources.length}
-        />
-      ) : null}
       <div className='studio-field'>
         <span className='studio-field-label'><T>Background type</T></span>
         <StudioSelect
@@ -1380,7 +1293,6 @@ function AnimationControlPanelContent({
           editableBackground={sequenceBackground}
           frameMaterialSettings={frameMaterialSettings}
           shaderGallerySettings={shaderGallerySettings}
-          showScope={false}
         />
       </InspectorSection>
     );

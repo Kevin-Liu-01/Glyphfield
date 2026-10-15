@@ -4,20 +4,17 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { readDesignLabSource } from './designLabSource';
 
-const playground = readFileSync(join(process.cwd(), 'src/components/SurfaceLabStudio.tsx'), 'utf8');
 const designLab = readDesignLabSource();
 const studioWorkspace = readFileSync(join(process.cwd(), 'src/components/StudioToolWorkspace.tsx'), 'utf8');
 const editableCanvasLayer = readFileSync(join(process.cwd(), 'src/components/EditableCanvasLayer.tsx'), 'utf8');
 const animationStudio = readFileSync(join(process.cwd(), 'src/components/AnimationStudio.tsx'), 'utf8');
 const exportPreview = readFileSync(join(process.cwd(), 'src/components/ExportPreview.tsx'), 'utf8');
 const rangeLabel = readFileSync(join(process.cwd(), 'src/components/StudioRangeLabel.tsx'), 'utf8');
-const surfaceRangeControl = readFileSync(join(process.cwd(), 'src/components/SurfaceRangeControl.tsx'), 'utf8');
 const textAlignmentControl = readFileSync(join(process.cwd(), 'src/components/TextAlignmentControl.tsx'), 'utf8');
 const resizableSidebar = readFileSync(join(process.cwd(), 'src/components/ResizableSidebar.tsx'), 'utf8');
 const canvasDocumentAutosave = readFileSync(join(process.cwd(), 'src/hooks/useCanvasDocumentAutosave.ts'), 'utf8');
 const portableCanvasWorkspace = readFileSync(join(process.cwd(), 'src/hooks/usePortableCanvasWorkspace.ts'), 'utf8');
 const studioSelect = readFileSync(join(process.cwd(), 'src/components/ui/StudioSelect.tsx'), 'utf8');
-const stickerScene = readFileSync(join(process.cwd(), 'src/components/StickerDeviceScene.tsx'), 'utf8');
 // Studio-only rules live in the /studio route stylesheet; shared rules stay global.
 const studioStyles = ['src/app/globals.css', 'src/app/studio/studio.css']
   .map((path) => readFileSync(join(process.cwd(), path), 'utf8'))
@@ -30,65 +27,13 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain('toolId: automationToolId ?? tool.id');
   });
 
-  it('persists independent background, surface, and sticker visibility', () => {
-    expect(playground).toContain('design-lab-background-enabled-v1');
-    expect(playground).toContain('design-lab-surface-enabled-v1');
-    expect(playground).toContain('design-lab-stickers-enabled-v1');
-    expect(playground.match(/className='design-lab-none-preset'/g)).toHaveLength(3);
-  });
-
-  it('keeps disabled layers out of rendering and PNG composition', () => {
-    expect(playground).toContain('<ConditionalRender when={backgroundEnabled}>');
-    expect(playground).toContain('const liveSurface = surfaceEnabled ?');
-    expect(playground).toMatch(/const composed = stickersEnabled(?:\s+&&[^?]+)?\s+\?/);
-    expect(stickerScene).toContain("data-enabled={enabled ? 'true' : 'false'}");
-    expect(stickerScene).toContain('inert={enabled ? undefined : true}');
-  });
-
-  it('round-trips all layer states through the source recipe', () => {
-    expect(playground).toContain('backgroundEnabled?: boolean;');
-    expect(playground).toContain('surfaceEnabled?: boolean;');
-    expect(playground).toContain('stickersEnabled?: boolean;');
-    expect(playground).toContain('createStudioCanvasDocument({');
-    expect(playground).toContain('usePortableCanvasWorkspace({');
-    expect(playground).toContain('document: playgroundDocument');
-    expect(playground).toContain('const playgroundDocumentSource = portablePlayground.source;');
-    expect(playground).toContain('parsePlaygroundSource(source, tool.id)');
-    expect(playground).toMatch(/const playgroundState = useMemo\(\(\) => \(\{[\s\S]*?backgroundEnabled,[\s\S]*?backgroundOpacity,[\s\S]*?brandAssetId,[\s\S]*?customArtwork,[\s\S]*?effectLayers,[\s\S]*?liveMaterialId,[\s\S]*?stickerPlacements,[\s\S]*?stickerTexts,[\s\S]*?stickersEnabled,[\s\S]*?surfaceEnabled,[\s\S]*?surfaceOpacity/);
-  });
-
-  it('supports multiple independently editable text stickers in the shared sticker scene and export path', () => {
-    expect(playground).toContain('playground-sticker-texts-v1');
-    expect(playground).toContain('function addStickerText(');
-    expect(playground).toContain('function updateStickerText(');
-    expect(playground).toContain("mode: 'add' | 'duplicate'");
-    expect(playground).toContain("className='design-lab-sticker-text-add'");
-    expect(playground).toContain("ariaLabel='Sticker text font role'");
-    expect(playground).toContain("label='Tracking'");
-    expect(playground).toContain('stickerTexts?: PlaygroundStickerText[];');
-    expect(stickerScene).toContain('assets: readonly StickerSceneAsset[];');
-    expect(stickerScene).toContain('duplicateSelected: (assetId?: string) => void;');
-  });
-
   it('keeps Playground text controls and export behavior aligned with Design Lab', () => {
-    expect(playground).toContain("import StudioColorControl from '@/components/ui/ColorControl'");
-    expect(playground).toContain("import TextAlignmentControl from '@/components/TextAlignmentControl'");
     expect(textAlignmentControl).toContain('function TextAlignmentControl(');
-    expect(playground).toContain("wrap?: 'nowrap' | 'wrap';");
-    expect(playground).toContain("<span><WrapText aria-hidden='true' />Wrapping</span>");
-    expect(playground).toContain("className='design-lab-text-effects'");
-    expect(playground).toContain('context.strokeText(');
-    expect(playground).toContain('context.shadowBlur =');
-    expect(playground).toContain("aria-label={gt('Playground controls')} data-canvas-selection-preserve");
-    expect(playground).toContain("className='design-lab-output-overview'");
-    expect(playground).toContain("<FileImage aria-hidden='true' />");
     expect(studioStyles).toContain('.design-lab .design-lab-segmented-field {');
     expect(studioStyles).toContain('.design-lab .design-lab-output-sizes {');
   });
 
   it('keeps the layer dock legible and resets each library to its leading item', () => {
-    expect(playground).toContain("className='design-lab-dock-label'>Layer library");
-    expect(playground).toContain('key={dock}');
     expect(studioStyles).toContain('grid-template-rows: 36px minmax(0, 1fr);');
     expect(studioStyles).toContain('grid-template-rows: minmax(0, 1fr) 120px;');
   });
@@ -99,19 +44,11 @@ describe('Playground optional layers', () => {
   });
 
   it('uses the Design Lab three-pane layout with contextual controls and attributed shaders', () => {
-    expect(playground).toContain("className='design-lab-library-filter'");
-    expect(playground).toContain("className='design-lab-shader-source'");
-    expect(playground).toContain("<ConditionalRender when={dock === 'shader'}>");
-    expect(playground).toContain("<ConditionalRender when={dock === 'surface'}>");
-    expect(playground).toContain("<ConditionalRender when={dock === 'text'}>");
-    expect(playground).toContain("<ConditionalRender when={dock === 'sticker'}>");
     expect(studioStyles).toContain('grid-template-columns: minmax(0, 1fr) var(--design-lab-inspector);');
     expect(studioStyles).toContain('padding-left: var(--playground-library);');
   });
 
   it('adds restrained semantic icons to shared sidebar slider labels', () => {
-    expect(playground).toContain("import RangeControl from '@/components/SurfaceRangeControl'");
-    expect(surfaceRangeControl).toContain("import StudioRangeLabel from '@/components/StudioRangeLabel'");
     expect(designLab).toContain("import StudioRangeLabel from '@/components/StudioRangeLabel'");
     expect(rangeLabel).toContain('LABEL_RULES');
     expect(rangeLabel).toContain('RotateCw');
@@ -174,7 +111,6 @@ describe('Playground optional layers', () => {
   });
 
   it('uses the shared one-pixel custom scrollbar on every lab overflow rail and reusable sidebar', () => {
-    expect(playground.match(/studio-scroll-area/g)?.length).toBeGreaterThanOrEqual(2);
     expect(designLab.match(/studio-scroll-area/g)?.length).toBeGreaterThanOrEqual(4);
     expect(resizableSidebar).toContain("className='resizable-sidebar-scroll studio-scroll-area'");
     expect(studioStyles).toContain(':where(.studio-scroll-area)::-webkit-scrollbar');
@@ -202,9 +138,6 @@ describe('Playground optional layers', () => {
     expect(designLab).not.toContain('workspaceControls=');
     expect(designLab).toContain("workspaceLabel='Design Lab'");
     expect(designLab).toContain('onOpen={applyCompositionSource}');
-    expect(playground).toContain("import DesignVersionControls from '@/components/DesignVersionControls'");
-    expect(playground).toContain("workspaceLabel='Playground'");
-    expect(playground).toContain('onOpen={applySource}');
   });
 
   it('round-trips complete canvas layers, ordering, groups, shader frame history, and sequences', () => {
@@ -276,15 +209,9 @@ describe('Playground optional layers', () => {
   });
 
   it('teaches a staged Playground workflow instead of exposing unrelated controls at once', () => {
-    expect(playground).toContain('const PLAYGROUND_TOUR_STEPS: readonly');
-    expect(playground).toContain("aria-label='Close Playground tutorial'");
-    expect(playground).toContain("className='design-lab-dock-tabs'");
-    expect(playground).not.toContain('playground-workflow-tabs');
-    expect(playground).toContain("metadata='Build from material to finish'");
     expect(designLab).toContain("label='Project files, code, and export'");
     expect(designLab).toContain("ariaLabel='Export size preset'");
     expect(designLab).not.toContain('Type · marks · images · live materials');
-    expect(playground).toContain("label: 'Finish'");
   });
 
   it('exports authentic accelerating shader cuts as a native MP4 sequence', () => {
@@ -323,10 +250,6 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain('? { ...initialShaderLayer }');
     expect(designLab).toContain(': { ...layer, transform: normalizeCanvasLayerTransform(layer.transform, DEFAULT_LAYER_TRANSFORM) };');
     expect(designLab).toContain('editingShader?.materialId ?? shaderLayers.at(-1)?.materialId ?? DEFAULT_SHADER_MATERIAL_ID');
-    expect(playground).toContain("const LEGACY_PLAYGROUND_SHADER_ID = 'holo-cloth-silk'");
-    expect(playground).toContain('playground-gem-smoke-default-v1');
-    expect(playground).toContain('const legacyShaderWasUntouched =');
-    expect(playground).toContain('setLiveMaterialId(SHADER_LIBRARY_DEFAULT_IDS.surface);');
   });
 
   it('keeps content controls contextual in Design Lab', () => {
@@ -385,13 +308,6 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain("data-effect-kind={effectLayer.settings.kind}");
     expect(designLab.match(/label='Layer opacity'/g)).toHaveLength(5);
     expect(designLab).toContain('effectLayers,');
-    expect(playground).toContain("'playground-effect-layers-v1'");
-    expect(playground).toContain('function addEffectLayer(');
-    expect(playground).toContain("<ConditionalRender when={dock === 'effect'}>");
-    expect(playground).toContain("className='design-lab-composition-effect'");
-    expect(playground).toContain('function applyVisiblePlaygroundEffects(');
-    expect(playground).toContain('if (!layer.visible) continue;');
-    expect(playground).toContain('applyVisiblePlaygroundEffects(context, width, height, effectLayers, effectScratchRefs.current);');
   });
 
   it('renders the production converter thumbnail inside each effect layer card', () => {
@@ -417,10 +333,6 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain('let targetFrameRate = 60;');
     expect(designLab).toContain('targetFrameRate = 30;');
     expect(designLab).not.toContain('1000 / 12');
-    expect(playground).toContain('const buffer = effectBufferRef.current');
-    expect(playground).toContain('targetFrameRate: 60');
-    expect(playground).toContain('tuneEffectPreviewPerformance(previewPerformance, settings.width)');
-    expect(playground).toContain('frameRate={60}');
   });
 
   it('renders previews and exports from the same logical text geometry', () => {

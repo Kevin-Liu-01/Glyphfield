@@ -72,7 +72,8 @@ material implementations and bundled packages are attributed separately above an
 
 ## Open PBR surface assets
 
-Surface Lab can load selected texture map sets from [Poly Haven](https://polyhaven.com/textures)
+The tactile backgrounds that `POST /api/generate` renders and the `/api/surface-textures` route can load
+selected texture map sets from [Poly Haven](https://polyhaven.com/textures)
 and [ambientCG](https://ambientcg.com/). Both providers release these assets under
 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). The asset catalog keeps the
 provider, original asset page, and license attached to every entry. These files are fetched

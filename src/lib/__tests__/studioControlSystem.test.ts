@@ -45,11 +45,8 @@ describe('Studio control system', () => {
 
   it('uses the shared dropdown and color popover at the former native leaks', () => {
     const sourceDrawer = readFileSync(join(COMPONENT_ROOT, 'SourceCodeDrawer.tsx'), 'utf8');
-    const compactColor = readFileSync(join(COMPONENT_ROOT, 'CompactColorControl.tsx'), 'utf8');
 
     expect(sourceDrawer).toContain('<StudioSelect');
     expect(sourceDrawer).toContain("leadingIcon={<ListTree aria-hidden='true' />}");
-    expect(compactColor).toContain('<ColorControl');
-    expect(compactColor).toContain('compact');
   });
 });

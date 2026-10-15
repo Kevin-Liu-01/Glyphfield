@@ -11,10 +11,6 @@ import type { StudioTool, StudioToolId } from '@/lib/studioCatalog';
 
 export { ToolShell };
 
-const BackgroundStudio = dynamic(() => import('@/components/BackgroundStudio'), {
-  loading: ToolModuleLoading,
-  ssr: false,
-});
 // Tool editors suspend to the Studio workspace boundary (see StudioApp), which
 // keeps the previous tool visible until the next one has loaded.
 const BrandBook = dynamic(() => import('@/components/BrandBook'));
@@ -57,10 +53,6 @@ function ToolModuleLoading() {
       <span />
     </div>
   );
-}
-
-function SurfaceTool({ active, identity, tool }: { active: boolean; identity: BrandIdentity; tool: StudioTool }) {
-  return <BackgroundStudio active={active} identity={identity} tool={{ ...tool, id: 'backgrounds' }} />;
 }
 
 function MaterialTool({ active, identity, onIdentitySave, tool }: { active: boolean; identity: BrandIdentity; onIdentitySave: (identity: BrandIdentity) => void; tool: StudioTool }) {
@@ -108,7 +100,6 @@ function StudioToolWorkspace({
     opengraph: <OpenGraphTool key={`${identity.id}:${tool.id}`} identity={identity} tool={tool} />,
     partnership: <TemplateTool identity={identity} kind='partnership' tool={tool} />,
     slides: <TemplateTool identity={identity} kind='slides' tool={tool} />,
-    surface: <SurfaceTool active={active} identity={identity} tool={tool} />,
     terminal: <TerminalTool identity={identity} tool={tool} />,
     typography: <TypographyTool identity={identity} onIdentityChange={onIdentityChange} tool={tool} />,
   };
