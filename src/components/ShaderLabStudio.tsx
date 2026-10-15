@@ -137,6 +137,7 @@ import {
   type BrandIdentity,
 } from '@/lib/brandIdentity';
 import { canvasTextCharacters, trackedTextWidth } from '@/lib/canvasText';
+import { canvasPaintFamilyList, prepareCanvasPaintFamilies } from '@/lib/canvasPaintFonts';
 import { layoutNativeCanvasText } from '@/lib/canvasTextLayout';
 import {
   canvasToImageBlob,
@@ -1485,7 +1486,7 @@ export function paintDesignLabTextLayer({
   const spacing = layer.tracking * fontSize;
   const fontWeight = resolveBrandTypographyWeight(identity, appearance.fontRole, layer.weight);
   const fontFamily = `${JSON.stringify(brandTypographyFamily(identity, appearance.fontRole))}, Arial, sans-serif`;
-  context.font = `${layer.fontStyle ?? 'normal'} ${fontWeight} ${fontSize}px ${fontFamily}`;
+  context.font = `${layer.fontStyle ?? 'normal'} ${fontWeight} ${fontSize}px ${canvasPaintFamilyList(fontFamily)}`;
   context.fontKerning = 'normal';
   const supportsNativeLetterSpacing = typeof context.letterSpacing === 'string';
   if (supportsNativeLetterSpacing) context.letterSpacing = `${spacing}px`;
@@ -1577,7 +1578,7 @@ export function paintDesignLabTextLayer({
     lines.forEach(({ value: line, x, baseline: nativeBaseline, style: inline }) => {
       const runSpacing = inline ? inline.tracking * inline.fontSize * outputScale : spacing;
       if (inline) {
-        target.font = `${inline.fontStyle} ${inline.fontWeight} ${inline.fontSize * outputScale}px ${inline.fontFamily}`;
+        target.font = `${inline.fontStyle} ${inline.fontWeight} ${inline.fontSize * outputScale}px ${canvasPaintFamilyList(inline.fontFamily)}`;
         if (supportsNativeLetterSpacing) target.letterSpacing = `${runSpacing}px`;
         if (mode === 'fill' && target === context && !pattern && appearance.textEffect.kind === 'solid') target.fillStyle = inline.color;
       }
@@ -6354,9 +6355,11 @@ export default function ShaderLabStudio({
     if (visibleTextLayers.length === 0) return;
 
     await document.fonts.ready;
+    const families = new Set<string>();
     await Promise.all(visibleTextLayers.flatMap((layer) => textStyleSegments(layer.value, layer.runs).map(async (run) => {
       const appearance = { ...resolvedTextAppearance(layer), ...run.style };
       const family = brandTypographyFamily(identity, appearance.fontRole);
+      families.add(family);
       const weight = resolveBrandTypographyWeight(identity, appearance.fontRole, run.style.weight ?? layer.weight);
       const style = run.style.fontStyle ?? layer.fontStyle ?? 'normal';
       const faces = await document.fonts.load(
@@ -6370,6 +6373,7 @@ export default function ShaderLabStudio({
         throw new Error(`${family} ${weight} could not be loaded for export.`);
       }
     })));
+    await prepareCanvasPaintFamilies(brandFontAssets(identity), families);
     await document.fonts.ready;
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
   }

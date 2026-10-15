@@ -22,6 +22,9 @@ export function canvasTextTypography(options: TextTypography) {
     fontKerning: 'normal' as const,
     // View/export scale must not select a different variable-font optical size.
     fontOpticalSizing: 'none' as const,
+    // WebKit's optimizeLegibility (set on the page) still sizes the optical axis to the
+    // rendered size, so wrapping would change with zoom; geometricPrecision keeps it fixed.
+    textRendering: 'geometricPrecision' as const,
     justifyContent: options.align === 'left' ? 'flex-start' : options.align === 'right' ? 'flex-end' : 'center',
     letterSpacing: `${options.tracking}em`,
     lineHeight: String(options.lineHeight),

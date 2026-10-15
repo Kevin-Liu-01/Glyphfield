@@ -45,7 +45,7 @@ MP4 uses H.264 when the browser can encode it and another MP4 codec otherwise. I
 
 During an export, shader layers render at up to 8 times the device pixel ratio. The render is limited to an 8192 px edge, and each shader to the larger of 120,000 pixels and the export's pixel count. A shader that covers the artboard therefore renders at about the export resolution, and a smaller shader layer renders above its size on the artboard. The live preview quality setting does not affect exports.
 
-Export waits for materials, fonts, and images to be ready. Prismatic sphere waits for its environment lighting. If a resource does not load, the export reports a readiness timeout and does not export a placeholder. Text being edited on the canvas is committed before the export starts.
+Export waits for materials, fonts, and images to be ready. Prismatic sphere waits for its environment lighting. If a resource does not load, the export reports a readiness timeout and does not export a placeholder. Text being edited on the canvas is committed before the export starts. A variable font with an optical size axis, such as Inter, draws its default optical size on the canvas and in exports, so zoom and export width never change the glyph shapes or line breaks.
 
 ## Saved designs and autosave
 
