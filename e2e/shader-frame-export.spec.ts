@@ -168,6 +168,7 @@ async function exportStill(page: Page, shaderId: string, format: 'png' | 'jpg', 
       const source = JSON.parse(studio.readSource());
       const assetId = source.elements[shaderId].data.frameSnapshot?.assetId;
       let meanRgbError: number | null = null;
+      let jpegFrameError: number | null = null;
       if (assetId) {
         const frozen = new Image();
         frozen.src = source.assets[assetId].source;
@@ -182,13 +183,32 @@ async function exportStill(page: Page, shaderId: string, format: 'png' | 'jpg', 
             + Math.abs(actual[index + 2] - expected[index + 2]);
         }
         meanRgbError = total / (canvas.width * canvas.height * 3);
+        if (format === 'jpg') {
+          // The same frame encoded by the browser at the Balanced JPG quality: the
+          // error a JPG of the selected frame carries, which depends on its detail.
+          const encoded = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+          const reference = new Image();
+          const referenceUrl = URL.createObjectURL(encoded!);
+          try {
+            reference.src = referenceUrl;
+            await reference.decode();
+          } finally { URL.revokeObjectURL(referenceUrl); }
+          context.drawImage(reference, 0, 0);
+          const compressed = context.getImageData(0, 0, canvas.width, canvas.height).data;
+          let compressionTotal = 0;
+          for (let index = 0; index < compressed.length; index += 4) {
+            compressionTotal += Math.abs(compressed[index] - expected[index]) + Math.abs(compressed[index + 1] - expected[index + 1])
+              + Math.abs(compressed[index + 2] - expected[index + 2]);
+          }
+          jpegFrameError = compressionTotal / (canvas.width * canvas.height * 3);
+        }
       }
       const dataUrl = includeBytes ? await new Promise<string>((resolve, reject) => {
         const reader = new FileReader(); reader.onload = () => resolve(reader.result as string);
         reader.onerror = () => reject(reader.error); reader.readAsDataURL(artifact.blob);
       }) : null;
       return { mime: artifact.blob.type, fileName: artifact.fileName, bytes: artifact.blob.size, dataUrl,
-        width: canvas.width, height: canvas.height, hash: hash >>> 0, meanRgbError };
+        width: canvas.width, height: canvas.height, hash: hash >>> 0, meanRgbError, jpegFrameError };
     } finally { URL.revokeObjectURL(url); }
   }, { shaderId, format, includeBytes });
 }
@@ -364,10 +384,14 @@ test('Review export encodes a live PNG once and refreshes only when export setti
     await expect(preview).toBeVisible();
     await expect(page.getByRole('button', { name: 'Download PNG', exact: true })).toBeEnabled();
     const firstUrl = await preview.getAttribute('src');
-    // The shared Review dialog's settings-refresh debounce is400ms. Observe
-    // beyond it so a hidden second encode cannot pass as the first request.
+    // One export encodes the shader's capture, taken at the export size, and then the output.
+    const firstExport = await outputEncodes();
+    expect(firstExport.length).toBeGreaterThan(0);
+    expect(firstExport.every((encode) => encode.width === 640 && encode.height === 360 && encode.completed)).toBe(true);
+    // The shared Review dialog's settings-refresh debounce is 400ms. Observe
+    // beyond it so a hidden second export cannot pass as the first request.
     await page.waitForTimeout(900);
-    expect(await outputEncodes()).toEqual([{ width: 640, height: 360, type: 'image/png', completed: true }]);
+    expect(await outputEncodes()).toEqual(firstExport);
     expect(await preview.getAttribute('src')).toBe(firstUrl);
     expect((await state(page, shaderId)).motion.paused).toBe(true);
 
@@ -375,9 +399,10 @@ test('Review export encodes a live PNG once and refreshes only when export setti
     await expect.poll(async () => preview.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBe(800);
     await expect(page.getByRole('button', { name: 'Download PNG', exact: true })).toBeEnabled();
     await page.waitForTimeout(900);
+    // Exactly one more export, at the new size.
     expect(await outputEncodes()).toEqual([
-      { width: 640, height: 360, type: 'image/png', completed: true },
-      { width: 800, height: 450, type: 'image/png', completed: true },
+      ...firstExport,
+      ...firstExport.map((encode) => ({ ...encode, width: 800, height: 450 })),
     ]);
     expect(await preview.getAttribute('src')).not.toBe(firstUrl);
   } finally {
@@ -418,7 +443,8 @@ test('captured shader PNG and JPG downloads preserve the same selected frame', a
     expect(first.width).toBe(640); expect(first.height).toBe(360);
     expect(first.meanRgbError).not.toBeNull();
     if (format === 'png') expect(first.meanRgbError).toBe(0);
-    else expect(first.meanRgbError!).toBeLessThan(4);
+    // A different frame would differ by far more than JPG compression of this one.
+    else expect(first.meanRgbError!).toBeLessThan(first.jpegFrameError! + 0.5);
     const downloadEvent = page.waitForEvent('download');
     await page.getByRole('button', { name: `Download ${format.toUpperCase()}`, exact: true }).click();
     const download = await downloadEvent;

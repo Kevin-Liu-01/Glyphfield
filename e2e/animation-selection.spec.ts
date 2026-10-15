@@ -1,8 +1,9 @@
-import { openSourceEditor } from './studio-ui-helpers';
+import { openSourceEditor, skipWithoutHardwareWebGl } from './studio-ui-helpers';
 import { expect, test, type Page } from '@playwright/test';
 
 test('landing Animation autoplay keeps the inspector and scene highlights on the displayed scene without a selection box', async ({ page }) => {
   await page.goto('/');
+  await skipWithoutHardwareWebGl(page, 'Autoplay advances in real time only when the hero shaders render on the GPU.');
   const studio = page.locator('.animation-studio').first();
   await expect(studio.getByRole('button', { name: 'Pause preview', exact: true })).toBeVisible({ timeout: 30_000 });
   await expect.poll(async () => Number(await studio.getByRole('slider', { name: 'Timeline playhead', exact: true }).inputValue())).toBeGreaterThan(1600);

@@ -34,12 +34,11 @@ test('typography-only source application is a complete undoable and redoable can
   await expect.poll(() => text.evaluate((element) => getComputedStyle(element).fontFamily)).toContain('Glyphfield Project');
   const imported = await page.evaluate(() => JSON.parse(window.glyphfield!.studio.readSource() as string).metadata.designLab.identity);
   expect(await page.evaluate(() => JSON.parse(window.glyphfield!.studio.readSource() as string).metadata.designLab.workspace.artboards)).toEqual(originalArtboards);
-  await page.getByRole('button', { name: 'Action history', exact: true }).click();
-  const history = page.getByRole('dialog', { name: 'Action history', exact: true });
-  await history.getByRole('button', { name: 'Undo', exact: true }).click();
+  // Undo and Redo sit in the canvas toolbar, beside the Action history list.
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect.poll(() => text.evaluate((element) => getComputedStyle(element).fontFamily)).toBe(originalFamily);
   expect(await page.evaluate(() => JSON.parse(window.glyphfield!.studio.readSource() as string).metadata.designLab.identity)).toBeUndefined();
-  await history.getByRole('button', { name: 'Redo', exact: true }).click();
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
   await expect.poll(() => page.evaluate(() => JSON.parse(window.glyphfield!.studio.readSource() as string).metadata.designLab.identity)).toEqual(imported);
   await expect.poll(() => text.evaluate((element) => getComputedStyle(element).fontFamily)).toContain('Glyphfield Project');
 });

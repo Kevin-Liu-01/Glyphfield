@@ -1,8 +1,9 @@
-import { openSourceEditor } from './studio-ui-helpers';
+import { openSourceEditor, skipWithoutHardwareWebGl } from './studio-ui-helpers';
 import { expect, test, type Page } from '@playwright/test';
 
 async function openTimeline(page: Page, landing: boolean) {
   await page.goto(landing ? '/' : '/studio?tool=animation&project=starter');
+  if (landing) await skipWithoutHardwareWebGl(page, 'Landing playback advances in real time only when the hero shaders render on the GPU.');
   // The landing serves the editor's HTML first and swaps in the live editor after load.
   if (landing) await expect(page.locator('[data-studio-interactive="true"]')).toHaveCount(1, { timeout: 30_000 });
   const studio = page.locator('.animation-studio:visible').first();

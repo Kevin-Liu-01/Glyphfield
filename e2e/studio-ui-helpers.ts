@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 export async function waitForStudioSource(page: Page) {
   await expect.poll(() => page.evaluate(() => {
@@ -18,4 +18,19 @@ export async function openSourceEditor(page: Page) {
   await page.locator('[data-studio-tool-header]:visible').getByRole('button', { name: 'File', exact: true }).click();
   await page.getByRole('menuitem', { name: /^Edit source code/ }).click();
   await expect(page.getByRole('textbox', { name: 'Editable source code', exact: true })).toBeVisible();
+}
+
+/**
+ * Skips a test that needs hardware WebGL in a browser that renders WebGL in software.
+ * The default Chromium project does (SwiftShader); GLYPHFIELD_BROWSER_NATIVE_GPU=1 uses the GPU.
+ */
+export async function skipWithoutHardwareWebGl(page: Page, reason: string) {
+  const renderer = await page.evaluate(() => {
+    const context = document.createElement('canvas').getContext('webgl2') ?? document.createElement('canvas').getContext('webgl');
+    if (!context) return 'no WebGL';
+    const info = context.getExtension('WEBGL_debug_renderer_info');
+    return String(context.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : context.RENDERER));
+  });
+  test.skip(/swiftshader|llvmpipe|software|no WebGL/i.test(renderer),
+    `${reason} WebGL here renders in software (${renderer}); run with GLYPHFIELD_BROWSER_NATIVE_GPU=1.`);
 }
