@@ -29,10 +29,11 @@ tools, shared controls, persistence, documentation, and exported artifacts.
   remove a newly added layer instead of undoing its subsequent move. A layer move
   between artboards records its own checkpoint, because the next drag can begin
   while the destination loads, when the pointer-down checkpoint is skipped.
-- Canvas text uses `font-optical-sizing: none` and `text-rendering:
-  geometricPrecision`. WebKit's `optimizeLegibility` still sizes a variable font's
-  optical axis to the rendered size, which changed line breaks with zoom and made
-  them differ from exports. Canvas 2D text always picks the optical size from the
+- Canvas text uses `font-optical-sizing: none` and `text-rendering: auto`.
+  WebKit's `optimizeLegibility` still sizes a variable font's optical axis to the
+  rendered size, which changed line breaks with zoom and made them differ from
+  exports. `geometricPrecision` also fixes WebKit but softens Chromium's small text,
+  because it stops snapping thin stems to whole pixels. Canvas 2D text always picks the optical size from the
   painted size, so exports paint with a copy of each such font whose `opsz` axis
   allows only its default (`src/lib/canvasPaintFonts.ts`).
 - DOM rasterization (brand element PNG) draws each `<img>` as an SVG `<image>`
