@@ -79,6 +79,45 @@ async function embedImages(root: Element): Promise<void> {
   }));
 }
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function aspectAlignment(position: string): string {
+  const [x = '50%', y = '50%'] = position.trim().split(/\s+/);
+  const axis = (value: string, start: string, end: string) => {
+    const percent = value === start ? 0 : value === end ? 100 : value === 'center' ? 50 : Number.parseFloat(value);
+    if (!Number.isFinite(percent)) return 'Mid';
+    return percent <= 25 ? 'Min' : percent >= 75 ? 'Max' : 'Mid';
+  };
+  return `x${axis(x, 'left', 'right')}Y${axis(y, 'top', 'bottom')}`;
+}
+
+/**
+ * Replaces each <img> with an SVG <image> in the same box. WebKit decodes an <img> of
+ * about 400 px or more nested in a foreignObject after the first draw, which left it out
+ * of the PNG; an SVG <image> is painted on the first draw. object-fit and object-position
+ * become preserveAspectRatio.
+ */
+function imagesAsSvgImages(root: Element) {
+  for (const image of [...root.querySelectorAll('img')]) {
+    const source = image.getAttribute('src');
+    if (!source) continue;
+    const style = image.getAttribute('style') ?? '';
+    const fit = /(?:^|;)object-fit:([^;]+)/.exec(style)?.[1]?.trim() ?? 'fill';
+    const position = /(?:^|;)object-position:([^;]+)/.exec(style)?.[1] ?? '50% 50%';
+    const box = document.createElementNS(SVG_NS, 'svg');
+    // An <img> clips its picture to its box; the replacement must too.
+    box.setAttribute('style', `${style}overflow:hidden;`);
+    const picture = document.createElementNS(SVG_NS, 'image');
+    picture.setAttribute('href', source);
+    picture.setAttribute('width', '100%');
+    picture.setAttribute('height', '100%');
+    picture.setAttribute('preserveAspectRatio', fit === 'fill' ? 'none'
+      : `${aspectAlignment(position)} ${fit === 'cover' ? 'slice' : 'meet'}`);
+    box.append(picture);
+    image.replaceWith(box);
+  }
+}
+
 /** Embed every font file referenced by url(...) in a @font-face stylesheet. */
 export async function embedFontFaceCss(css: string): Promise<string> {
   const urls = [...new Set([...css.matchAll(/url\((["']?)([^"')]+)\1\)/g)].map((match) => match[2]!))].filter((url) => !url.startsWith('data:'));
@@ -107,6 +146,7 @@ export async function domToSvg(node: HTMLElement, { fontFaceCss = '', height, wi
   clone.style.height = `${height}px`;
   clone.style.margin = '0';
   await embedImages(clone);
+  imagesAsSvgImages(clone);
   const wrapper = document.createElement('div');
   wrapper.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
   wrapper.setAttribute('style', `width:${width}px;height:${height}px;overflow:hidden;`);

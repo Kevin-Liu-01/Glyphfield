@@ -26,7 +26,20 @@ tools, shared controls, persistence, documentation, and exported artifacts.
   plus the quiet delay. It must not begin halfway through the first drag.
 - Source replacement and direct-manipulation gestures have distinct history
   boundaries. The idle debounce can coalesce one edit, but must never make Undo
-  remove a newly added layer instead of undoing its subsequent move.
+  remove a newly added layer instead of undoing its subsequent move. A layer move
+  between artboards records its own checkpoint, because the next drag can begin
+  while the destination loads, when the pointer-down checkpoint is skipped.
+- Canvas text uses `font-optical-sizing: none` and `text-rendering:
+  geometricPrecision`. WebKit's `optimizeLegibility` still sizes a variable font's
+  optical axis to the rendered size, which changed line breaks with zoom and made
+  them differ from exports. Canvas 2D text always picks the optical size from the
+  painted size, so exports paint with a copy of each such font whose `opsz` axis
+  allows only its default (`src/lib/canvasPaintFonts.ts`).
+- DOM rasterization (brand element PNG) draws each `<img>` as an SVG `<image>`
+  in the same box, with `object-fit` and `object-position` as
+  `preserveAspectRatio`. WebKit decodes an `<img>` or CSS background of about
+  400 px or more inside a `foreignObject` after the first draw, which left the
+  welcome email's card images out of the PNG; an SVG `<image>` paints at once.
 - The entire project tab surface activates its project. Rename inputs and close
   icons keep their own actions. Pointer release outside the tab bar, cancellation,
   and window blur end a drag; a later hover must never start one.

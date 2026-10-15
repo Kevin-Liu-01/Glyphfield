@@ -35,3 +35,28 @@ test('brand elements export real PNG and HTML artifacts through the Browser API'
   await expect(page.evaluate(() => window.glyphfield!.studio.invoke('brand-element.export.html', { elementId: 'opengraph' })))
     .rejects.toThrow(/not an email/);
 });
+
+test('the welcome email PNG paints every card image', async ({ page }) => {
+  await page.goto('/studio?tool=brand-elements&project=gt');
+  await waitForStudioSource(page);
+  // WebKit used to leave large images out of the rasterized SVG, leaving flat panels.
+  const cardColors = await page.evaluate(async () => {
+    const artifact = await window.glyphfield!.studio.invoke('brand-element.export.png', { elementId: 'welcome-email' }) as { blob: Blob };
+    const surface = document.querySelector<HTMLElement>('.brand-element-artboard-surface')!;
+    const box = surface.getBoundingClientRect();
+    const bitmap = await createImageBitmap(artifact.blob);
+    const scale = bitmap.width / box.width;
+    const context = new OffscreenCanvas(bitmap.width, bitmap.height).getContext('2d')!;
+    context.drawImage(bitmap, 0, 0);
+    return [...surface.querySelectorAll<HTMLImageElement>('img[src*="email-lifecycle"]')].map((image) => {
+      const rect = image.getBoundingClientRect();
+      const { data } = context.getImageData(Math.round((rect.left - box.left) * scale), Math.round((rect.top - box.top) * scale),
+        Math.max(1, Math.round(rect.width * scale)), Math.max(1, Math.round(rect.height * scale)));
+      const colors = new Set<number>();
+      for (let index = 0; index < data.length; index += 4) colors.add(((data[index] >> 4) << 8) | ((data[index + 1] >> 4) << 4) | (data[index + 2] >> 4));
+      return colors.size;
+    });
+  });
+  expect(cardColors.length).toBeGreaterThan(0);
+  for (const colors of cardColors) expect(colors).toBeGreaterThan(6);
+});
