@@ -765,6 +765,13 @@
   line-height: 18px;
 }
 
+.agentIntroActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 24px;
+}
+
 .resourceList,
 .actionList {
   margin: 0;

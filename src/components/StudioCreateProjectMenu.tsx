@@ -3,10 +3,11 @@
 import { useRef, useState } from 'react';
 import { useGT } from 'gt-next';
 import { Button } from '@/components/ui/Button';
-import { Film, LayoutGrid, Palette, Plus, Upload } from '@/components/ui/SolidIcons';
+import { Bot, Copy, Film, LayoutGrid, Palette, Plus, Upload } from '@/components/ui/SolidIcons';
 import StudioErrorNotice from '@/components/ui/StudioErrorNotice';
 import StudioContextMenu, { type StudioContextMenuPosition } from '@/components/ui/StudioContextMenu';
 import ThemeAwareBrandMark from '@/components/ThemeAwareBrandMark';
+import { requestBrandIdentitySection } from '@/components/brandIdentityEntry';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
 import { duplicateBrandIdentity, type BrandIdentity } from '@/lib/brandIdentity';
 import { STUDIO_PROJECT_FILE_ACCEPT } from '@/lib/projectFile';
@@ -41,10 +42,12 @@ export default function StudioCreateProjectMenu({ disabled, identities, onCreate
     }
   }
 
-  function scratch(toolId: ProjectCreationTool, name: string) {
+  function scratch(toolId: ProjectCreationTool, name: string, agentSetup = false) {
     void create(async () => {
       const { createScratchStudioProject } = await import('@/lib/studioProjectCreation');
-      return createScratchStudioProject(toolId, name);
+      const project = await createScratchStudioProject(toolId, name);
+      if (agentSetup) requestBrandIdentitySection(project.identity.id, 'agent');
+      return project;
     });
   }
 
@@ -72,20 +75,22 @@ export default function StudioCreateProjectMenu({ disabled, identities, onCreate
       onClose={() => setPosition(null)}
       position={position}
       sections={[
-        { label: gt('Start from scratch'), items: [
-          { id: 'design', icon: <LayoutGrid />, label: gt('Design Lab'), description: gt('An empty canvas for your ideas'), onSelect: () => scratch('material', gt('Untitled design')) },
-          { id: 'animation', icon: <Film />, label: gt('Animation'), description: gt('A fresh timeline for motion'), onSelect: () => scratch('animation', gt('Untitled animation')) },
-          { id: 'brand', icon: <Palette />, label: gt('Brand identity'), description: gt('Build your own brand system'), onSelect: () => scratch('identity', gt('Untitled brand')) },
+        // Every project is a brand that every tool uses, so a project starts with its brand.
+        { label: gt('Start a brand'), items: [
+          { id: 'agent', icon: <Bot />, label: gt('Set up with your agent'), description: gt('Your coding agent fills it in from your sources.'), onSelect: () => scratch('identity', gt('Untitled brand'), true) },
+          { id: 'brand', icon: <Palette />, label: gt('Blank brand'), description: gt('Fill in the name, logos, colors and type yourself.'), onSelect: () => scratch('identity', gt('Untitled brand')) },
+          { id: 'template', icon: <Copy />, label: gt('Copy a reference brand'), description: gt('Start from Basement, Ramp, Stripe and others.'), onSelect: () => setTemplatePosition(position) },
         ] },
-        { items: [
-          { id: 'template', icon: <LayoutGrid />, label: gt('Use a template'), description: gt('Start with an existing brand system'), onSelect: () => setTemplatePosition(position) },
-          { id: 'import', icon: <Upload />, label: gt('Import project…'), description: gt('Open a .glyphfield.json file in a new tab'), onSelect: () => inputRef.current?.click() },
+        { label: gt('Start with a file'), items: [
+          { id: 'design', icon: <LayoutGrid />, label: gt('Blank design'), description: gt('An empty canvas. Set up its brand later.'), onSelect: () => scratch('material', gt('Untitled design')) },
+          { id: 'animation', icon: <Film />, label: gt('Blank animation'), description: gt('An empty timeline. Set up its brand later.'), onSelect: () => scratch('animation', gt('Untitled animation')) },
+          { id: 'import', icon: <Upload />, label: gt('Import project…'), description: gt('A .glyphfield.json design or animation file.'), onSelect: () => inputRef.current?.click() },
         ] },
       ]}
     />
     <StudioContextMenu
-      label={gt('Use a template')}
-      detail={gt('Create your own copy')}
+      label={gt('Copy a reference brand')}
+      detail={gt('Your copy opens in a new project')}
       onClose={() => setTemplatePosition(null)}
       position={templatePosition}
       sections={[{ items: identities.filter((identity) => identity.builtIn).map((identity) => ({

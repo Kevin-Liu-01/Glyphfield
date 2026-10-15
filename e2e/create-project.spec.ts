@@ -16,22 +16,22 @@ async function readSource(page: Page) {
 test('the plus menu supports keyboard dismissal and creates an independent brand template copy', async ({ page }) => {
   await page.goto('/studio?tool=identity&project=starter');
   const menu = await openMenu(page);
-  await expect(menu.getByRole('menuitem')).toHaveCount(5);
+  await expect(menu.getByRole('menuitem')).toHaveCount(6);
   await page.keyboard.press('Escape');
   await expect(menu).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Add brand project', exact: true })).toBeFocused();
   await page.keyboard.press('Enter');
-  await menu.getByRole('menuitem', { name: 'Use a template', exact: false }).click();
-  await page.getByRole('menu', { name: 'Use a template', exact: true }).getByRole('menuitem', { name: 'Starter', exact: true }).click();
+  await menu.getByRole('menuitem', { name: 'Copy a reference brand', exact: false }).click();
+  await page.getByRole('menu', { name: 'Copy a reference brand', exact: true }).getByRole('menuitem', { name: 'Starter', exact: true }).click();
   await expect(page.locator('.project-tab')).toHaveCount(3);
   const selected = page.locator('.project-tab[data-selected="true"]');
   await expect(selected).not.toHaveAttribute('data-project-id', 'starter');
   await expect(page.getByRole('textbox', { name: 'Brand name', exact: true })).toHaveValue('Starter copy 1');
 });
 
-test('start from scratch creates an empty Design Lab canvas and an empty Animation timeline that survive reload', async ({ page }) => {
+test('a blank design or animation creates an empty Design Lab canvas and an empty Animation timeline that survive reload', async ({ page }) => {
   await page.goto('/studio?tool=identity&project=starter');
-  for (const [label, tool] of [['Design Lab', 'design-lab'], ['Animation', 'animation-studio']]) {
+  for (const [label, tool] of [['Blank design', 'design-lab'], ['Blank animation', 'animation-studio']]) {
     const menu = await openMenu(page);
     await menu.getByRole('menuitem', { name: new RegExp(`^${label} `) }).click();
     await expect.poll(async () => (await readSource(page))?.metadata?.tool, { timeout: 30_000 }).toBe(tool);
@@ -44,9 +44,20 @@ test('start from scratch creates an empty Design Lab canvas and an empty Animati
   }
 });
 
+test('set up with your agent creates an empty brand and opens its agent setup page', async ({ page }) => {
+  await page.goto('/studio?tool=identity&project=starter');
+  await (await openMenu(page)).getByRole('menuitem', { name: /^Set up with your agent / }).click();
+  const selected = page.locator('.project-tab[data-selected="true"]');
+  await expect(selected).not.toHaveAttribute('data-project-id', 'starter');
+  await expect(page.locator('main[data-section="agent"]')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Let your coding agent build the brand from its real sources.' })).toBeVisible();
+  await page.getByRole('button', { name: 'Fill it in yourself', exact: true }).click();
+  await expect(page.locator('main[data-section="strategy"]')).toBeVisible();
+});
+
 test('the plus file chooser imports into a new tab and rejects malformed files without replacing work', async ({ page }) => {
   await page.goto('/studio?tool=identity&project=starter');
-  await (await openMenu(page)).getByRole('menuitem', { name: /^Design Lab / }).click();
+  await (await openMenu(page)).getByRole('menuitem', { name: /^Blank design / }).click();
   await expect(page.locator('[data-design-version-status]').filter({ hasText: 'Autosaved' }).last()).toBeVisible();
   await page.getByRole('button', { name: 'Add text layer', exact: true }).click();
   await expect.poll(async () => Object.values((await readSource(page))?.elements ?? {}).some((element) => (element as CanvasElement).kind === 'text')).toBe(true);
@@ -87,7 +98,7 @@ test('the plus file chooser imports into a new tab and rejects malformed files w
 
 test('import detects Animation files and preserves editable frames and embedded fonts in a separate project', async ({ page }) => {
   await page.goto('/studio?tool=identity&project=starter');
-  await (await openMenu(page)).getByRole('menuitem', { name: /^Animation / }).click();
+  await (await openMenu(page)).getByRole('menuitem', { name: /^Blank animation / }).click();
   await expect.poll(async () => (await readSource(page))?.metadata?.tool, { timeout: 30_000 }).toBe('animation-studio');
   await page.getByRole('button', { name: 'Text', exact: true }).click();
   await page.getByRole('textbox', { name: 'Selected layer text', exact: true }).fill('Imported animation frame');

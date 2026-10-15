@@ -40,6 +40,7 @@ Edits stay pending until you save them. While the active project has pending edi
 
 **Set up with agent** writes a ready-to-run prompt for a coding agent such as Claude Code, Codex or Cursor. The agent operates the Studio through the Browser API (`window.glyphfield.studio`, the scripting interface that each Studio tool registers in the page). It researches the brand from its website, repository or design files, fills every section, adds logo and font files, runs the audit, saves the identity and exports the kit.
 
+- **Add brand project** → **Set up with your agent** opens a new, empty brand on this panel. The panel explains why a new brand starts with the agent: every tool reads the identity's logo files, colors, contrast pairs, font files, voice and strategy, and the agent copies them from the brand's own sources and notes each source. **Fill it in yourself** opens **Voice & strategy** instead.
 - **New brand** and **Improve this brand** switch the prompt. The Studio selects **New brand** for a project that is not built in when its tagline, positioning or palette still has the values a new project starts with.
 - **Copy prompt** copies the prompt. It has nine steps: research, brief, connect, validate, apply, files, audit, save and export, and report.
 - **Resources** lists four links, each with a copy button: this project's URL (`/studio?tool=identity&project=<id>`), the workflow guide (`/docs/agents/brand-setup.md`), the identity schema (`/api/brand/validate`) and the agent skill (`skills/glyphfield-brand/SKILL.md`).

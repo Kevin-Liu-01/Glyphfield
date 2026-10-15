@@ -21,7 +21,7 @@ test('duplicating a project carries current Design Lab and Animation work, persi
   test.setTimeout(120_000);
   await page.goto('/studio?tool=identity&project=starter');
   await page.getByRole('button', { name: 'Add brand project', exact: true }).click();
-  await page.getByRole('menuitem', { name: /^Design Lab / }).click();
+  await page.getByRole('menuitem', { name: /^Blank design / }).click();
   await waitForStudioSource(page);
   await expect(page.locator('.project-tab[data-selected="true"]')).not.toHaveAttribute('data-project-id', 'starter');
   const originalId = await page.locator('.project-tab[data-selected="true"]').getAttribute('data-project-id');

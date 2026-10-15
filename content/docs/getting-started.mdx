@@ -28,11 +28,20 @@ A project holds one brand identity and the work of every tool. Open projects app
 
 Closing a tab closes its view only. The project stays in **Projects**. You can edit a built-in project in place and later restore its shipped version.
 
-The **+** button beside the tabs (**Add brand project**) opens **New project**:
+The **+** button beside the tabs (**Add brand project**) opens **New project**. A project is a brand, and every tool in it uses that brand, so the menu starts with the brand.
 
-- **Start from scratch** creates an empty **Design Lab** design, **Animation** or **Brand identity**.
-- **Use a template** copies one of the nine built-in identities into a new project named `<Name> copy 1`. The number rises if that name is taken.
+**Start a brand**
+
+- **Set up with your agent** creates an empty brand and opens **Set up with agent** in Brand identity. Copy the prompt into a coding agent such as Claude Code, Codex or Cursor. The agent reads the brand's website, repository or design files and fills the identity for you. [Brand setup with an agent](/docs/agents/brand-setup) describes the whole run.
+- **Blank brand** creates an empty brand and opens its overview, where you fill in the name, logos, colors and type yourself.
+- **Copy a reference brand** copies one of the nine built-in identities into a new project named `<Name> copy 1`. The number rises if that name is taken.
+
+**Start with a file**
+
+- **Blank design** and **Blank animation** create a new project with an empty brand and an empty Design Lab canvas or Animation timeline. Set up the brand later from Brand identity.
 - **Import project…** opens a `.glyphfield.json` project file of up to 128 MB as a new project. The browser validates the file and opens it in Design Lab or Animation. An invalid file shows an error and creates nothing.
+
+Most new brands should start with the agent. Every tool reads the identity: logo files for light and dark surfaces, colors with their roles and contrast pairs, font files, voice and strategy. By hand, that means finding each hex value, font license and logo variant yourself. The agent copies them from the sources the brand already publishes, notes where each value came from, and runs the brand health audit before you keep the result.
 
 **Project → Duplicate active project** copies the identity, the current work in every tool, assets and saved checkpoints. The copy includes edits that are still waiting to autosave. It opens in a new tab and does not share state with the original. If the copy fails, an **Error** button (**Could not duplicate project: show details**) explains the cause.
 
@@ -47,7 +56,9 @@ The Browser API (`window.glyphfield.studio`) reaches only the controls of the ac
 
 ## 2. Set the identity
 
-Open **Brand identity**. **Overview** shows the brand cover, the brand health score and what the identity defines. The editors are:
+For a new brand, start with **Set up with agent** in **Brand identity**. Copy its prompt into Claude Code, Codex or Cursor running with a browser it can drive, such as Playwright, and point it at the brand's website, repository or design files. The agent fills the six editors below through the Browser API, adds the logo and font files, and runs the brand health audit. You then review the score and the sources it cites before you keep the identity.
+
+To fill the identity in by hand, open **Brand identity**. **Overview** shows the brand cover, the brand health score and what the identity defines. The editors are:
 
 | Editor | Contents |
 | --- | --- |
@@ -58,7 +69,7 @@ Open **Brand identity**. **Overview** shows the brand cover, the brand health sc
 | **System defaults** | Density, corner radius, logo scale, the graphic device, the pattern and the system rules |
 | **Direction & references** | The art direction dossier, applications and references |
 
-**Set up with agent** gives Claude Code, Codex or Cursor a prompt that fills these sections from the brand's own website, repository or design files. **Brand health** lists missing or failing items, many with a one-click fix. **Brand kit** downloads tokens and guidelines for use in code. Every tool reads the saved identity, so a change here appears in boards, the brand book, templates, components, motion and Design Lab defaults. [Brand identity](/docs/studio/brand-settings) describes each editor.
+**Brand health** lists missing or failing items, many with a one-click fix. **Brand kit** downloads tokens and guidelines for use in code. Every tool reads the saved identity, so a change here appears in boards, the brand book, templates, components, motion and Design Lab defaults. [Brand identity](/docs/studio/brand-settings) describes each editor.
 
 ## 3. Find a tool
 

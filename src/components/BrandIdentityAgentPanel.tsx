@@ -23,11 +23,14 @@ const IDENTITY_ACTIONS = Object.entries(STUDIO_TOOL_ACTION_CONTRACTS.identity);
 export default function BrandIdentityAgentPanel({
   identity,
   onCopy,
+  onFillManually,
   origin,
   report,
 }: {
   identity: BrandIdentity;
   onCopy: (text: string, confirmation: string) => void;
+  /** Opens the first edit section, for filling the brand in by hand. */
+  onFillManually: () => void;
   origin: string;
   report: BrandHealthReport;
 }) {
@@ -46,19 +49,21 @@ export default function BrandIdentityAgentPanel({
       <section className={styles.agentIntro}>
         <h2><T>Let your coding agent build the brand from its real sources.</T></h2>
         <p><T>Give this prompt to Claude Code, Codex or Cursor. The agent reads your website, repository or design files, then fills every section here through the Brand identity Browser API, adds your logo and font files, runs the health audit and exports the brand kit.</T></p>
+        <p><T>A new brand should start here. Every Glyphfield tool reads this identity: its logo files for light and dark surfaces, its colors with their roles and contrast pairs, its font files, its voice and its strategy. Filling those in by hand means finding each hex value, font license and logo variant yourself. The agent copies them from the sources the brand already publishes and notes where each value came from, and the brand health audit checks 11 sections before you keep the result.</T></p>
         <ol className={styles.agentSteps}>
           <li><span>01</span><strong><T>Open this project</T></strong><small><T>in a browser your agent can drive, such as Playwright.</T></small></li>
           <li><span>02</span><strong><T>Paste the prompt</T></strong><small><T>and point the agent at your website, repository or brand folder.</T></small></li>
           <li><span>03</span><strong><T>Review and keep</T></strong><small><T>the audit score, the sources it cites and the saved identity.</T></small></li>
         </ol>
-      </section>
-
-      <Panel
-        actions={(
+        <div className={styles.agentIntroActions}>
           <Button onClick={() => onCopy(prompt, gt('Agent prompt copied.'))} size='sm' type='button'>
             <Copy aria-hidden='true' /><T>Copy prompt</T>
           </Button>
-        )}
+          <Button onClick={onFillManually} size='sm' type='button' variant='outline'><T>Fill it in yourself</T></Button>
+        </div>
+      </section>
+
+      <Panel
         description={<T>Works with any agent that can run browser automation. It never needs your passwords: the project lives in this browser.</T>}
         title={<T>Prompt</T>}
       >

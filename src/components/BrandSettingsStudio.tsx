@@ -28,6 +28,7 @@ import {
   TypographySection,
 } from '@/components/BrandIdentityEditors';
 import BrandIdentityFrontPage, { type BrandIdentitySectionId } from '@/components/BrandIdentityFrontPage';
+import { takeBrandIdentitySection } from '@/components/brandIdentityEntry';
 import BrandIdentityHealthPanel from '@/components/BrandIdentityHealthPanel';
 import BrandIdentityKitPanel from '@/components/BrandIdentityKitPanel';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
@@ -220,7 +221,7 @@ export default function BrandSettingsStudio({
   const gt = useGT();
   const studioRootRef = useRef<HTMLDivElement>(null);
   const pendingIdentityRef = useRef<BrandIdentity | null>(null);
-  const [activeSection, setActiveSection] = useState<BrandIdentitySectionId>('overview');
+  const [activeSection, setActiveSection] = useState<BrandIdentitySectionId>(() => takeBrandIdentitySection(identity.id) ?? 'overview');
   const [assetType, setAssetType] = useState<BrandAsset['type']>('image');
   const [feedback, setFeedback] = useState<string | null>(null);
   const [kitBusy, setKitBusy] = useState<BrandKitFormat | null>(null);
@@ -391,7 +392,7 @@ export default function BrandSettingsStudio({
 
   function renderSection() {
     switch (activeSection) {
-      case 'agent': return <BrandIdentityAgentPanel identity={identity} onCopy={copy} origin={studioOrigin()} report={report} />;
+      case 'agent': return <BrandIdentityAgentPanel identity={identity} onCopy={copy} onFillManually={() => setActiveSection('strategy')} origin={studioOrigin()} report={report} />;
       case 'health': return <BrandIdentityHealthPanel onCopy={copy} onFix={runFix} onNavigate={setActiveSection} report={report} />;
       case 'kit': return <BrandIdentityKitPanel busyFormat={kitBusy} identity={identity} onCopy={copy} onExport={downloadKit} />;
       case 'strategy': return <StrategyVoiceSection identity={identity} update={update} />;

@@ -12,7 +12,7 @@ The Brand identity tool holds the shared identity (voice, strategy, colors, type
 
 Open the Brand identity tool and choose **Set up with agent** in its section list. The panel shows a ready-to-run prompt for the active project with the project URL, the rules and every call. Choose **New brand** for a fresh project or **Improve this brand** for one that already has content. Then choose **Copy prompt** and paste the prompt into the agent. `identity.setup.prompt { mode }` returns the same text, with `mode` set to `'new'` or `'improve'`.
 
-For a new brand, create the project first. **Add brand project** → **Brand identity** creates an empty identity, and **Use a template** → **Starter** creates a complete neutral example to replace. An agent can do the same with `identity.project.create { from, name }`. `from: 'starter'` (the default) copies the Starter template, `from: 'scratch'` starts empty, a built-in identity ID copies that identity, and a project ID duplicates that project with its workspaces. The action opens the new project and returns `{ id, name, kind, from, url }`. Read `window.glyphfield.studio` again before the next call, because the new project's workspace now owns the API.
+For a new brand, create the project first. **Add brand project** → **Set up with your agent** creates an empty identity and opens this panel. **Blank brand** creates the same empty identity on its overview, and **Copy a reference brand** → **Starter** creates a complete neutral example to replace. An agent can do the same with `identity.project.create { from, name }`. `from: 'starter'` (the default) copies the Starter template, `from: 'scratch'` starts empty, a built-in identity ID copies that identity, and a project ID duplicates that project with its workspaces. The action opens the new project and returns `{ id, name, kind, from, url }`. Read `window.glyphfield.studio` again before the next call, because the new project's workspace now owns the API.
 
 ## Workflow
 
@@ -109,4 +109,4 @@ Glyphfield tools read the color IDs `ink` (text), `paper` (background), `muted` 
 
 ## Built-in identities
 
-A built-in identity can be edited in place. When Glyphfield ships a newer version of a built-in, it keeps every edit, and **Restore the shipped version** on the overview returns to the shipped one. To make your own brand from a built-in, create a copy first with **Use a template**.
+A built-in identity can be edited in place. When Glyphfield ships a newer version of a built-in, it keeps every edit, and **Restore the shipped version** on the overview returns to the shipped one. To make your own brand from a built-in, create a copy first with **Add brand project** → **Copy a reference brand**.
