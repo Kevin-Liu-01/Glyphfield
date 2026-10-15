@@ -670,49 +670,11 @@ function SelectedFrameContentControls({
 }: SelectedFrameContentControlsProps) {
   const gt = useMotionGT();
   const isText = selectedSource.kind === 'text';
-  return (
+  // Without motion editing (the landing), the inspector follows playback across text and
+  // image scenes. Rows that both kinds share come first, so a scene change never moves them.
+  const followsPlayback = !motion;
+  const kindControls = (
     <>
-      {/* Text and image layers share this row's shape, so following playback
-          from one kind of scene to the other never moves the controls below. */}
-      {isText ? (
-        <label className='animation-layer-text-field'>
-          <span><T>Text</T></span>
-          <input
-            aria-label={gt('Selected layer text')}
-            onChange={(event) => onTextSourceChange(selectedSource.id, event.target.value)}
-            spellCheck={false}
-            type='text'
-            value={selectedSource.text}
-          />
-        </label>
-      ) : (
-        <label className='animation-layer-text-field'>
-          <span><T>Image</T></span>
-          <input aria-label={gt('Selected layer image')} readOnly type='text' value={selectedSource.name} />
-        </label>
-      )}
-      {motion && playhead ? (
-        <>
-          <AnimationPoseControls
-            currentMsRef={playhead.currentMsRef}
-            following={!playhead.isPlaying}
-            frameSettings={frameSettings}
-            layout={playhead.layout}
-            onPoseChange={motion.onPoseChange}
-            sceneIndex={sceneIndex}
-            subscribeToPlayhead={playhead.subscribeToPlayhead}
-          />
-          <AnimationAlignControls guidesVisible={playhead.guidesVisible} onAlign={motion.onAlign} onGuidesVisibleChange={motion.onGuidesVisibleChange} />
-        </>
-      ) : (
-        <>
-          <RangeControl label={<T>Horizontal</T>} max={1} min={-1} onChange={(alignX) => onFrameSettingsChange({ alignX })} step={0.01} value={frameSettings.alignX} />
-          <RangeControl label={<T>Vertical</T>} max={1} min={-1} onChange={(alignY) => onFrameSettingsChange({ alignY })} step={0.01} value={frameSettings.alignY} />
-          <RangeControl label={<T>Scale</T>} max={2.5} min={0.1} onChange={(scale) => onFrameSettingsChange({ scale })} step={0.01} value={frameSettings.scale} />
-          <RangeControl label={<T>Rotation</T>} max={180} min={-180} onChange={(rotation) => onFrameSettingsChange({ rotation })} step={1} unit='°' value={frameSettings.rotation} />
-          <RangeControl label={<T>Opacity</T>} max={100} min={0} onChange={(opacity) => onFrameSettingsChange({ opacity: opacity / 100 })} step={1} unit='%' value={Math.round(frameSettings.opacity * 100)} />
-        </>
-      )}
       {isText ? (
         <InspectorGroup title={<T>Type</T>}>
           <div className='studio-field'>
@@ -759,23 +721,76 @@ function SelectedFrameContentControls({
           </div>
         </InspectorGroup>
       ) : null}
-      {motion && playhead ? (
-        <SelectedFrameMotionControls
-          frameSettings={frameSettings}
-          motion={motion}
-          playhead={playhead}
-          sceneIndex={sceneIndex}
-          selectedSource={selectedSource}
-          settings={settings}
-        />
-      ) : null}
-      <div className='border-t border-border pt-4'>
-        <div className='mb-3'>
-          <p className='text-sm font-semibold'>{selectedSource.kind === 'text' ? <T>Text effects</T> : <T>Artwork effects</T>}</p>
-          <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Shadows, outlines, glass, and reflections render in preview and GIF export.</T></p>
-        </div>
-        <MaterialFinishControls onChange={(finish) => onFrameSettingsChange({ finish })} settings={frameSettings.finish} />
+    </>
+  );
+  const effects = (
+    <div className='border-t border-border pt-4'>
+      <div className='mb-3'>
+        <p className='text-sm font-semibold'>{selectedSource.kind === 'text' ? <T>Text effects</T> : <T>Artwork effects</T>}</p>
+        <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Shadows, outlines, glass, and reflections render in preview and GIF export.</T></p>
       </div>
+      <MaterialFinishControls onChange={(finish) => onFrameSettingsChange({ finish })} settings={frameSettings.finish} />
+    </div>
+  );
+  return (
+    <>
+      {/* Text and image layers share this row's shape, so following playback
+          from one kind of scene to the other never moves the controls below. */}
+      {isText ? (
+        <label className='animation-layer-text-field'>
+          <span><T>Text</T></span>
+          <input
+            aria-label={gt('Selected layer text')}
+            onChange={(event) => onTextSourceChange(selectedSource.id, event.target.value)}
+            spellCheck={false}
+            type='text'
+            value={selectedSource.text}
+          />
+        </label>
+      ) : (
+        <label className='animation-layer-text-field'>
+          <span><T>Image</T></span>
+          <input aria-label={gt('Selected layer image')} readOnly type='text' value={selectedSource.name} />
+        </label>
+      )}
+      {motion && playhead ? (
+        <>
+          <AnimationPoseControls
+            currentMsRef={playhead.currentMsRef}
+            following={!playhead.isPlaying}
+            frameSettings={frameSettings}
+            layout={playhead.layout}
+            onPoseChange={motion.onPoseChange}
+            sceneIndex={sceneIndex}
+            subscribeToPlayhead={playhead.subscribeToPlayhead}
+          />
+          <AnimationAlignControls guidesVisible={playhead.guidesVisible} onAlign={motion.onAlign} onGuidesVisibleChange={motion.onGuidesVisibleChange} />
+        </>
+      ) : (
+        <>
+          <RangeControl label={<T>Horizontal</T>} max={1} min={-1} onChange={(alignX) => onFrameSettingsChange({ alignX })} step={0.01} value={frameSettings.alignX} />
+          <RangeControl label={<T>Vertical</T>} max={1} min={-1} onChange={(alignY) => onFrameSettingsChange({ alignY })} step={0.01} value={frameSettings.alignY} />
+          <RangeControl label={<T>Scale</T>} max={2.5} min={0.1} onChange={(scale) => onFrameSettingsChange({ scale })} step={0.01} value={frameSettings.scale} />
+          <RangeControl label={<T>Rotation</T>} max={180} min={-180} onChange={(rotation) => onFrameSettingsChange({ rotation })} step={1} unit='°' value={frameSettings.rotation} />
+          <RangeControl label={<T>Opacity</T>} max={100} min={0} onChange={(opacity) => onFrameSettingsChange({ opacity: opacity / 100 })} step={1} unit='%' value={Math.round(frameSettings.opacity * 100)} />
+        </>
+      )}
+      {followsPlayback ? <>{effects}{kindControls}</> : (
+        <>
+          {kindControls}
+          {motion && playhead ? (
+            <SelectedFrameMotionControls
+              frameSettings={frameSettings}
+              motion={motion}
+              playhead={playhead}
+              sceneIndex={sceneIndex}
+              selectedSource={selectedSource}
+              settings={settings}
+            />
+          ) : null}
+          {effects}
+        </>
+      )}
     </>
   );
 }

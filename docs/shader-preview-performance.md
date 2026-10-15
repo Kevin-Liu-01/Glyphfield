@@ -94,8 +94,10 @@ The served editor now matches the settled one:
 - A controlled `StudioSelect` names its label in the trigger on the server.
 - An auto-fitted canvas, and its zoom toolbar, stay hidden until the first fit,
   so the artboard first appears at its fitted size and place.
-- Text and image layers share the inspector's first row shape, and the landing
-  presentation keeps its first selection during playback.
+- Text and image layers share the inspector's first row shape. On the landing,
+  where the inspector follows the playing scene, the rows both kinds share come
+  first and the Type, Caption and Image fit groups come last, so a scene change
+  only changes rows below every shared one.
 - The editor shell stays hidden until its last element is parsed, so a phone
   never paints the half-parsed editor with the sidebar on top.
 - The GitHub star count reserves three digits.
@@ -113,6 +115,14 @@ Main-thread task time per second, before → after:
 
 The remaining phone cost is mostly the per-frame main-frame pass on a large page,
 which the landing's own shaders also request at the display rate.
+
+The rule that hides the half-parsed editor first targeted the shell's children
+(`.marketing-animation-lazy-shell:not(:has(> [data-shell-end])) > *`). Chromium
+then restyled the whole editor on every DOM insertion inside it, about 55ms per
+change on the phone profile, and the inspector's change from an image scene to a
+text scene made a 250ms frame twice per loop. The rule now targets the shell
+itself, which costs 4ms per change. On the same profile the scene changes now
+make no frame over 70ms, and the desktop makes none over 50ms.
 
 ### 2026-09-09 local production-build verification
 

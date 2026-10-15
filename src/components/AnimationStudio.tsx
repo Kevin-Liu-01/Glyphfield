@@ -1961,9 +1961,7 @@ function AnimationStudio({
       if (frameIsDue) publishPlayhead(playheadRef.current);
 
       const position = resolveSequencePosition(playheadRef.current, currentLayout);
-      // The landing's presentation keeps its first selection: following each scene
-      // would re-render the inspector and move its rows on every cut.
-      if (playbackWasRunning && !presentationMode) selectDisplayedSource(position.index);
+      if (playbackWasRunning) selectDisplayedSource(position.index);
       const previousActiveTimeline = activeTimelineRef.current;
       if (
         timelineRequiresShaderSyncRef.current

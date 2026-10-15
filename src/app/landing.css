@@ -2204,8 +2204,11 @@ html.dark .marketing-page-v5 .marketing-v5-capability-grid article:hover::after 
   min-height: 0;
 }
 
-/* Hidden until the editor's last element is parsed; see MarketingAnimationDemo. */
-.marketing-animation-lazy-shell:not(:has(> [data-shell-end])) > * {
+/* Hidden until the editor's last element is parsed; see MarketingAnimationDemo.
+   The shell is the rule's subject, not its children: with `> *` every DOM change
+   inside the editor restyled the whole editor (about 55 ms per change on a phone
+   profile at 4x CPU throttle, against 4 ms with the shell as the subject). */
+.marketing-animation-lazy-shell:not(:has(> [data-shell-end])) {
   visibility: hidden;
 }
 

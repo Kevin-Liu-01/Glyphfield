@@ -3,6 +3,8 @@ import { expect, test, type Page } from '@playwright/test';
 
 async function openTimeline(page: Page, landing: boolean) {
   await page.goto(landing ? '/' : '/studio?tool=animation&project=starter');
+  // The landing serves the editor's HTML first and swaps in the live editor after load.
+  if (landing) await expect(page.locator('[data-studio-interactive="true"]')).toHaveCount(1, { timeout: 30_000 });
   const studio = page.locator('.animation-studio:visible').first();
   if (!landing) {
     await openSourceEditor(page);
