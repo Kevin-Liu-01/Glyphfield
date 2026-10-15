@@ -16,6 +16,7 @@
     "build:prod": "next build --turbopack",
     "dev": "next dev --turbopack --port 3012",
     "docs:generate": "fumadocs-mdx",
+    "capture:docs-screenshots": "node scripts/capture-docs-screenshots.mjs",
     "generate:og-assets": "python3 scripts/generate-og-assets.py",
     "generate:shader-grain": "node scripts/generate-shader-grain.mjs",
     "lint": "pnpm lint:fast && pnpm lint:cognitive",

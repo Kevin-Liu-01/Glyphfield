@@ -28,6 +28,9 @@ Own repository diagnostics and the forwarding shim for the canonical agent-docs 
 
 - Refresh agent docs → `pnpm agent-docs -- scaffold .`, fill placeholders, then
   `pnpm agent-docs -- doctor . --json`.
+- Refresh the docs and README screenshots → build, run `pnpm start -p 3071`, then
+  `pnpm capture:docs-screenshots --base=http://localhost:3071`. Add a view to the
+  manifest in `capture-docs-screenshots.mjs` when a page uses a new screenshot.
 - Add a diagnostic → add one focused script and expose it in `package.json`.
 - Change the canonical mesh behavior → edit Kevin-Wiki, not this forwarding shim.
 
