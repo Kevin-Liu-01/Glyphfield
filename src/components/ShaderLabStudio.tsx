@@ -3895,6 +3895,9 @@ export default function ShaderLabStudio({
       const next = surfaces.map((surface) => surface.id === from.id ? { ...surface, snapshot: source }
         : surface.id === to.id ? { ...surface, snapshot: destination } : surface);
       applyActiveArtboard({ ...to, snapshot: destination }, next, false);
+      // A move between surfaces is one action, so it records itself. The next drag can start
+      // while the destination still loads, when its pointer-down checkpoint is skipped.
+      checkpointDesignCanvasHistory(next, designCanvasHistorySignature(next, projectTypographyRevision));
       const nextIds = [...idMap.values()];
       setSelectedCanvasLayerIds(nextIds);
       setSelectedLayerId(nextIds.at(-1) ?? null);

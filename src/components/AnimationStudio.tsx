@@ -115,7 +115,7 @@ import {
 } from '@/lib/canvasDocument';
 import { blobToDataUrl, imageUrlToDataUrl } from '@/lib/download';
 import type { LiveMaterialSettings } from '@/lib/liveMaterials';
-import { readLiveMaterialPresentation, type LiveMaterialFrameState } from '@/lib/liveMaterialPreview';
+import { readLiveMaterialPresentation, type LiveMaterialFrameState, type LiveMaterialPresentation } from '@/lib/liveMaterialPreview';
 import { createLiveMaterialFramePacer } from '@/lib/liveMaterialRenderBudget';
 import { preloadShaderFramePresentation } from '@/lib/shaderFramePresentation';
 import {
@@ -364,6 +364,12 @@ function useStableHandlers<T extends Record<string, (...args: never[]) => unknow
     (...args: unknown[]) => (handlersRef.current[key] as unknown as (...input: unknown[]) => unknown)(...args),
   ])) as unknown as T);
   return stable;
+}
+
+function samePresentation(first: LiveMaterialPresentation | undefined, second: LiveMaterialPresentation | undefined): boolean {
+  return first?.filter === second?.filter
+    && first?.grainOpacity === second?.grainOpacity
+    && first?.grainTileSize === second?.grainTileSize;
 }
 
 function initialAnimationStarter(identity: BrandIdentity | undefined, presentationMode: boolean) {
@@ -1854,12 +1860,14 @@ function AnimationStudio({
         : sequenceShaderLayerRef.current;
       const image = wrapper?.querySelector('canvas');
       if (!image) return source;
-      // Reuse the attached copy so memoized thumbnails keep a stable source.
+      // Reuse the attached copy so memoized thumbnails keep a stable source. A renderer
+      // publishes its presentation only once it is ready, so a copy made before then is replaced.
+      const shaderPresentation = readLiveMaterialPresentation(wrapper ?? null);
       const cached = attachedShaderCacheRef.current.get(source);
-      if (cached?.image === image) return cached.source;
+      if (cached?.image === image && samePresentation(cached.source.background?.shaderPresentation, shaderPresentation)) return cached.source;
       const attached = {
         ...source,
-        background: { ...source.background, image, shaderPresentation: readLiveMaterialPresentation(wrapper ?? null) },
+        background: { ...source.background, image, shaderPresentation },
       };
       attachedShaderCacheRef.current.set(source, { image, source: attached });
       return attached;

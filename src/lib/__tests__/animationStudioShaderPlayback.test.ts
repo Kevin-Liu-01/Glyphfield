@@ -55,7 +55,9 @@ describe('Animation Studio shader playback', () => {
     expect(preview.indexOf('compositedBackgroundIsAnimated && !shaderPresentationReady')).toBeLessThan(preview.indexOf('context.clearRect'));
     const attach = animationStudio.slice(animationStudio.indexOf('const attachShaderLayers = useCallback('),
       animationStudio.indexOf('useMountEffect(() => {', animationStudio.indexOf('const attachShaderLayers = useCallback(')));
-    expect(attach).toContain('shaderPresentation: readLiveMaterialPresentation');
+    expect(attach).toContain('const shaderPresentation = readLiveMaterialPresentation(');
+    // A copy attached before the renderer published its presentation is replaced.
+    expect(attach).toContain('samePresentation(cached.source.background?.shaderPresentation, shaderPresentation)');
     expect(attach).not.toContain('preloadShaderFramePresentation');
     expect(attach).not.toContain('await');
   });
