@@ -63,7 +63,9 @@ describe repository contribution.
   Shader Library with its engines, listing order, retired IDs that saved documents
   still load, and the Shaders.com WebGPU components and image effects.
 - `src/lib/brandIdentity.ts`, `identityPresets.ts`, `gtBrandIdentity.ts`: the
-  identity model, bundled fonts and the built-in identities.
+  identity model and the built-in identities. `brandStarterKit.ts`: the bundled
+  fonts and the starter kit (palettes, type pairings, devices, directions) that
+  new brands start from.
 - `src/app/studio/studio.css`: CSS for Studio-only components. Only `/studio`
   imports it. `src/app/globals.css` loads on every route.
 - `content/docs/**` + `src/components/DocsMdx.tsx`: human and machine docs source.

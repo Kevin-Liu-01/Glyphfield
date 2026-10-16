@@ -10,17 +10,17 @@ export const STARTER_SYSTEM: BrandSystemSource = {
   },
   dossier: {
     applications: ['Identity thesis', 'Research wall', 'Working deck', 'Product workspace', 'Field notes', 'Launch sequence'],
-    color: 'Warm white and near-black form a neutral research surface. A concentrated blue focus window identifies the active claim, decision, or evidence rather than filling the entire composition.',
-    graphicDevice: 'The focus window is a precise blue aperture that isolates the most useful fragment of a larger field. It can crop an image, frame a decision, or become a navigational state.',
+    color: 'Paper white, Fog and the near-black Night form a neutral research surface. Signal blue marks the signal window: the active claim, decision or evidence, never a fill for the whole composition.',
+    graphicDevice: 'The signal window is a precise blue frame that isolates the most useful fragment of a larger field. It can crop an image, frame a decision or become a navigation state.',
     imagery: 'Use candid research, material studies, interface evidence, process photography, taped references, and close crops. The image set should reveal how a system was built rather than simulate a finished luxury campaign.',
     layout: 'Compose like an authored research wall: one decisive focal frame, quiet annotations, unequal image scales, and generous breathing room. Avoid universal card grids.',
-    logo: 'The spark mark and Starter wordmark establish orientation but remain small. The identity is demonstrated by selection, framing, and evidence rather than repeated logo stamping.',
-    motion: 'The focus window moves between evidence, then settles. Transitions are quick but not abrupt; surrounding material remains stable so the selection change is legible.',
+    logo: 'The mark is a four-point spark with a signal window at its center; with the Starter wordmark it sets orientation and stays small. The identity shows through selection, framing and evidence, not repeated logos.',
+    motion: 'The signal window moves between pieces of evidence, then settles. Transitions are quick but not abrupt; surrounding material stays still so the change of selection is legible.',
     personality: 'Curious, authored, pragmatic, observant, and quietly opinionated.',
     premise: 'Starter demonstrates how a new identity grows from research, choices, and repeatable rules. It is a complete neutral example, not an empty template.',
     prohibited: ['No generic placeholder copy', 'No equal-sized image grid', 'No random blue gradients', 'No decorative evidence without a stated role'],
     provenance: 'Use original Glyphfield compositions and safely licensed research imagery. Every external reference must remain URL-only or research-only until its redistribution status is confirmed.',
-    renderingRecipe: ['Choose one research question', 'Assemble varied evidence', 'Create one blue focus window', 'Let adjacent material remain quiet', 'Annotate only decisions that change the system'],
+    renderingRecipe: ['Choose one research question', 'Assemble varied evidence', 'Frame one signal window in signal blue', 'Let adjacent material remain quiet', 'Annotate only decisions that change the system'],
     typography: 'Switzer provides clear working typography; Instrument Serif adds an authored editorial voice for selected statements. Geist Mono is limited to measurements, source labels, and technical evidence.',
   },
   references: referencePack('starter', {
@@ -29,8 +29,8 @@ export const STARTER_SYSTEM: BrandSystemSource = {
     official: ['Starter identity overview', 'Starter logo family', 'Starter workspace', 'Starter field notes', 'Starter working deck', 'Starter progress cards'],
     campaign: ['Research-led launch poster', 'Process journal spread', 'Decision checkpoint card', 'Team working-session wall'],
     concept: ['Blue aperture over archive', 'Selected fragment in a contact sheet', 'Evidence pinned to a neutral field', 'Focus and peripheral context'],
-    material: ['Warm paper and blue acetate', 'Graphite notes and registration tape', 'Pinned print and screen proof'],
-    motion: ['Moving focus window', 'Evidence reorder transition', 'Research-to-system reveal'],
+    material: ['White paper and blue acetate', 'Graphite notes and registration tape', 'Pinned print and screen proof'],
+    motion: ['Moving signal window', 'Evidence reorder transition', 'Research-to-system reveal'],
   }),
 };
 

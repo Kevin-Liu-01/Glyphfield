@@ -5,6 +5,7 @@ import { T, useGT } from 'gt-next';
 
 import BrandIdentityPreview from '@/components/BrandIdentityPreview';
 import { Meter, Panel, TextAreaField, TextField } from '@/components/BrandIdentityFields';
+import StarterKitPanel, { LiveDevice } from '@/components/BrandStarterKit';
 import ThemeAwareBrandMark from '@/components/ThemeAwareBrandMark';
 import { Button } from '@/components/ui/Button';
 import { Bot, Code2, Download, RotateCcw, ShieldCheck } from '@/components/ui/SolidIcons';
@@ -76,6 +77,16 @@ function coverVisual(identity: BrandIdentity) {
 }
 
 function CoverVisual({ identity }: { identity: BrandIdentity }) {
+  // Editable brands draw their device live, so a palette or device change shows at once,
+  // unless the brand has chosen its own cover image.
+  const chosenCover = identity.assets.some(({ tags }) => tags?.includes('cover'));
+  if (identity.kind !== 'example' && !chosenCover) {
+    return (
+      <figure aria-hidden='true' className={styles.coverVisual}>
+        <LiveDevice height={560} identity={identity} width={520} />
+      </figure>
+    );
+  }
   const visual = coverVisual(identity);
   if (visual) {
     return (
@@ -84,7 +95,7 @@ function CoverVisual({ identity }: { identity: BrandIdentity }) {
       </figure>
     );
   }
-  // Without a device file the palette, in proportion, stands in for it.
+  // A reference brand without a cover file shows its palette in proportion.
   return (
     <figure aria-hidden='true' className={`${styles.coverVisual} ${styles.coverPalette}`}>
       {identity.colors.map((color) => <span key={color.id} style={{ background: color.hex, flexGrow: Math.max(color.proportion ?? 1, 0.5) }} />)}
@@ -245,8 +256,8 @@ function SystemGlance({ identity }: { identity: BrandIdentity }) {
         <figcaption>{families.join(' · ')}</figcaption>
       </figure>
       <figure className={styles.glanceDevice}>
-        <strong>{identity.graphicSystem.device}</strong>
-        <figcaption>{identity.graphicSystem.rules.slice(0, 2).join(' · ')}</figcaption>
+        <LiveDevice height={240} identity={identity} width={640} />
+        <figcaption><strong>{identity.graphicSystem.device}</strong>{identity.graphicSystem.rules.slice(0, 2).join(' · ')}</figcaption>
       </figure>
     </section>
   );
@@ -274,6 +285,7 @@ export default function BrandIdentityFrontPage({
   return (
     <div className={styles.frontPage}>
       <BrandCover identity={identity} />
+      {identity.kind === 'example' ? null : <StarterKitPanel identity={identity} update={update} />}
       <div className={styles.frontRow}>
         <QuickActions edited={edited} onExportKit={onExportKit} onNavigate={onNavigate} onOpenSource={onOpenSource} onRestore={onRestore} />
         <HealthSummary onNavigate={onNavigate} report={report} />

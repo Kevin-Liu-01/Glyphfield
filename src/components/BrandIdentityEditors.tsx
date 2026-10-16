@@ -14,6 +14,7 @@ import {
   TextAreaField,
   TextField,
 } from '@/components/BrandIdentityFields';
+import { DevicePicker, PairingPicker, PalettePicker } from '@/components/BrandStarterKit';
 import BrandSystemDiagram from '@/components/BrandSystemDiagram';
 import ColorControl from '@/components/ui/ColorControl';
 import { Button } from '@/components/ui/Button';
@@ -399,6 +400,9 @@ export function ColorSection({ identity, update }: { identity: BrandIdentity; up
           })}
         </div>
       </Panel>
+      <Panel description={<T>Swap the eight role colors for a tested palette. Colors you added stay, and declared text pairs switch to the pairs the palette is tested for.</T>} title={<T>Palette presets</T>}>
+        <PalettePicker identity={identity} update={update} />
+      </Panel>
       <ColorPairs identity={identity} update={update} />
     </div>
   );
@@ -517,6 +521,9 @@ export function TypographySection({ identity, onAddFont, update }: { identity: B
     <div className={styles.sectionStack}>
       <FontFiles fonts={fonts} identity={identity} onAddFont={onAddFont} update={update} />
       <TypeRoles fonts={fonts} identity={identity} update={update} />
+      <Panel description={<T>Set all four roles from the bundled fonts in one step. Usage notes and uploaded fonts stay.</T>} title={<T>Type pairings</T>}>
+        <PairingPicker identity={identity} update={update} />
+      </Panel>
       <TypeScale identity={identity} update={update} />
     </div>
   );
@@ -539,7 +546,10 @@ export function SystemSection({ identity, update }: { identity: BrandIdentity; u
       </Panel>
       <Panel description={<T>The recognizable device and rules that keep applications related.</T>} title={<T>Graphic system</T>}>
         <Field label={<T>Recognizable device</T>}><input className={INPUT_CLASS} onChange={(event) => graphic({ device: event.target.value })} value={identity.graphicSystem.device} /></Field>
-        <Field label={<T>Pattern grammar</T>}><StudioSelect ariaLabel={gt('Pattern grammar')} onValueChange={(pattern) => graphic({ pattern: pattern as BrandIdentity['graphicSystem']['pattern'] })} options={['none', 'blocks', 'brackets', 'burst', 'circuit', 'flow', 'grid', 'orbit', 'rays', 'steps', 'wave'].map((value) => ({ label: gt(value), value }))} value={identity.graphicSystem.pattern} /></Field>
+        <div aria-label={gt('Device drawing')} className='brand-identity-field' role='group'>
+          <span><T>Device drawing</T></span>
+          <DevicePicker identity={identity} update={update} />
+        </div>
         <TextAreaField label={<T>Device rationale</T>} onChange={(description) => graphic({ description })} value={identity.graphicSystem.description} />
         <TextAreaField label={<T>Composition behavior</T>} onChange={(composition) => graphic({ composition })} value={identity.graphicSystem.composition} />
         <TextAreaField label={<T>Image direction</T>} onChange={(imageDirection) => graphic({ imageDirection })} value={identity.graphicSystem.imageDirection} />

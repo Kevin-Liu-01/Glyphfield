@@ -5,6 +5,8 @@ import {
   STARTER_BRAND_IDENTITY,
 } from './identityPresets';
 import { brandIdentityFingerprint } from './brandIdentityFingerprint';
+import { createPixelBrandAssets, hasGeneratedPixelAssets, updateGeneratedPixelAssets } from './brandPixelMark';
+import { applyStarterKit, DEFAULT_STARTER_DIRECTION, STARTER_DEVICE_PLACEHOLDER, STARTER_KIT_FONTS } from './brandStarterKit';
 import { isPristineBuiltInIdentity } from './builtInIdentityRevision';
 import { migrateGtTypography } from './gtTypographyMigration';
 import { normalizeHexOrFallback } from './color';
@@ -350,56 +352,8 @@ export type BrandIdentity = {
   website: string;
 };
 
-const DEFAULT_BRAND_FONT_ASSETS: readonly BrandFontAsset[] = [
-  {
-    family: 'Switzer',
-    fileName: 'Switzer-Regular.ttf',
-    format: 'truetype',
-    id: 'switzer-400',
-    label: 'Switzer Regular',
-    license: 'ITF Free Font License (Fontshare); not redistributable as a font package',
-    path: '/fonts/switzer-400.ttf',
-    style: 'normal',
-    weight: 400,
-  },
-  {
-    family: 'Switzer',
-    fileName: 'Switzer-Medium.ttf',
-    format: 'truetype',
-    id: 'switzer-500',
-    label: 'Switzer Medium',
-    license: 'ITF Free Font License (Fontshare); not redistributable as a font package',
-    path: '/fonts/switzer-500.ttf',
-    style: 'normal',
-    weight: 500,
-  },
-  {
-    family: 'Inter',
-    fileName: 'Inter-Variable.ttf',
-    format: 'truetype',
-    id: 'inter-variable',
-    label: 'Inter Variable',
-    license: 'SIL Open Font License 1.1',
-    path: '/fonts/inter-variable.ttf',
-    style: 'normal',
-    weight: 400,
-    weightMax: 900,
-    weightMin: 100,
-  },
-  {
-    family: 'Geist Mono',
-    fileName: 'GeistMono-Variable.ttf',
-    format: 'truetype',
-    id: 'geist-mono-variable',
-    label: 'Geist Mono Variable',
-    license: 'SIL Open Font License 1.1',
-    path: '/fonts/geist-mono-variable.ttf',
-    style: 'normal',
-    weight: 400,
-    weightMax: 900,
-    weightMin: 100,
-  },
-];
+/** The bundled faces an identity without font records falls back to. */
+const DEFAULT_BRAND_FONT_ASSETS: readonly BrandFontAsset[] = STARTER_KIT_FONTS.filter(({ family }) => family !== 'Instrument Serif');
 
 function bundledFontId(family: string, role: BrandTypography['role']): string | undefined {
   const normalizedFamily = family.toLocaleLowerCase();
@@ -492,8 +446,9 @@ export function resolveBrandTypographyWeight(
   }, availableWeights[0] ?? Math.round(requestedWeight));
 }
 
-export function brandFontFaceCss(identity: BrandIdentity): string {
-  return brandFontAssets(identity)
+/** @font-face rules for a list of font records. */
+export function fontAssetFaceCss(fonts: readonly BrandFontAsset[]): string {
+  return fonts
     .map((font) => {
       const weight = font.weightMin !== undefined && font.weightMax !== undefined
         ? `${font.weightMin} ${font.weightMax}`
@@ -503,137 +458,8 @@ export function brandFontFaceCss(identity: BrandIdentity): string {
     .join('');
 }
 
-const PIXEL_GLYPHS: Record<string, string> = {
-  '0': '111/101/101/101/111',
-  '1': '010/110/010/010/111',
-  '2': '110/001/111/100/111',
-  '3': '110/001/111/001/110',
-  '4': '101/101/111/001/001',
-  '5': '111/100/110/001/110',
-  '6': '011/100/111/101/111',
-  '7': '111/001/010/010/010',
-  '8': '111/101/111/101/111',
-  '9': '111/101/111/001/110',
-  A: '010/101/111/101/101',
-  B: '110/101/110/101/110',
-  C: '011/100/100/100/011',
-  D: '110/101/101/101/110',
-  E: '111/100/110/100/111',
-  F: '111/100/110/100/100',
-  G: '011/100/101/101/011',
-  H: '101/101/111/101/101',
-  I: '111/010/010/010/111',
-  J: '001/001/001/101/010',
-  K: '101/101/110/101/101',
-  L: '100/100/100/100/111',
-  M: '101/111/111/101/101',
-  N: '101/111/111/111/101',
-  O: '010/101/101/101/010',
-  P: '110/101/110/100/100',
-  Q: '010/101/101/111/011',
-  R: '110/101/110/101/101',
-  S: '011/100/010/001/110',
-  T: '111/010/010/010/010',
-  U: '101/101/101/101/111',
-  V: '101/101/101/101/010',
-  W: '101/101/111/111/101',
-  X: '101/101/010/101/101',
-  Y: '101/101/010/010/010',
-  Z: '111/001/010/100/111',
-};
-
-function hashPixelSeed(value: string): number {
-  let hash = 2166136261;
-  for (const character of value) {
-    hash ^= character.charCodeAt(0);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
-}
-
-function createPixelRandom(seed: string): () => number {
-  let state = hashPixelSeed(seed) || 1;
-  return () => {
-    state = Math.imul(state ^ (state >>> 15), 1 | state);
-    state ^= state + Math.imul(state ^ (state >>> 7), 61 | state);
-    return ((state ^ (state >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function createPixelMark(label: string, seed: string, inverted: boolean): string {
-  const normalizedLabel = label.replace(/[^A-Z0-9]/gi, '').toLocaleUpperCase().slice(0, 3) || 'BR';
-  const random = createPixelRandom(`${seed}:${normalizedLabel}:${inverted ? 'light' : 'dark'}`);
-  const background = inverted ? '#FFFFFF' : '#181818';
-  const foreground = inverted ? '#181818' : '#FFFFFF';
-  const pixelSize = normalizedLabel.length === 1 ? 6 : normalizedLabel.length === 2 ? 5 : 4;
-  const labelWidth = normalizedLabel.length * pixelSize * 3 + (normalizedLabel.length - 1) * pixelSize;
-  const labelX = (64 - labelWidth) / 2;
-  const labelY = (64 - pixelSize * 5) / 2;
-
-  const texture = Array.from({ length: 18 }, () => {
-    let x = Math.floor(random() * 14 + 1) * 4;
-    let y = Math.floor(random() * 14 + 1) * 4;
-    if (x > 8 && x < 56 && y > 12 && y < 52) {
-      y = random() > 0.5 ? 4 : 56;
-    }
-    const size = random() > 0.78 ? 8 : 4;
-    const opacity = (0.08 + random() * 0.14).toFixed(2);
-    return `<rect x="${Math.min(x, 60)}" y="${Math.min(y, 60)}" width="${size}" height="${size}" fill="${foreground}" opacity="${opacity}"/>`;
-  }).join('');
-
-  const glyphs = [...normalizedLabel]
-    .map((character, characterIndex) => {
-      const rows = (PIXEL_GLYPHS[character] ?? '111/101/010/000/010').split('/');
-      return rows
-        .flatMap((row, rowIndex) =>
-          [...row].map((pixel, columnIndex) =>
-            pixel === '1'
-              ? `<rect x="${labelX + characterIndex * pixelSize * 4 + columnIndex * pixelSize}" y="${labelY + rowIndex * pixelSize}" width="${pixelSize}" height="${pixelSize}"/>`
-              : ''
-          )
-        )
-        .join('');
-    })
-    .join('');
-
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" shape-rendering="crispEdges"><rect width="64" height="64" fill="${background}"/>${texture}<g fill="${foreground}">${glyphs}</g></svg>`;
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-}
-
-function createPixelBrandAssets(label: string, seed: string): BrandAsset[] {
-  return [
-    {
-      id: 'mark-dark',
-      label: 'Generated pixel mark / dark',
-      path: createPixelMark(label, seed, false),
-      surface: 'light',
-      type: 'logo',
-    },
-    {
-      id: 'mark-light',
-      label: 'Generated pixel mark / light',
-      path: createPixelMark(label, seed, true),
-      surface: 'dark',
-      type: 'logo',
-    },
-  ];
-}
-
-function hasGeneratedPixelAssets(identity: BrandIdentity): boolean {
-  return identity.assets.some(({ label }) => label.startsWith('Generated pixel mark'));
-}
-
-export function updateGeneratedPixelAssets(
-  assets: BrandAsset[],
-  label: string,
-  seed: string
-): BrandAsset[] {
-  const generatedAssets = createPixelBrandAssets(label, seed);
-  return assets.map((asset) =>
-    asset.label.startsWith('Generated pixel mark')
-      ? generatedAssets.find(({ id }) => id === asset.id) ?? asset
-      : asset
-  );
+export function brandFontFaceCss(identity: BrandIdentity): string {
+  return fontAssetFaceCss(brandFontAssets(identity));
 }
 
 function cloneBrandAsset(asset: BrandAsset): BrandAsset {
@@ -834,29 +660,23 @@ export function shortNameFromName(name: string): string {
   return word.length <= 8 ? word : word.slice(0, 3).toLocaleUpperCase();
 }
 
-/** A neutral palette for new brands: every role defined, no accent chosen for them. */
-const NEW_BRAND_COLORS: readonly BrandColor[] = [
-  { hex: '#181818', id: 'ink', name: 'Ink', proportion: 26, role: 'Primary type, marks and dark surfaces' },
-  { hex: '#FFFFFF', id: 'paper', name: 'Paper', proportion: 62, role: 'Dominant light surface and reversed type' },
-  { hex: '#F4F4F4', id: 'muted', name: 'Mist', proportion: 7, role: 'Quiet product and editorial surfaces' },
-  { hex: '#E4E4E4', id: 'emphasis', name: 'Silver', proportion: 2, role: 'Selection, focus, dividers and metadata fields' },
-  { hex: '#D4D4D4', id: 'success', name: 'Cloud', proportion: 1, role: 'Completed and healthy states' },
-  { hex: '#A3A3A3', id: 'warning', name: 'Slate', proportion: 1, role: 'Disabled states and large secondary marks; never small text on white' },
-  { hex: '#525252', id: 'progress', name: 'Graphite', proportion: 1, role: 'Secondary text and in-progress states' },
-  { hex: '#262626', id: 'error', name: 'Charcoal', proportion: 0, role: 'Destructive actions' },
-];
-
+/**
+ * A new brand: placeholder copy on the default starter direction's palette, type,
+ * device and corners. The device copy stays a placeholder until a device is chosen.
+ */
 export function createBrandIdentity(name: string, id = crypto.randomUUID()): BrandIdentity {
   const trimmedName = name.trim() || 'Untitled brand';
   const resolvedShortName = shortNameFromName(trimmedName) || 'BR';
+  const direction = DEFAULT_STARTER_DIRECTION;
 
-  return {
+  // The kit fills colors, fonts and typography and redraws the marks in the palette.
+  return applyStarterKit({
     applications: STARTER_BRAND_IDENTITY.applications.map((item) => ({ ...item })),
     artDirection: { ...STARTER_BRAND_IDENTITY.artDirection },
     assets: createPixelBrandAssets(resolvedShortName, id),
     audiences: [],
     builtIn: false,
-    colors: NEW_BRAND_COLORS.map((color) => ({ ...color })),
+    colors: [],
     contactEmail: '',
     description: 'A local brand identity ready for assets, tokens, motion, and repeatable graphics.',
     dossier: {
@@ -874,17 +694,14 @@ export function createBrandIdentity(name: string, id = crypto.randomUUID()): Bra
       renderingRecipe: ['Set hierarchy', 'Choose one focal element', 'Apply the brand device', 'Run export preflight'],
       typography: 'Assign real font files to display, body, accent, and code roles.',
     },
-    // Only the faces the starting typography uses, so a new brand carries no unused fonts.
-    fonts: DEFAULT_BRAND_FONT_ASSETS
-      .filter((font) => GT_BRAND_IDENTITY.typography.some(({ fontId }) => fontId === font.id))
-      .map((font) => ({ ...font })),
+    fonts: [],
     greetings: ['Welcome'],
     graphicSystem: {
       composition: 'Choose a consistent layout behavior for this identity.',
       description: 'Define the recognizable graphic device that connects every application.',
-      device: 'Add a graphic device',
+      device: STARTER_DEVICE_PLACEHOLDER,
       imageDirection: 'Describe subject, crop, color treatment, and caption behavior.',
-      pattern: 'grid',
+      pattern: direction.device,
       rules: ['Connect every expression to the central brand idea'],
     },
     id,
@@ -911,7 +728,7 @@ export function createBrandIdentity(name: string, id = crypto.randomUUID()): Bra
       promise: 'Write the durable promise this brand makes.',
     },
     tagline: 'Add a clear brand line.',
-    typography: GT_BRAND_IDENTITY.typography.map(normalizeTypography),
+    typography: [],
     voice: {
       avoid: [],
       phrases: [],
@@ -919,7 +736,7 @@ export function createBrandIdentity(name: string, id = crypto.randomUUID()): Bra
     },
     values: ['Clarity', 'Utility', 'Consistency'],
     website: '',
-  };
+  }, { corners: direction.corners, density: direction.density, palette: direction.palette, pairing: direction.pairing });
 }
 
 function isBrandIdentity(value: unknown): value is BrandIdentity {
@@ -1026,10 +843,9 @@ export function hydrateBrandIdentities(value: unknown): BrandIdentity[] {
   });
   const hydratedCustomIdentities = customIdentities.map((identity) => {
       const clonedIdentity = cloneBrandIdentity(identity);
-      const generatedAssets = createPixelBrandAssets(
-        clonedIdentity.shortName,
-        clonedIdentity.id
-      );
+      const { colors, id: seed, shortName } = clonedIdentity;
+      const generatedAssets = createPixelBrandAssets(shortName, seed, colors);
+      // Missing marks are added and generated ones redrawn, so they follow the current name and palette.
       return {
         ...clonedIdentity,
         assets: [
@@ -1037,7 +853,7 @@ export function hydrateBrandIdentities(value: unknown): BrandIdentity[] {
             (generatedAsset) =>
               !clonedIdentity.assets.some(({ id }) => id === generatedAsset.id)
           ),
-          ...clonedIdentity.assets,
+          ...updateGeneratedPixelAssets(clonedIdentity.assets, shortName, seed, colors),
         ],
         builtIn: false,
         kind: 'custom' as const,
@@ -1068,8 +884,8 @@ export function renameBrandIdentity(identity: BrandIdentity, name: string): Bran
   const shortName = shortNameFromName(trimmedName);
   return {
     ...identity,
-    assets: hasGeneratedPixelAssets(identity)
-      ? updateGeneratedPixelAssets(identity.assets, shortName || identity.shortName, identity.id)
+    assets: hasGeneratedPixelAssets(identity.assets)
+      ? updateGeneratedPixelAssets(identity.assets, shortName || identity.shortName, identity.id, identity.colors)
       : identity.assets,
     name: trimmedName,
     shortName: shortName || identity.shortName,
@@ -1084,8 +900,8 @@ export function duplicateBrandIdentity(
   const clonedIdentity = cloneBrandIdentity(identity);
   return {
     ...clonedIdentity,
-    assets: hasGeneratedPixelAssets(clonedIdentity)
-      ? updateGeneratedPixelAssets(clonedIdentity.assets, clonedIdentity.shortName, id)
+    assets: hasGeneratedPixelAssets(clonedIdentity.assets)
+      ? updateGeneratedPixelAssets(clonedIdentity.assets, clonedIdentity.shortName, id, clonedIdentity.colors)
       : clonedIdentity.assets,
     builtIn: false,
     id,

@@ -351,7 +351,7 @@ function colorChecks(identity: BrandIdentity, contrast: readonly BrandContrastRe
   });
   const defaults = createBrandIdentity('Placeholder', 'placeholder').colors.map(({ hex }) => hex).join();
   checks.push({
-    detail: 'The palette is still the neutral default copied into new projects.',
+    detail: 'The palette is still the default copied into new projects.',
     hint: 'Replace colors with the brand\'s own palette from its CSS custom properties, Tailwind config or design tokens, keeping the ids ink, paper, muted and emphasis for their roles.',
     id: 'color-default-palette',
     passed: identity.colors.map(({ hex }) => hex).join() !== defaults || identity.builtIn,

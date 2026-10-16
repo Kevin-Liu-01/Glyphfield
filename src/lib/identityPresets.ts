@@ -1,5 +1,6 @@
 import { GT_BRAND_IDENTITY } from './gtBrandIdentity';
 import { application, asset, libraryFocalPoint, originalLibraryAssets, REVISION } from './identityPresetHelpers';
+import { starterDevice, starterPairing, starterPalette } from './brandStarterKit';
 
 import type {
   BrandAsset,
@@ -123,11 +124,11 @@ const OFFICIAL_LIBRARY_ASSETS: Readonly<Record<string, readonly LibraryAssetSour
     ['campaign', 'Ramp card campaign image', '20220305_Ramp_Cards_0022.jpg', 'image'],
     ['interface', 'Ramp finance platform', 'Ramp-finance-platform.jpg', 'product'],
     ['motion', 'Ramp card sequence frame', '20220305_Ramp_Cards_0023.png', 'motion'],
-    ['hero', 'Ramp finance operations field', 'Glyphfield ramp-hero.svg', 'product', 'svg'],
-    ['workflow', 'Ramp approval workflow', 'Glyphfield ramp-workflow.svg', 'product', 'svg'],
-    ['system', 'Ramp control system', 'Glyphfield ramp-system.svg', 'product', 'svg'],
+    ['hero', 'Ramp app home with spend and transactions', 'Glyphfield ramp-hero.svg', 'product', 'svg'],
+    ['workflow', 'Ramp approval builder with a live finance step', 'Glyphfield ramp-workflow.svg', 'product', 'svg'],
+    ['system', 'Ramp card controls: limits and categories', 'Glyphfield ramp-system.svg', 'product', 'svg'],
     ['material', 'Ramp card on the stone panel', 'Glyphfield ramp-material.svg', 'texture', 'svg'],
-    ['signal', 'Ramp economic signal', 'Glyphfield ramp-signal.svg', 'image', 'svg'],
+    ['signal', 'Ramp savings staircase against a benchmark', 'Glyphfield ramp-signal.svg', 'image', 'svg'],
   ].map(([name, label, fileName, type, extension = 'png']) => ({
     attribution: ['atmosphere', 'hero', 'workflow', 'system', 'material', 'signal'].includes(name)
       ? 'Original Glyphfield diagram based on Ramp finance-operations workflows.'
@@ -174,16 +175,16 @@ const OFFICIAL_LIBRARY_ASSETS: Readonly<Record<string, readonly LibraryAssetSour
   tailwind: [
     ['overview', 'Utilities become interface', 'product'],
     ['editorial', 'Responsive composition study', 'image'],
-    ['detail', 'CSS variable token system', 'product'],
+    ['detail', 'CSS variable token system in oklch', 'product'],
     ['atmosphere', 'Tailwind utility current', 'texture'],
     ['campaign', 'Compose the interface', 'image'],
     ['interface', 'Code and component canvas', 'product'],
-    ['motion', 'Utility assembly sequence', 'motion'],
-    ['hero', 'Build directly in markup', 'image'],
-    ['workflow', 'Class-to-interface workflow', 'product'],
-    ['system', 'Token-to-utility architecture', 'product'],
-    ['material', 'Cyan utility material', 'texture'],
-    ['signal', 'Active utility path', 'image'],
+    ['motion', 'Card assembled one utility at a time', 'motion'],
+    ['hero', 'Markup and its rendered card', 'image'],
+    ['workflow', 'Source to scanned classes to CSS to page', 'product'],
+    ['system', 'Theme tokens to variables to utilities', 'product'],
+    ['material', 'Engraved sky wave texture', 'texture'],
+    ['signal', 'Wave path lighting utilities in turn', 'image'],
   ].map(([name, label, type]) => ({
     attribution: 'Original Glyphfield diagram based on Tailwind CSS utility, responsive, theme-variable, and container-query concepts.',
     id: `library-${name}`,
@@ -676,12 +677,19 @@ const TEMPLATE_BRAND_IDENTITY: BrandIdentity = {
   website: 'brand.com',
 };
 
+/** Starter is the Signal direction of the starter kit: its palette, Swiss type and the signal window. */
+const STARTER_KIT = {
+  device: starterDevice('brackets')!,
+  pairing: starterPairing('swiss')!,
+  palette: starterPalette('signal')!,
+};
+
 export const STARTER_BRAND_IDENTITY: BrandIdentity = {
   ...TEMPLATE_BRAND_IDENTITY,
   ...STARTER_SYSTEM,
   applications: [
     application('identity', 'Starter identity', 'foundation', '1600 × 1000', 'A decisive opening composition built around the signal window.'),
-    application('logo', 'Logo family', 'foundation', 'Responsive family', 'A compact spark mark, wordmark, and horizontal lockup.'),
+    application('logo', 'Logo family', 'foundation', 'Responsive family', 'The spark mark with a signal window at its center, the wordmark and a horizontal lockup.'),
     application('product', 'Workspace', 'product', '1440 × 1024', 'A focused planning surface with blue signal states and low-noise scaffolding.'),
     application('launch', 'Launch story', 'marketing', '16:9 / 4:5', 'One clear announcement scaled through the system.'),
     application('notes', 'Field notes', 'editorial', 'A4 / web', 'Research, decisions, and progress assembled as a living record.'),
@@ -699,34 +707,19 @@ export const STARTER_BRAND_IDENTITY: BrandIdentity = {
     ...researchLibraryAssets('starter', 'Glyphfield Starter', 'https://glyphfield.app', '/templates', 'original'),
   ],
   audiences: ['Small product teams', 'Independent makers', 'Design-led founders', 'Internal innovation groups'],
-  colorPairings: [
-    { background: 'paper', foreground: 'ink', level: 'AA', usage: 'Body text and headlines' },
-    { background: 'muted', foreground: 'ink', level: 'AA', usage: 'Text on working surfaces' },
-    { background: 'paper', foreground: 'progress', level: 'AA', usage: 'Secondary text and metadata' },
-    { background: 'emphasis', foreground: 'paper', level: 'AA-large', usage: 'Labels inside the focus window' },
-    { background: 'error', foreground: 'paper', level: 'AA', usage: 'Reversed text on deep blue panels' },
-  ],
-  colors: [
-    { hex: '#171A21', id: 'ink', name: 'Night', proportion: 18, role: 'Text, marks and decisive surfaces' },
-    { hex: '#FFFFFF', id: 'paper', name: 'Paper', proportion: 60, role: 'Dominant open field and reading surface' },
-    { hex: '#EEF2F8', id: 'muted', name: 'Fog', proportion: 12, role: 'Working surfaces, cards and quiet structure' },
-    { hex: '#2F6BFF', id: 'emphasis', name: 'Signal blue', proportion: 6, role: 'The focus window: one selection, action or decision per view' },
-    { hex: '#CDE0FF', id: 'success', name: 'Sky', proportion: 2, role: 'Selected rows, soft focus fields and positive state backgrounds' },
-    { hex: '#FFCB69', id: 'warning', name: 'Warm note', proportion: 1, role: 'Annotations and items that need attention' },
-    { hex: '#677084', id: 'progress', name: 'Slate', proportion: 1, role: 'Secondary text, dates and owners' },
-    { hex: '#20283A', id: 'error', name: 'Deep blue', proportion: 0, role: 'Reversed panels and the dark end of the system' },
-  ],
+  colorPairings: STARTER_KIT.palette.pairings.map((pair) => ({ ...pair })),
+  colors: STARTER_KIT.palette.colors.map((color) => ({ ...color })),
   contactEmail: 'hello@starter.studio',
   description: 'A complete but intentionally neutral starter identity for a small team turning research into a focused product direction.',
   fonts: STARTER_FONT_ASSETS,
   greetings: ['Observe', 'Frame', 'Make'],
   graphicSystem: {
-    composition: 'A blue signal window anchors one edge of each composition while notes, evidence, and decisions align to an open field.',
-    description: 'The signal window is a frame for the one thing that matters now—an image, decision, metric, or next action.',
-    device: 'The signal window',
+    composition: STARTER_KIT.device.composition,
+    description: STARTER_KIT.device.description,
+    device: STARTER_KIT.device.name,
     imageDirection: 'Natural research imagery, close crops, taped references, interface evidence, and candid work-in-progress details.',
-    pattern: 'brackets',
-    rules: ['One signal window per composition', 'Keep the rest of the field quiet', 'Use blue for focus, not decoration', 'Pair every claim with a note, artifact, or next step'],
+    pattern: STARTER_KIT.device.pattern,
+    rules: [...STARTER_KIT.device.rules],
   },
   id: 'starter',
   mission: 'Help small teams turn scattered observations into one clear direction they can build.',
@@ -768,12 +761,7 @@ export const STARTER_BRAND_IDENTITY: BrandIdentity = {
   style: { borderRadius: 6, density: 'comfortable', grid: 'none', imageTreatment: 'natural', logoScale: 96 },
   tagline: 'Make the signal visible.',
   typeScale: { basePx: 16, ratio: 1.25 },
-  typography: [
-    { family: 'Switzer', fontId: 'switzer-500', letterSpacing: -0.5, lineHeight: 1, role: 'Display', usage: 'Direct headlines and compact product statements', weight: 500 },
-    { family: 'Switzer', fontId: 'switzer-400', letterSpacing: 0, lineHeight: 1.5, role: 'Body', usage: 'Working notes, interface copy, and brief narrative', weight: 400 },
-    { family: 'Instrument Serif', fontId: 'instrument-serif-400', letterSpacing: -0.2, lineHeight: 1.12, role: 'Accent', usage: 'Observations, quotes, and editorial emphasis', weight: 400 },
-    { family: 'Geist Mono', fontId: 'geist-mono-variable', letterSpacing: 0, lineHeight: 1.45, role: 'Code', usage: 'Dates, states, owners, versioning, and artifact metadata', weight: 400 },
-  ],
+  typography: STARTER_KIT.pairing.typography.map((role) => ({ ...role })),
   values: ['Evidence', 'Focus', 'Momentum', 'Care'],
   voice: {
     examples: [
