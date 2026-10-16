@@ -1014,9 +1014,10 @@ for (const format of ['gif', 'mp4'] as const) {
           hasVideoEncoder: typeof VideoEncoder !== 'undefined' };
       }
     }, format);
-    // Success and unsupported-codec failure both leave the user's anchor intact.
+    // Success and unsupported-codec failure both leave the user's anchor intact. WebKit
+    // shows the frozen frame image again 100 to 400 ms after the export resolves.
     expect((await state(page, shaderId)).motion).toEqual(before.motion);
-    expect(await pixels(page, shaderId)).toEqual(beforePixels);
+    await expect.poll(() => pixels(page, shaderId)).toEqual(beforePixels);
     if (!result.ok) {
       await testInfo.attach('motion-capability-error', { body: JSON.stringify(result), contentType: 'application/json' });
       const codecUnavailable = format === 'mp4' && (!result.hasVideoEncoder

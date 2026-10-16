@@ -17,7 +17,7 @@ export async function checkSafariProjectCopy(harness) {
   }
   await command('POST', '/url', { url: `${baseUrl}/studio?tool=identity&project=starter` });
   await click('button[aria-label="Add brand project"]');
-  await click('[role="menu"][aria-label="New project"] [role="menuitem"]'); // First item: empty Design Lab project.
+  await click('[role="menu"][aria-label="New project"] [data-action="design"]'); // Blank design: an empty Design Lab project.
   await readyTool('material');
   await waitFor(() => [...document.querySelectorAll('[data-design-version-status]')].some((element) => element.checkVisibility() && element.textContent === 'Autosaved'), 'empty project hydrated');
   await evaluateAsync(async () => { await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))); });

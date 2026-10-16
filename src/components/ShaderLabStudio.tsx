@@ -3262,6 +3262,8 @@ export default function ShaderLabStudio({
     activeArtboardId,
     currentArtboardSignature
   );
+  // The surface the editor has rendered. activeArtboardIdRef moves before the render.
+  const shownSurfaceRef = useCommittedRef({ id: activeArtboardId, ready: activeArtboardSnapshotReady });
   const workspaceArtboards = useMemo(() => artboards.map((artboard) => (
     artboard.id === activeArtboardId && activeArtboardSnapshotReady
       ? { ...artboard, snapshot: currentArtboardSnapshot }
@@ -3362,6 +3364,7 @@ export default function ShaderLabStudio({
     workspaceKey: savedDesignWorkspaceKey,
   });
   const compositionAutosaveState = portableDesignLab.autosaveState;
+  const autosaveStateRef = useCommittedRef(compositionAutosaveState);
   useEffect(() => {
     if (compositionAutosaveState !== 'loading') setDraftHydrated(true);
   }, [compositionAutosaveState]);
@@ -3973,6 +3976,42 @@ export default function ShaderLabStudio({
     setActiveArtboardId(artboard.id);
     applyArtboardSnapshot(snapshot);
     if (focus) requestArtboardFocus(artboard.id);
+  }
+
+  /**
+   * Browser API surface changes retry while the editor is busy or a shader is still
+   * loading (both at startup), then resolve only once the editor shows the surface, so
+   * the next action (an export or a describe) never acts on the previous one.
+   */
+  async function activateSurfaceForApi(id: DesignArtboardId, focus: boolean): Promise<boolean> {
+    const deadline = performance.now() + 10_000;
+    while (!await activateArtboard(id, focus)) {
+      if (performance.now() > deadline) return false;
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 150));
+    }
+    return surfaceShown(id);
+  }
+
+  async function surfaceShown(id: DesignArtboardId): Promise<boolean> {
+    const deadline = performance.now() + 5_000;
+    while (shownSurfaceRef.current.id !== id || !shownSurfaceRef.current.ready) {
+      if (performance.now() > deadline) return false;
+      // Timers, not animation frames: a background tab must not stall an agent.
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 16));
+    }
+    return true;
+  }
+
+  /**
+   * The autosave restore replaces the whole workspace when it finishes, so Browser API
+   * calls made while it loads (right after a reload) wait for it instead of being undone.
+   */
+  async function autosaveLoaded(): Promise<void> {
+    const deadline = performance.now() + 10_000;
+    while (autosaveStateRef.current === 'loading') {
+      if (performance.now() > deadline) throw new Error('This project is still loading its autosave. Wait a moment and try again.');
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 25));
+    }
   }
 
   async function activateArtboard(id: DesignArtboardId, focus = false): Promise<boolean> {
@@ -7164,8 +7203,7 @@ export default function ShaderLabStudio({
       const target = request.target === 'canvas' ? DESIGN_CANVAS_ID : request.target;
       if (typeof target !== 'string' || !workspaceArtboards.some(({ id }) => id === target)) throw new TypeError('Choose canvas or an existing artboard id.');
       if (action === 'design.workspace.activate') {
-        if (!await activateArtboard(target as DesignArtboardId, target !== DESIGN_CANVAS_ID)) throw new Error('The editing surface could not be activated.');
-        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        if (!await activateSurfaceForApi(target as DesignArtboardId, target !== DESIGN_CANVAS_ID)) throw new Error('The editing surface could not be activated.');
         return null;
       }
       if (action !== 'design.workspace.move') throw new TypeError(`Unknown workspace action: ${action}`);
@@ -7174,7 +7212,8 @@ export default function ShaderLabStudio({
       }
       if (request.placement !== undefined && request.placement !== 'preserve' && request.placement !== 'beside') throw new TypeError('placement must be preserve or beside.');
       if (!await moveLayersToSurface(target as DesignArtboardId, [...new Set(request.layerIds)] as CanvasLayerId[], request.placement === 'beside')) throw new Error('The layers could not be moved.');
-      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      // The destination becomes the active surface; resolve once it is shown.
+      await surfaceShown(target as DesignArtboardId);
       return null;
     },
     applyCompositionSource,
@@ -7206,13 +7245,19 @@ export default function ShaderLabStudio({
 
   useEffect(() => registerStudioAutomation({
     actions: studioToolActionNames('material'),
-    applySource: (source) => designAutomationRef.current.applyCompositionSource(source),
+    applySource: async (source) => {
+      await autosaveLoaded();
+      return designAutomationRef.current.applyCompositionSource(source);
+    },
     getSource: () => {
       const source = designAutomationRef.current.compositionSetupSource();
       if (source === null) throw new Error('Portable composition code is still being prepared.');
       return source;
     },
-    invoke: (action, input) => invokeDesignAutomationAction(designAutomationRef.current, action, input),
+    invoke: async (action, input) => {
+      await autosaveLoaded();
+      return invokeDesignAutomationAction(designAutomationRef.current, action, input);
+    },
     toolId: automationToolId ?? tool.id,
   }, studioRootRef.current), [automationToolId, designAutomationRef, tool.id]);
 

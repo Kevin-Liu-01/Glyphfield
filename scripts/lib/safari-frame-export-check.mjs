@@ -112,7 +112,21 @@ export async function checkSafariFrameExport(harness, mode) {
   });
   const operations = [];
   async function invoke(action, request, includeBytes = false) {
-    const result = await evaluateAsync(async (action, request, includeBytes) => {
+    // The Browser API refuses while a shader or the portable source is still loading; an agent waits and asks again.
+    const deadline = Date.now() + 15_000;
+    let result = await invokeOnce(action, request, includeBytes);
+    while (!result.ok && /still loading|Wait for its preview|still (?:being )?prepar/i.test(result.error?.message ?? '') && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      result = await invokeOnce(action, request, includeBytes);
+    }
+    operations.push({ action, request, ...result, source: undefined, encodedDataUrl: undefined });
+    console.log(JSON.stringify({ nativeShaderOperation: operations.at(-1), fixture, environment }));
+    assert(result.ok, `${action} failed: ${JSON.stringify(result.error)}`);
+    return result;
+  }
+
+  async function invokeOnce(action, request, includeBytes) {
+    return evaluateAsync(async (action, request, includeBytes) => {
       try {
         const result = await window.glyphfield.studio.invoke(action, request);
         if (typeof result === 'string') return { ok: true, source: result };
@@ -144,10 +158,6 @@ export async function checkSafariFrameExport(harness, mode) {
           alerts: Array.from(document.querySelectorAll('[role="alert"]'), (node) => node.textContent) };
       }
     }, action, request, includeBytes);
-    operations.push({ action, request, ...result, source: undefined, encodedDataUrl: undefined });
-    console.log(JSON.stringify({ nativeShaderOperation: operations.at(-1), fixture, environment }));
-    assert(result.ok, `${action} failed: ${JSON.stringify(result.error)}`);
-    return result;
   }
   const read = () => evaluateAsync(async (id) => {
     const deadline = performance.now() + 10_000;

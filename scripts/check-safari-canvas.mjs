@@ -65,16 +65,31 @@ async function startSession() {
 }
 
 const command = (method, path, body) => request(method, `/session/${sessionId}${path}`, body);
-const evaluate = (fn, ...args) => command('POST', '/execute/sync', { script: `return (${fn})(...arguments);`, args });
-async function evaluateAsync(fn, ...args) {
-  const result = await command('POST', '/execute/async', {
-    script: `const done = arguments[arguments.length - 1];
-      Promise.resolve((${fn})(...Array.from(arguments).slice(0, -1)))
-        .then(value => done({ ok: true, value }), error => done({ ok: false, error: String(error) }));`,
-    args,
+// readSource refuses while an edit's portable source is regenerated; an agent waits and reads again.
+const SOURCE_PREPARING = /still (?:being )?prepar/i;
+async function retryWhilePreparing(run) {
+  const deadline = Date.now() + 10_000;
+  for (;;) {
+    try {
+      return await run();
+    } catch (error) {
+      if (!SOURCE_PREPARING.test(String(error)) || Date.now() > deadline) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+}
+const evaluate = (fn, ...args) => retryWhilePreparing(() => command('POST', '/execute/sync', { script: `return (${fn})(...arguments);`, args }));
+function evaluateAsync(fn, ...args) {
+  return retryWhilePreparing(async () => {
+    const result = await command('POST', '/execute/async', {
+      script: `const done = arguments[arguments.length - 1];
+        Promise.resolve((${fn})(...Array.from(arguments).slice(0, -1)))
+          .then(value => done({ ok: true, value }), error => done({ ok: false, error: String(error) }));`,
+      args,
+    });
+    if (!result.ok) throw new Error(result.error);
+    return result.value;
   });
-  if (!result.ok) throw new Error(result.error);
-  return result.value;
 }
 
 async function waitFor(fn, label, ...args) {
@@ -83,7 +98,8 @@ async function waitFor(fn, label, ...args) {
   while (Date.now() < deadline) {
     value = await command('POST', '/execute/sync', {
       script: `try { return (${fn})(...arguments); } catch (error) {
-        if (error instanceof Error && error.message === 'No active Studio workspace is ready for automation.') return false;
+        if (error instanceof Error && (error.message === 'No active Studio workspace is ready for automation.'
+          || /still (?:being )?prepar/i.test(error.message))) return false;
         throw error;
       }`, args,
     });
@@ -157,7 +173,7 @@ async function readText() {
   return evaluate(() => {
     const source = JSON.parse(window.glyphfield.studio.readSource());
     const text = Object.values(source.elements).find((element) => element.kind === 'text');
-    return { text: text?.content, scale: text?.data.transform.scale,
+    return { text: text?.content, scale: text?.data.transform.scale, fontSize: text?.data.fontSize,
       bounds: text?.bounds, count: Object.keys(source.elements).length };
   });
 }
@@ -352,21 +368,24 @@ try {
   console.log(JSON.stringify({ browser: capabilities.browserName, version: capabilities.browserVersion,
     platform: capabilities.platformName, baseUrl }));
   await check('native range dragging and keyboard size', async () => {
+    // Text size is in artboard pixels (since 83812db); setting it resets the layer scale to 1.
     const before = await evaluate((selector) => parseFloat(getComputedStyle(document.querySelector(selector)).fontSize), textSelector);
+    const beforeSize = await evaluate((selector) => Number(document.querySelector(selector).value), sizeSelector);
     const value = await drag(sizeSelector, 0.4);
-    assert(value > 0.8, `Native thumb did not drag: ${value}`);
+    assert(value !== beforeSize, `Native thumb did not drag: ${beforeSize} → ${value}`);
     await waitFor((expected) => {
-      const source = JSON.parse(window.glyphfield.studio.readSource());
-      return Math.abs(Object.values(source.elements).find((element) => element.kind === 'text').data.transform.scale - expected) < 0.001;
-    }, 'committed range value', value);
+      const text = Object.values(JSON.parse(window.glyphfield.studio.readSource()).elements).find((element) => element.kind === 'text');
+      return Math.abs(text.data.fontSize - expected) < 0.5 && text.data.transform.scale === 1;
+    }, 'committed text size', value);
     const after = await evaluate((selector) => parseFloat(getComputedStyle(document.querySelector(selector)).fontSize), textSelector);
-    assert(Math.abs(after / before - value / 0.6) < 0.06, `Font size did not follow thumb: ${before} → ${after}, scale ${value}`);
+    assert(Math.abs(after / before - value / beforeSize) < 0.06, `Font size did not follow thumb: ${before} → ${after}, size ${beforeSize} → ${value}`);
     // Exercise keyboard input separately from Safari's non-focusing mouse clicks.
     await evaluate((selector) => document.querySelector(selector).focus(), sizeSelector);
     await press('\uE012');
+    await waitFor((expected) => Object.values(JSON.parse(window.glyphfield.studio.readSource()).elements)
+      .find((element) => element.kind === 'text').data.fontSize === expected, 'arrow key text size', value - 1);
     const keyboardValue = await readText();
-    assert(Math.abs(keyboardValue.scale - value + 0.05) < 0.001, 'Arrow key size failed to commit');
-    return { beforeFontPx: before, afterFontPx: after, scale: value, keyboardScale: keyboardValue.scale };
+    return { beforeFontPx: before, afterFontPx: after, size: value, keyboardSize: keyboardValue.fontSize };
   });
 
   await check('native selection, editing and text undo', async () => {

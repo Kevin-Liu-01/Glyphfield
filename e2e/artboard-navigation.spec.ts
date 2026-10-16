@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { waitForTextLayer } from './studio-ui-helpers';
 
 test('first-load artboard fit waits for the toolbar and canvas layout', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
@@ -18,6 +19,7 @@ test('first-load artboard fit waits for the toolbar and canvas layout', async ({
 async function prepareBoards(page: Page) {
   await page.goto('/studio?tool=material');
   await page.getByRole('button', { name: 'Add text layer', exact: true }).click();
+  await waitForTextLayer(page);
   await page.evaluate(async () => {
     const studio = window.glyphfield!.studio;
     const source = JSON.parse(studio.readSource() as string);

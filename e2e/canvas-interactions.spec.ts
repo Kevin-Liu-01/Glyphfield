@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import type { CanvasElement } from '../src/lib/canvasDocument';
-import { waitForTextLayer } from './studio-ui-helpers';
+import { readStudioSource, waitForTextLayer } from './studio-ui-helpers';
 
 type FixtureText = CanvasElement & { content: string; data: { fontSize: number; transform: { scale: number } } };
 type FixtureShader = CanvasElement & { data: { materialId: string; settings: { speed: number; strength: number } } };
@@ -50,12 +50,10 @@ async function prepareText(page: Page) {
 }
 
 async function textSource(page: Page) {
-  return page.evaluate(() => {
-    const source = JSON.parse(window.glyphfield!.studio.readSource() as string);
-    const text = (Object.values(source.elements) as CanvasElement[]).find((entry) => entry.kind === 'text') as FixtureText;
-    return { text: text.content, fontSize: text.data.fontSize, scale: text.data.transform.scale, bounds: text.bounds,
-      count: Object.keys(source.elements).length };
-  });
+  const source = await readStudioSource<{ elements: Record<string, CanvasElement> }>(page);
+  const text = Object.values(source.elements).find((entry) => entry.kind === 'text') as FixtureText;
+  return { text: text.content, fontSize: text.data.fontSize, scale: text.data.transform.scale, bounds: text.bounds,
+    count: Object.keys(source.elements).length };
 }
 
 async function dragRange(page: Page, range: Locator, fraction: number) {

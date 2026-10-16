@@ -117,7 +117,9 @@ async function typeThenSwitch(harness, point, selector) {
 
 export async function checkSafariTabChrome(harness) {
   await harness.command('POST', '/url', { url: `${harness.baseUrl}/studio?tool=material&project=starter` });
-  await harness.waitFor(() => document.querySelector('.project-tab[data-project-id="starter"]')?.dataset.selected === 'true'
+  // The tabs are in the prerendered HTML; wait for the Studio API, so the app handles the first click.
+  await harness.waitFor(() => window.glyphfield?.studio?.activeTool?.() === 'material'
+    && document.querySelector('.project-tab[data-project-id="starter"]')?.dataset.selected === 'true'
     && Boolean(document.querySelector('.project-tab[data-project-id="gt"]')), 'initial project tabs');
   const order = () => harness.evaluate(() => Array.from(document.querySelectorAll('.project-tab[data-project-id]'), (tab) => tab.dataset.projectId));
   const originalOrder = await order();
@@ -164,7 +166,8 @@ export async function checkSafariProjectRoundTrip(harness) {
     const studio = window.glyphfield.studio;
     const text = Object.values(JSON.parse(studio.readSource()).elements).find((element) => element.kind === 'text');
     const controls = studio.controls().filter((control) => control.label === 'Text size');
-    return Math.abs(text.data.transform.scale - expected) < 0.001 && controls.length === 1
+    // Text size is in artboard pixels (since 83812db), committed as data.fontSize.
+    return text.data.fontSize === expected && controls.length === 1
       && Math.abs(Number(controls[0].value) - expected) < 0.001;
   }, 'visible Starter text size and public controls agree', value);
   await clickPoint(harness, await tabPoint(harness, 'gt'));

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { STUDIO_TOOLS } from '../src/lib/studioCatalog';
-import { waitForStudioSource } from './studio-ui-helpers';
+import { readStudioSource, waitForStudioSource } from './studio-ui-helpers';
 
 const cases = [
   { tool: 'identity', label: 'Brand name', path: ['name'], value: 'Audit brand', action: 'identity.export.json' },
@@ -18,11 +18,9 @@ const cases = [
 ];
 
 async function readValue(page: Page, path: string[]) {
-  return page.evaluate((path) => {
-    const document = JSON.parse(window.glyphfield!.studio.readSource());
-    const state = document.metadata?.studio?.state ?? document;
-    return path.reduce((value, key) => value?.[key], state);
-  }, path);
+  const document = await readStudioSource<{ metadata?: { studio?: { state?: unknown } } }>(page);
+  const state = document.metadata?.studio?.state ?? document;
+  return path.reduce<unknown>((value, key) => (value as Record<string, unknown> | undefined)?.[key], state);
 }
 
 for (const scenario of cases) {
@@ -38,22 +36,17 @@ for (const scenario of cases) {
     if (scenario.label) {
       await page.getByRole('textbox', { name: scenario.label, exact: true }).fill(String(scenario.value));
     } else {
-      await page.evaluate(async ({ path, value, tool }) => {
-        const studio = window.glyphfield!.studio;
-        const document = JSON.parse(studio.readSource());
-        const state = document.metadata?.studio?.state ?? document;
-        const parent = path.slice(0, -1).reduce((value, key) => value[key], state);
-        parent[path.at(-1)!] = value;
-        if (tool === 'design-board') state.exportPresetId = 'standard';
-        await studio.applySource(document);
-      }, scenario);
+      const document = await readStudioSource<Record<string, any>>(page);
+      const state = document.metadata?.studio?.state ?? document;
+      const parent = scenario.path.slice(0, -1).reduce((value, key) => value[key], state);
+      parent[scenario.path.at(-1)!] = scenario.value;
+      if (scenario.tool === 'design-board') state.exportPresetId = 'standard';
+      await page.evaluate(async (document) => { await window.glyphfield!.studio.applySource(document); }, document);
     }
     await waitForStudioSource(page);
     await expect.poll(() => readValue(page, scenario.path)).toBe(scenario.value);
-    await page.evaluate(async () => {
-      const studio = window.glyphfield!.studio;
-      await studio.applySource(studio.readSource());
-    });
+    const current = JSON.stringify(await readStudioSource(page));
+    await page.evaluate(async (source) => { await window.glyphfield!.studio.applySource(source); }, current);
     await waitForStudioSource(page);
     await expect.poll(() => readValue(page, scenario.path)).toBe(scenario.value);
     // These tools edit the identity itself; changes stay pending until saved.
@@ -121,7 +114,8 @@ for (const scenario of cases) {
     // Exercise retained workspace ownership, then persisted state on reload.
     await page.locator('.studio-nav').getByRole('button', { name: 'Brand book', exact: true }).click();
     await page.locator('.studio-nav').getByRole('button', { name: STUDIO_TOOLS.find(({ id }) => id === scenario.tool)!.name, exact: true }).click();
-    await expect.poll(() => page.evaluate(() => window.glyphfield!.studio.activeTool())).toBe(scenario.tool);
+    // During the switch no workspace serves the API yet; the getter throws until one does.
+    await expect.poll(() => page.evaluate(() => { try { return window.glyphfield!.studio.activeTool(); } catch { return null; } })).toBe(scenario.tool);
     await waitForStudioSource(page);
     await expect.poll(() => readValue(page, scenario.path)).toBe(scenario.value);
     await page.reload();

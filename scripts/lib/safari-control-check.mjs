@@ -8,7 +8,7 @@ export async function checkSafariControls(harness) {
   const source = () => evaluate(() => {
     const document = JSON.parse(window.glyphfield.studio.readSource());
     const text = Object.values(document.elements).find((entry) => entry.kind === 'text');
-    return { color: text.data.color, font: text.data.fontRole, scale: text.data.transform.scale,
+    return { color: text.data.color, font: text.data.fontRole, fontSize: text.data.fontSize,
       width: document.pages[document.pageIds[0]].width };
   });
   const hex = 'input[aria-label="Text color HEX"]';
@@ -53,9 +53,10 @@ export async function checkSafariControls(harness) {
     };
     ['pointerdown', 'mousedown', 'mouseup', 'click', 'focusin', 'focusout'].forEach((type) => document.addEventListener(type, record));
   });
+  // Text size is in artboard pixels (since 83812db), committed as data.fontSize.
   const draggedSize = await drag(size, 0.45);
   await waitFor((expected) => Object.values(JSON.parse(window.glyphfield.studio.readSource()).elements)
-    .some((entry) => entry.kind === 'text' && Math.abs(entry.data.transform.scale - expected) < 0.001),
+    .some((entry) => entry.kind === 'text' && entry.data.fontSize === expected),
   'native slider release committed', draggedSize);
   assert.equal(await evaluate((selector) => document.activeElement === document.querySelector(selector), size), true,
     `Completing a drag must retain keyboard focus: ${await evaluate(() => document.documentElement.dataset.safariRangeFocus)}`);
@@ -67,7 +68,7 @@ export async function checkSafariControls(harness) {
   await waitFor((selector, previous) => {
     const value = Number(document.querySelector(selector).value);
     const text = Object.values(JSON.parse(window.glyphfield.studio.readSource()).elements).find((entry) => entry.kind === 'text');
-    return value > previous && Math.abs(text.data.transform.scale - value) < 0.001;
+    return value > previous && text.data.fontSize === value;
   }, 'keyboard slider committed without blur', size, beforeArrow);
   assert.equal(await evaluate((selector) => document.activeElement === document.querySelector(selector), size), true);
 

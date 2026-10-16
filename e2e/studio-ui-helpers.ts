@@ -13,6 +13,24 @@ export async function waitForStudioSource(page: Page) {
   })).toBe(true);
 }
 
+/** The parsed public source. readSource refuses while an edit's portable source is regenerated, so this asks again. */
+export async function readStudioSource<T = Record<string, unknown>>(page: Page): Promise<T> {
+  let serialized = '';
+  await expect.poll(async () => {
+    const result = await page.evaluate(() => {
+      try {
+        return { source: window.glyphfield!.studio.readSource() as string };
+      } catch (error) {
+        if (error instanceof Error && /prepar/i.test(error.message)) return { source: '' };
+        throw error;
+      }
+    });
+    serialized = result.source;
+    return serialized.length > 0;
+  }, { timeout: 15_000 }).toBe(true);
+  return JSON.parse(serialized) as T;
+}
+
 /** After Add text layer: waits until the source is readable and has the new text element. */
 export async function waitForTextLayer(page: Page) {
   await expect.poll(() => page.evaluate(() => {
