@@ -16,10 +16,23 @@ export default function manifest(): MetadataRoute.Manifest {
         type: 'image/svg+xml',
       },
       {
+        purpose: 'any',
+        sizes: '192x192',
+        src: '/icon-192.png',
+        type: 'image/png',
+      },
+      {
+        purpose: 'any',
+        sizes: '512x512',
+        src: '/icon-512.png',
+        type: 'image/png',
+      },
+      // The mark scaled into the maskable safe zone, so a round or squircle mask keeps all of it.
+      {
         purpose: 'maskable',
-        sizes: 'any',
-        src: '/icon.svg',
-        type: 'image/svg+xml',
+        sizes: '512x512',
+        src: '/icon-maskable-512.png',
+        type: 'image/png',
       },
     ],
     id: '/',

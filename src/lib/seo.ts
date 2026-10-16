@@ -96,6 +96,7 @@ export function serializeJsonLd(value: unknown) {
 
 const WEBSITE_ID = `${SITE_URL}/#website`;
 const CREATOR_ID = `${SITE_URL}/#creator`;
+const ORGANIZATION_ID = `${SITE_URL}/#organization`;
 const SOFTWARE_ID = `${SITE_URL}/#software`;
 const SOURCE_CODE_ID = `${SITE_URL}/#source-code`;
 
@@ -155,6 +156,15 @@ export function websiteJsonLd() {
         name: PRODUCT_BRAND.company,
         sameAs: [CREATOR_URL],
         url: CREATOR_URL,
+      },
+      {
+        '@id': ORGANIZATION_ID,
+        '@type': 'Organization',
+        founder: { '@id': CREATOR_ID },
+        logo: absoluteUrl('/icon-512.png'),
+        name: PRODUCT_BRAND.name,
+        sameAs: [PRODUCT_BRAND.repository.url],
+        url: absoluteUrl('/'),
       },
     ],
   };
