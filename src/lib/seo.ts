@@ -14,8 +14,11 @@ export const SITE_URL = (
 /** True when this build serves the public Glyphfield origin; a self-hosted copy sets its own NEXT_PUBLIC_STUDIO_URL. */
 export const IS_GLYPHFIELD_ORIGIN = SITE_URL === DEFAULT_SITE_URL;
 
-/** The Search Console token, read from the home page's head as the google-site-verification meta tag. */
-export const GOOGLE_SITE_VERIFICATION = 'mvNROFtoLu1hm048arKrTbsx_md-cJS2mZL8L2sQjQ4';
+/** The Search Console tokens, read from the home page's head as google-site-verification meta tags: one per URL-prefix property, glyphfield-beta.vercel.app's first and www.glyphfield.com's second. */
+export const GOOGLE_SITE_VERIFICATION: string[] = [
+  'mvNROFtoLu1hm048arKrTbsx_md-cJS2mZL8L2sQjQ4',
+  'ayFKKtPxf2CQFz4lOulIIrUEzRgK7ChIta-h3n1LQWk',
+];
 
 export const SOFTWARE_VERSION: string = packageJson.version;
 
