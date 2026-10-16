@@ -46,7 +46,7 @@ pnpm start
 | `NEXT_PUBLIC_STUDIO_URL` | The public origin used for canonical URLs, Open Graph URLs, the sitemap, the sitemap link in `robots.txt` and the introduction of `/llms-full.txt`. A trailing slash is removed | `https://www.glyphfield.com`. An empty value also uses the default |
 | `ENABLE_EXPERIMENTAL_COREPACK` | Set to `1` on Vercel so the build installs with the pinned pnpm version | Not set |
 
-Set `NEXT_PUBLIC_STUDIO_URL` before `pnpm build`, because Next.js reads `NEXT_PUBLIC_` variables when it builds. The application code in `src` reads no other environment variable except `NODE_ENV`, which Next.js sets itself. `public/llms.txt` is a static file that names `https://www.glyphfield.com`, so edit it in a self-hosted copy.
+Set `NEXT_PUBLIC_STUDIO_URL` before `pnpm build`, because Next.js reads `NEXT_PUBLIC_` variables when it builds. The application code in `src` reads two other environment variables: `NODE_ENV`, which Next.js sets itself, and `VERCEL_ENV`, which Vercel sets. Google Analytics loads only on a Vercel production deployment that keeps the default `NEXT_PUBLIC_STUDIO_URL`, so a copy that sets its own origin sends no analytics. `public/llms.txt` is a static file that names `https://www.glyphfield.com`, so edit it in a self-hosted copy.
 
 ## Routes to keep
 

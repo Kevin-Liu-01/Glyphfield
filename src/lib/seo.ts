@@ -11,6 +11,12 @@ export const SITE_URL = (
   process.env.NEXT_PUBLIC_STUDIO_URL || DEFAULT_SITE_URL
 ).replace(/\/$/, '');
 
+/** True when this build serves the public Glyphfield origin; a self-hosted copy sets its own NEXT_PUBLIC_STUDIO_URL. */
+export const IS_GLYPHFIELD_ORIGIN = SITE_URL === DEFAULT_SITE_URL;
+
+/** The Search Console token, read from the home page's head as the google-site-verification meta tag. */
+export const GOOGLE_SITE_VERIFICATION = 'mvNROFtoLu1hm048arKrTbsx_md-cJS2mZL8L2sQjQ4';
+
 export const SOFTWARE_VERSION: string = packageJson.version;
 
 export const HOME_TITLE = 'Glyphfield: open-source brand design and motion studio';

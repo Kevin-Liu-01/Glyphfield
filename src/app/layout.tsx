@@ -3,6 +3,7 @@ import './globals.css';
 import { GTProvider } from 'gt-next';
 
 import AppThemeProvider from '@/components/AppThemeProvider';
+import GoogleAnalytics from '@/components/GoogleAnalytics';
 import StudioTooltipProvider from '@/components/ui/StudioTooltipProvider';
 import {
   Be_Vietnam_Pro,
@@ -17,6 +18,7 @@ import type { ReactNode } from 'react';
 import { PRODUCT_BRAND } from '@/lib/productBrand';
 import { appThemeBootstrapScript } from '@/lib/appTheme';
 import {
+  GOOGLE_SITE_VERIFICATION,
   HOME_DESCRIPTION,
   HOME_TITLE,
   SEO_KEYWORDS,
@@ -94,6 +96,7 @@ export const metadata: Metadata = {
     description: HOME_DESCRIPTION,
     title: HOME_TITLE,
   },
+  verification: { google: GOOGLE_SITE_VERIFICATION },
 };
 
 export const viewport: Viewport = {
@@ -120,6 +123,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <AppThemeProvider>
           <GTProvider><StudioTooltipProvider>{children}</StudioTooltipProvider></GTProvider>
         </AppThemeProvider>
+        <GoogleAnalytics />
       </body>
     </html>
   );

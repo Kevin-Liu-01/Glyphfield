@@ -122,7 +122,9 @@ describe repository contribution.
 - (none detected)
 <!-- agent-docs:auto:env end -->
 
-The application reads one variable, `NEXT_PUBLIC_STUDIO_URL` (`src/lib/seo.ts`).
+The application reads one variable, `NEXT_PUBLIC_STUDIO_URL` (`src/lib/seo.ts`), plus Vercel's
+`VERCEL_ENV`: Google Analytics (`src/components/GoogleAnalytics.tsx`) loads only on a
+production deployment that keeps the default origin.
 It sets the public origin for canonical URLs, OpenGraph metadata, the sitemap and
 `robots.txt`, and falls back to `https://www.glyphfield.com` when unset or empty. Test and
 benchmark scripts read `GLYPHFIELD_*` variables, such as
