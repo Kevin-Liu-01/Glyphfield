@@ -572,9 +572,13 @@ function renderWeb(context: TileContext): string {
   const heroY = contentY + navH;
   const heroH = browserH - chrome - navH;
   const artW = tile.variant === 'product' ? browserW * 0.58 : browserW * 0.46;
+  const artX = p + browserW - artW;
+  // The hero shows the tile's chosen image; with no image chosen it draws the device.
   const art = tile.variant === 'product'
-    ? imageArt(context, imageIds(context, 1)[0], p + browserW - artW, heroY, artW, heroH)
-    : deviceArt(context, p + browserW - artW, heroY, artW, heroH, isDarkColor(site.background), 17, 'left');
+    ? imageArt(context, imageIds(context, 1)[0], artX, heroY, artW, heroH)
+    : tile.assetId
+      ? imageArt(context, tile.assetId, artX, heroY, artW, heroH)
+      : deviceArt(context, artX, heroY, artW, heroH, isDarkColor(site.background), 17, 'left');
   const products = tile.copy.caption.split(/\s{2,}|·|\|/).map((item) => item.trim()).filter(Boolean).slice(0, 4);
   const navFont = clamp(navH * 0.32, 8, 13);
   let navX = p + browserW * 0.3;
@@ -938,16 +942,12 @@ function renderDevice(context: TileContext): string {
 }
 
 function renderConstruction(context: TileContext): string {
-  const { h, palette, surface, tile, w } = context;
+  const { h, surface, tile, w } = context;
   const p = pad(context);
   const horizontal = splitHorizontally(context);
   const artW = horizontal ? w * 0.58 : w;
   const artH = horizontal ? h : h * 0.56;
   const dark = isDarkColor(surface.background);
-  const gridColor = dark ? '#FFFFFF' : palette.ink;
-  const columns = 6;
-  const grid = Array.from({ length: columns - 1 }, (_, index) => rect((artW / columns) * (index + 1), 0, 1, artH, gridColor, ' fill-opacity=".14"')).join('')
-    + Array.from({ length: 3 }, (_, index) => rect(0, (artH / 4) * (index + 1), artW, 1, gridColor, ' fill-opacity=".14"')).join('');
   const textX = horizontal ? artW + p : p;
   const textY = horizontal ? p : artH + p * 0.8;
   const textW = (horizontal ? w - artW : w) - p * 2;
@@ -956,7 +956,7 @@ function renderConstruction(context: TileContext): string {
     { gap: labelSize(context) * 0.9, options: { field: 'headline', maxHeight: available * 0.36, maxLines: 2, maxSize: clamp(Math.min(w, h) * 0.085, 13, 34), role: 'display' }, value: tile.copy.headline },
   ]);
   const body = textBlock(context, tile.copy.body, { color: surface.secondary, field: 'body', maxHeight: Math.max(0, h - p - footSpace(context) - stack.bottom), maxLines: 6, maxSize: clamp(Math.min(w, h) * 0.038, 9, 15), minSize: 8, role: 'body', width: textW, x: textX, y: stack.bottom });
-  return `${rect(0, 0, w, h, surface.background)}${deviceArt(context, 0, 0, artW, artH, dark, 2)}${grid}${stack.markup}${body}${label(context, tile.copy.caption, textX, h - p - labelSize(context), { field: 'caption', width: textW })}`;
+  return `${rect(0, 0, w, h, surface.background)}${deviceArt(context, 0, 0, artW, artH, dark, 2)}${stack.markup}${body}${label(context, tile.copy.caption, textX, h - p - labelSize(context), { field: 'caption', width: textW })}`;
 }
 
 function renderImagery(context: TileContext): string {

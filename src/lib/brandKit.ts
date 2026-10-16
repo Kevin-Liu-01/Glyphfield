@@ -1,13 +1,16 @@
 import { brandCustomers, brandProducts, brandProofStatements } from './brandContent';
+import { brandCoverAsset } from './brandCover';
 import {
   brandFontAssets,
   brandTypographyFamily,
   brandTypographyRole,
+  type BrandAsset,
   type BrandFontAsset,
   type BrandIdentity,
   type BrandTypography,
 } from './brandIdentity';
 import { auditBrandHealth, brandContrastResults } from './brandHealth';
+import { brandVisualAssets } from './brandOutputKit';
 import {
   brandCssVariables,
   brandDesignTokens,
@@ -24,7 +27,8 @@ import { createStoredZip, type ZipEntry } from './zipStore';
 /**
  * Brand kit export: the token files from brandTokens.ts (DTCG JSON, CSS custom
  * properties, Tailwind CSS v4 `@theme`), a `brand.md` written for coding agents,
- * the logo pack, licensed font files, and one store-only ZIP holding all of them.
+ * the logo pack, redistributable artwork, licensed font files, and one
+ * store-only ZIP holding all of them.
  */
 export const BRAND_KIT_FORMATS = ['zip', 'dtcg', 'css', 'tailwind', 'markdown', 'logos'] as const;
 export type BrandKitFormat = (typeof BRAND_KIT_FORMATS)[number];
@@ -103,6 +107,26 @@ function extensionFor(path: string): string {
 
 export function brandLogoFileName(asset: { id: string; path: string }): string {
   return `logos/${brandTokenName(asset.id)}.${extensionFor(asset.path)}`;
+}
+
+const REDISTRIBUTABLE: ReadonlySet<NonNullable<BrandAsset['redistribution']>> = new Set(['bundled', 'original']);
+
+/**
+ * Artwork the kit packages: the cover art, then the identity's other visual
+ * assets, when their redistribution status is original or bundled (unset counts
+ * as original, as in the asset editor). Research-only and URL-only files never
+ * ship, and neither do remote URLs the project does not hold.
+ */
+export function brandKitArtworkAssets(identity: BrandIdentity): BrandAsset[] {
+  const cover = brandCoverAsset(identity);
+  const candidates = [...(cover ? [cover] : []), ...brandVisualAssets(identity)];
+  return candidates.filter((asset, index) => candidates.indexOf(asset) === index
+    && REDISTRIBUTABLE.has(asset.redistribution ?? 'original')
+    && (asset.path.startsWith('data:') || (asset.path.startsWith('/') && !asset.path.startsWith('//'))));
+}
+
+function brandArtworkFileName(asset: { id: string; path: string }): string {
+  return `artwork/${brandTokenName(asset.id)}.${extensionFor(asset.path)}`;
 }
 
 function rulesSection(identity: BrandIdentity): string[] {
@@ -234,8 +258,21 @@ function deviceSection(identity: BrandIdentity): string[] {
     graphicSystem.device ? `**${graphicSystem.device}.** ${graphicSystem.description}` : '',
     graphicSystem.composition,
     graphicSystem.imageDirection ? `Imagery: ${graphicSystem.imageDirection}` : '',
+    artworkTable(identity),
     identity.motion.length ? `Motion:\n\n${bullets(identity.motion.map((motion) => `${motion.name} — ${motion.durationMs}ms, \`${motion.curve}\`. ${motion.description}`))}` : '',
   ];
+}
+
+function artworkTable(identity: BrandIdentity): string {
+  const artwork = brandKitArtworkAssets(identity);
+  if (!artwork.length) return '';
+  const coverId = brandCoverAsset(identity)?.id;
+  return `Artwork files in \`artwork/\`. Use them as supplied and publish each credit with the image:\n\n${table(['File', 'Artwork', 'Use', 'Credit'], artwork.map((asset) => [
+    `\`${brandArtworkFileName(asset)}\``,
+    asset.id === coverId ? `${asset.label} (cover)` : asset.label,
+    asset.usage ?? asset.type,
+    [asset.attribution, asset.license].filter(Boolean).join(' · ') || '—',
+  ]))}`;
 }
 
 const CODE_SECTION = [
@@ -284,7 +321,7 @@ export function brandGuidelinesMarkdown(identity: BrandIdentity): string {
   const report = auditBrandHealth(identity);
   const sections = [
     `# ${identity.name} brand guidelines`,
-    `> For coding agents and contributors. Exported by Glyphfield from project \`${identity.id}\`. Brand health ${report.score}/100 (${report.grade}). Tokens live in \`tokens/\`; logos in \`logos/\`.`,
+    `> For coding agents and contributors. Exported by Glyphfield from project \`${identity.id}\`. Brand health ${report.score}/100 (${report.grade}). Tokens live in \`tokens/\`; logos in \`logos/\`${brandKitArtworkAssets(identity).length ? '; artwork in `artwork/`' : ''}.`,
     identity.tagline ? `**${identity.tagline}**` : '',
     identity.positioning,
     identity.mission ? `Mission: ${identity.mission}` : '',
@@ -353,7 +390,24 @@ export async function brandLogoFiles(identity: BrandIdentity, load: BrandKitFile
   return files;
 }
 
-/** Every kit file: brand.md, tokens, identity source, logos and includable fonts. */
+const IMAGE_MIME_TYPES: Readonly<Record<string, string>> = {
+  gif: 'image/gif', jpeg: 'image/jpeg', jpg: 'image/jpeg', png: 'image/png', svg: 'image/svg+xml', webp: 'image/webp',
+};
+
+async function brandArtworkFiles(identity: BrandIdentity, load: BrandKitFileLoader): Promise<BrandKitFile[]> {
+  const seen = new Set<string>();
+  const files: BrandKitFile[] = [];
+  for (const asset of brandKitArtworkAssets(identity)) {
+    const name = brandArtworkFileName(asset);
+    if (seen.has(name)) continue;
+    seen.add(name);
+    const mimeType = asset.path.match(/^data:([^;,]+)/)?.[1] ?? IMAGE_MIME_TYPES[extensionFor(asset.path)] ?? 'application/octet-stream';
+    files.push({ bytes: await loadPath(asset.path, load), mimeType, name });
+  }
+  return files;
+}
+
+/** Every kit file: brand.md, tokens, identity source, logos, artwork and includable fonts. */
 export async function brandKitFiles(identity: BrandIdentity, load: BrandKitFileLoader): Promise<BrandKitFile[]> {
   const fonts = await Promise.all(brandKitIncludedFonts(identity).map(async (font) => ({
     bytes: await loadPath(font.path, load),
@@ -368,6 +422,7 @@ export async function brandKitFiles(identity: BrandIdentity, load: BrandKitFileL
     brandKitTextFile(identity, 'tailwind'),
     textFile('identity.json', 'application/json', `${JSON.stringify(identity, null, 2)}\n`),
     ...(await brandLogoFiles(identity, load)),
+    ...(await brandArtworkFiles(identity, load)),
     ...uniqueFonts,
   ];
 }

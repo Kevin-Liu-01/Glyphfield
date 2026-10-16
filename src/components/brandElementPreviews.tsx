@@ -24,7 +24,7 @@ import {
   Sparkles,
   Upload,
 } from '@/components/ui/SolidIcons';
-import type { BrandElement, BrandElementOverrides, BrandElementSettings } from '@/lib/brandElements';
+import { brandElementDeviceSeed, type BrandElement, type BrandElementOverrides, type BrandElementSettings } from '@/lib/brandElements';
 import {
   brandAssetPath,
   brandTypographyFamily,
@@ -119,11 +119,11 @@ function Logo({ className = '', context, kind = 'mark', onDark }: { className?: 
   return <img alt={`${identity.name} ${kind}`} className={`brand-identity-mark ${styles.logo} ${className}`.trim()} src={source} />;
 }
 
-function Device({ className = '', context, dark, seed = 0 }: { className?: string; context: ElementPreviewContext; dark?: boolean; seed?: number }) {
+function Device({ className = '', context, dark, seed = 0 }: { className?: string; context: ElementPreviewContext; dark?: boolean; seed?: number | string }) {
   const markup = brandDeviceSvg(context.identity, {
     height: 900,
     prefix: `${context.scope}-${context.element.id}-${seed}`,
-    seed: seed + 11,
+    seed: brandElementDeviceSeed(context.identity.id, context.element.id, seed),
     tone: (dark ?? isDarkColor(context.settings.backgroundColor)) ? 'dark' : 'light',
     width: 1600,
   });
@@ -296,10 +296,10 @@ function EmailHeaderArt({ context, compact = false }: Props & { compact?: boolea
   if (identity.id === 'gt' && template?.artworkPath) {
     return <span className={styles.emailArt}><img alt='' src={template.artworkPath} style={artworkStyle(settings)} /></span>;
   }
-  // The wordmark already leads the email; the header is the device alone.
+  // The wordmark already leads the email; the header is the device alone, on the HTML export's header seed.
   return (
     <span className={styles.emailArt} data-compact={compact || undefined} style={artworkStyle(settings)}>
-      <Device context={context} dark seed={template?.id.length ?? 3} />
+      <Device context={context} dark seed='email-header' />
     </span>
   );
 }
@@ -434,7 +434,7 @@ function EmailSystemSheet({ context }: Props) {
       <div className={styles.sheetGrid}>
         {templates.map((template) => (
           <article key={template.id}>
-            {template.artworkPath ? (identity.id === 'gt' ? <span className={styles.sheetArt}><img alt='' src={template.artworkPath} /></span> : <span className={styles.sheetArt}><Device context={context} dark seed={template.id.length} /></span>) : <span className={styles.sheetPlain}>Hi {firstName(contentOf(context).person.name)},<br />Plain-text note</span>}
+            {template.artworkPath ? (identity.id === 'gt' ? <span className={styles.sheetArt}><img alt='' src={template.artworkPath} /></span> : <span className={styles.sheetArt}><Device context={context} dark seed={template.id} /></span>) : <span className={styles.sheetPlain}>Hi {firstName(contentOf(context).person.name)},<br />Plain-text note</span>}
             <strong>{template.subject}</strong>
             <span className={styles.meta}>{template.group} · {template.timing}</span>
           </article>

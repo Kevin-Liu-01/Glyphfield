@@ -26,6 +26,7 @@ import {
   estimateTextWidth,
   fontMetrics,
   contrastRatio,
+  hashSeed,
   imageFits,
   isDarkColor,
   readableOn,
@@ -96,7 +97,8 @@ function Device({ className = '', context, dark, seed = 0 }: { className?: strin
   const markup = brandDeviceSvg(context.identity, {
     height: 1000,
     prefix: `${context.scope}-${context.page.id}-${seed}`,
-    seed: seed + context.identity.id.length * 97,
+    // Seeded by page and use, so each page and each device on a page draws its own composition.
+    seed: hashSeed(`${context.identity.id}:${context.page.id}:${seed}`),
     tone: dark ? 'dark' : 'light',
     width: 1600,
   });

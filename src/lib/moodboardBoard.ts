@@ -2,7 +2,8 @@
  * Editable moodboard model: the tiles on each board, their per-identity recipe,
  * a 12-column justified row layout, and the versioned source format.
  */
-import type { BrandArtDirection, BrandIdentity } from './brandIdentity';
+import type { BrandArtDirection, BrandAsset, BrandIdentity } from './brandIdentity';
+import { brandCoverAsset } from './brandCover';
 import {
   BRAND_SURFACE_TONES,
   brandVisualAssets,
@@ -379,10 +380,16 @@ function toneFor(recipe: BoardRecipe, role: ToneRole | 'muted'): BrandSurfaceTon
 
 /** Library assets for image slots, in recipe order, then any other eligible asset. */
 export function moodboardImageAssetIds(identity: BrandIdentity): string[] {
-  const eligible = moodboardAssets(identity).map(({ id }) => id);
+  return moodboardImageAssets(identity).map(({ id }) => id);
+}
+
+/** The assets behind `moodboardImageAssetIds`, so previews and exports can draw every one. */
+export function moodboardImageAssets(identity: BrandIdentity): BrandAsset[] {
+  const eligible = moodboardAssets(identity);
+  const coverId = brandCoverAsset(identity)?.id;
   // Custom identities without curated library files fall back to any visual asset.
-  const pool = eligible.length > 0 ? eligible : brandVisualAssets(identity).map(({ id }) => id);
-  const preferred = recipeFor(identity).imagery.filter((id) => pool.includes(id));
+  const pool = eligible.some(({ id }) => id !== coverId) ? eligible : brandVisualAssets(identity);
+  const preferred = recipeFor(identity).imagery.flatMap((id) => pool.filter((asset) => asset.id === id));
   return [...new Set([...preferred, ...pool])];
 }
 
@@ -469,18 +476,22 @@ function distinctHeadline(identity: BrandIdentity, tile: MoodboardTileCopy, kind
   return { ...tile, headline: next };
 }
 
-function templateVariant(template: TileTemplate, recipe: BoardRecipe): string {
+function templateVariant(template: TileTemplate, recipe: BoardRecipe, coverId: string | undefined): string {
   if (template.variant) return template.variant;
-  if (template.kind === 'cover' || template.kind === 'poster') {
-    return template.kind === 'cover' ? recipe.coverVariant : recipe.coverVariant === 'image' ? 'image' : 'device';
-  }
+  // The key visual leads with the identity's own cover art; the device stands in when there is none.
+  if (template.kind === 'cover') return coverId ? 'image' : recipe.coverVariant;
+  if (template.kind === 'poster') return recipe.coverVariant === 'image' ? 'image' : 'device';
   return MOODBOARD_TILE_VARIANTS[template.kind][0];
 }
 
-function defaultAssetId(kind: MoodboardTileKind, index: number, images: readonly string[]): string {
+function defaultAssetId(kind: MoodboardTileKind, index: number, images: readonly string[], coverId: string | undefined): string {
   if (!MOODBOARD_IMAGE_KINDS.has(kind) || images.length === 0) return '';
+  if (kind === 'cover' && index === 0 && coverId) return coverId;
+  // Other image slots rotate through the library, so the cover art is not repeated on the board.
+  const library = images.filter((id) => id !== coverId);
+  const pool = library.length > 0 ? library : images;
   const offsets: Partial<Record<MoodboardTileKind, number>> = { billboard: 1, imagery: 1, poster: 2, social: 3, web: 4 };
-  return images[((offsets[kind] ?? 0) + index) % images.length]!;
+  return pool[((offsets[kind] ?? 0) + index) % pool.length]!;
 }
 
 export function defaultMoodboardTiles(
@@ -489,14 +500,16 @@ export function defaultMoodboardTiles(
 ): MoodboardTile[] {
   const recipe = recipeFor(identity);
   const images = moodboardImageAssetIds(identity);
+  const cover = brandCoverAsset(identity)?.id;
+  const coverId = cover && images.includes(cover) ? cover : undefined;
   const counts = new Map<MoodboardTileKind, number>();
   const used: string[] = [];
   return boardTemplate(identity, composition).map((template) => {
     const count = counts.get(template.kind) ?? 0;
     counts.set(template.kind, count + 1);
-    const variant = templateVariant(template, recipe);
+    const variant = templateVariant(template, recipe, coverId);
     return {
-      assetId: defaultAssetId(template.kind, count, images),
+      assetId: defaultAssetId(template.kind, count, images, coverId),
       copy: distinctHeadline(identity, DEFAULT_COPY[template.kind](identity, variant), template.kind, variant, used),
       hidden: false,
       id: count === 0 ? template.kind : `${template.kind}-${count + 1}`,

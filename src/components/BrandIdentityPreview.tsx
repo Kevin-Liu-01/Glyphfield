@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import { useId, type CSSProperties, type ReactNode } from 'react';
 
 import {
   brandTypographyFamily,
@@ -6,8 +6,9 @@ import {
   type BrandAsset,
   type BrandIdentity,
 } from '@/lib/brandIdentity';
+import { brandCoverAsset } from '@/lib/brandCover';
 import { brandElementContent } from '@/lib/brandElementContent';
-import { displayTrackingEm } from '@/lib/brandOutputKit';
+import { brandDeviceSvg, brandPalette, displayTrackingEm } from '@/lib/brandOutputKit';
 import { capVisibleFontWeight } from '@/lib/typography';
 
 type BrandIdentityPreviewProps = {
@@ -67,6 +68,14 @@ function AdaptiveEvidenceImage({
   );
 }
 
+/** The identity's signature art: its cover asset, else the generated graphic device. */
+function SignatureArt({ asset, identity }: { asset?: BrandAsset; identity: BrandIdentity }) {
+  const scope = useId().replace(/[^a-zA-Z0-9]/g, '');
+  if (asset) return <EvidenceImage asset={asset} />;
+  const markup = brandDeviceSvg(identity, { height: 1000, prefix: `preview${scope}`, width: 1200 });
+  return <span aria-hidden='true' dangerouslySetInnerHTML={{ __html: markup }} />;
+}
+
 function PreviewTitle({ children }: { children: ReactNode }) {
   return <h2 data-preview-title='true'>{children}</h2>;
 }
@@ -80,6 +89,7 @@ function PreviewShell({ children, identity }: { children: ReactNode; identity: B
     '--brand-body-weight': capVisibleFontWeight(body.weight ?? 400),
     '--brand-code': brandTypographyFamily(identity, 'Code'),
     '--brand-code-weight': capVisibleFontWeight(code.weight ?? 400),
+    '--brand-deep': brandPalette(identity).deep,
     '--brand-display': brandTypographyFamily(identity, 'Display'),
     '--brand-display-line-height': display.lineHeight ?? 0.98,
     '--brand-display-tracking': `${displayTrackingEm(display.letterSpacing)}em`,
@@ -116,7 +126,8 @@ function recipeProps({
   const atmosphere = libraryAsset(identity, 'library-atmosphere');
   const studioOverviewDark = libraryAsset(identity, 'studio-brand-elements-dark');
   const studioOverviewLight = libraryAsset(identity, 'studio-brand-elements-light');
-  return { atmosphere, content, darkMark, detail, editorial, identity, lightMark, overview, promise, studioOverviewDark, studioOverviewLight, title };
+  const cover = brandCoverAsset(identity);
+  return { atmosphere, content, cover, darkMark, detail, editorial, identity, lightMark, overview, promise, studioOverviewDark, studioOverviewLight, title };
 }
 
 type RecipeProps = ReturnType<typeof recipeProps>;
@@ -205,7 +216,7 @@ function EconomicLedger({ content, darkMark, detail, editorial, identity, promis
   );
 }
 
-function KnowledgeBeam({ content, darkMark, identity, lightMark, promise, title }: RecipeProps) {
+function KnowledgeBeam({ content, cover, darkMark, identity, promise, title }: RecipeProps) {
   return (
     <PreviewShell identity={identity}>
       <header className='brand-art-mintlify-header'><Mark name={identity.name} path={darkMark} /></header>
@@ -213,24 +224,12 @@ function KnowledgeBeam({ content, darkMark, identity, lightMark, promise, title 
         <PreviewTitle>{title}</PreviewTitle>
         <p>{content.phrases.find((phrase) => phrase !== title) ?? promise}</p>
       </div>
-      <div className='brand-art-mintlify-system'>
-        <div className='brand-art-mintlify-sources'>
-          {content.products.slice(0, 3).map(({ name }) => <span key={name}>{name}</span>)}
-        </div>
-        <div className='brand-art-mintlify-agent'>
-          <Mark name={identity.name} path={lightMark} />
-          <div><strong>{content.products[2]?.summary ?? promise}</strong><small>{content.products[2]?.name ?? identity.name}</small></div>
-          <i />
-        </div>
-        <div className='brand-art-mintlify-status'>
-          {content.proof.slice(0, 2).map((statement) => <span key={statement}>{statement}</span>)}
-        </div>
-      </div>
+      <div className='brand-art-mintlify-art'><SignatureArt asset={cover} identity={identity} /></div>
     </PreviewShell>
   );
 }
 
-function UtilityWave({ content, identity, lightMark, promise, title }: RecipeProps) {
+function UtilityWave({ content, cover, identity, lightMark, promise, title }: RecipeProps) {
   return (
     <PreviewShell identity={identity}>
       <header className='brand-art-tailwind-header'><Mark name={identity.name} path={lightMark} /></header>
@@ -239,18 +238,7 @@ function UtilityWave({ content, identity, lightMark, promise, title }: RecipePro
         <p>{promise}</p>
         {content.proof[0] ? <strong>{content.proof[0]}</strong> : null}
       </div>
-      <div className='brand-art-tailwind-code'>
-        <span>{content.code.label}</span>
-        <pre>{content.code.snippet}</pre>
-        <span>app.css</span>
-        <code><i>@import</i> &quot;tailwindcss&quot;;</code>
-        <code><i>@theme</i> {'{'}</code>
-        {identity.colors.slice(0, 5).map((color) => <code key={color.id}>&nbsp;&nbsp;--color-{color.id}: <b>{color.hex.toLocaleLowerCase()}</b>;</code>)}
-        <code>{'}'}</code>
-      </div>
-      <div className='brand-art-tailwind-spectrum' aria-label='Tailwind vivid P3 palette'>
-        {['sky', 'violet', 'rose', 'amber', 'lime'].map((tone) => <i data-tone={tone} key={tone} />)}
-      </div>
+      <div className='brand-art-tailwind-art'><SignatureArt asset={cover} identity={identity} /></div>
     </PreviewShell>
   );
 }

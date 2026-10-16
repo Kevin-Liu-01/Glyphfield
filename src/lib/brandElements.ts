@@ -1,5 +1,6 @@
 import { EMAIL_LIFECYCLE_TEMPLATES, getEmailLifecycleTemplate } from '@/lib/emailLifecycle';
 import type { BrandIdentity } from '@/lib/brandIdentity';
+import { hashSeed } from '@/lib/brandOutputKit';
 import { DEFAULT_LOGO_APPEARANCE, type LogoAppearanceSettings } from '@/lib/logoAppearance';
 import { actionVerb, brandElementContent, featuredPlanIndex, type BrandElementContent } from '@/lib/brandElementContent';
 
@@ -1343,4 +1344,9 @@ export function parseBrandElementSource(
     if (JSON.stringify(parsed) !== JSON.stringify(defaults[key as keyof BrandElementSettings])) overrides[key] = parsed;
   }
   return { elementId, keys, overrides: overrides as BrandElementOverrides };
+}
+
+/** Seed for one use of the device in one element, so elements and repeated uses draw different compositions. */
+export function brandElementDeviceSeed(identityId: string, elementId: string, use: number | string): number {
+  return hashSeed(`${identityId}:${elementId}:${use}`);
 }

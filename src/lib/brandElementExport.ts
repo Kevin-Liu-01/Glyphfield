@@ -3,7 +3,7 @@
  * the rendered artboard, and send-ready HTML for email elements. Browser-only.
  */
 import { brandFontFaceCss, type BrandIdentity } from './brandIdentity';
-import type { BrandElement, BrandElementSettings } from './brandElements';
+import { brandElementDeviceSeed, type BrandElement, type BrandElementSettings } from './brandElements';
 import { brandEmailHtml } from './brandEmailHtml';
 import { brandDeviceSvg } from './brandOutputKit';
 import { blobToDataUrl, svgToPngBlob } from './download';
@@ -88,7 +88,7 @@ export async function renderElementPng(root: HTMLElement | null, identity: Brand
 async function emailHeaderImage(identity: BrandIdentity, element: Pick<BrandElement, 'id'>, origin: string): Promise<string> {
   const template = getEmailLifecycleTemplate(element.id, identity);
   if (identity.id === 'gt' && template?.artworkPath) return new URL(template.artworkPath, origin).href;
-  const svg = brandDeviceSvg(identity, { height: 380, prefix: `email-${element.id}`, seed: (template?.id.length ?? 3) + 11, tone: 'dark', width: 1200 });
+  const svg = brandDeviceSvg(identity, { height: 380, prefix: `email-${element.id}`, seed: brandElementDeviceSeed(identity.id, element.id, 'email-header'), tone: 'dark', width: 1200 });
   return blobToDataUrl(await svgToPngBlob(svg, 1200, 380, 1));
 }
 

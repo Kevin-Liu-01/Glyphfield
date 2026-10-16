@@ -4,6 +4,7 @@
  * Rendering lives in BrandBook.tsx; this module stays framework-free.
  */
 import type { BrandIdentity } from './brandIdentity';
+import { brandCoverAsset } from './brandCover';
 import { BRAND_SURFACE_TONES, brandVisualAssets, type BrandSurfaceTone } from './brandOutputKit';
 import { brandSampleEvent, brandSamplePerson } from './brandContent';
 import { getEmailLifecycleTemplate } from './emailLifecycle';
@@ -327,20 +328,26 @@ export function bookImageAssetIds(identity: BrandIdentity): string[] {
   return brandVisualAssets(identity).map(({ id }) => id);
 }
 
-function defaultPageAsset(page: BookPageDefinition, index: number, images: readonly string[]): string {
+function defaultPageAsset(page: BookPageDefinition, index: number, images: readonly string[], coverId: string | undefined): string {
   if (!page.image || images.length === 0) return '';
+  if (page.kind === 'cover' && coverId) return coverId;
   return images[index % images.length]!;
 }
 
-function resolvePage(page: BookPageDefinition, override: BookPageOverride | undefined, index: number, images: readonly string[]): BookPage {
+/** The first variant, except that the cover leads with the identity's cover art when it has one. */
+function defaultPageVariant(page: BookPageDefinition, variants: readonly string[], coverId: string | undefined): string {
+  return page.kind === 'cover' && coverId ? 'image' : variants[0]!;
+}
+
+function resolvePage(page: BookPageDefinition, override: BookPageOverride | undefined, index: number, images: readonly string[], coverId: string | undefined): BookPage {
   const variants = BOOK_PAGE_VARIANTS[page.kind] as readonly string[];
   return {
     ...page,
-    assetId: override?.assetId ?? defaultPageAsset(page, index, images),
+    assetId: override?.assetId ?? defaultPageAsset(page, index, images, coverId),
     copy: { ...page.copy, ...override?.copy },
     hidden: override?.hidden ?? false,
     tone: override?.tone ?? page.tone,
-    variant: override?.variant && variants.includes(override.variant) ? override.variant : variants[0]!,
+    variant: override?.variant && variants.includes(override.variant) ? override.variant : defaultPageVariant(page, variants, coverId),
     variants,
   };
 }
@@ -353,13 +360,15 @@ export function sectionOrder(overrides: BookOverrides | undefined): BookSectionI
 export function resolveBook(identity: BrandIdentity, overrides: BookOverrides | undefined): BookSection[] {
   const definitions = bookPageDefinitions(identity);
   const images = bookImageAssetIds(identity);
+  const cover = brandCoverAsset(identity)?.id;
+  const coverId = cover && images.includes(cover) ? cover : undefined;
   let imageIndex = 0;
   const resolveGroup = (id: BookGroupId, hidden: boolean): BookSection => ({
     hidden,
     id,
     name: BOOK_SECTION_NAMES[id],
     pages: definitions[id].map((page) => {
-      const resolved = resolvePage(page, overrides?.pages?.[page.id], page.image ? imageIndex : 0, images);
+      const resolved = resolvePage(page, overrides?.pages?.[page.id], page.image ? imageIndex : 0, images, coverId);
       if (page.image) imageIndex += 1;
       return resolved;
     }),
@@ -439,7 +448,7 @@ function parseHidden(value: unknown, path: string): true | undefined {
 function parseVariant(value: unknown, defaults: BookPage, path: string): string | undefined {
   if (value === undefined) return undefined;
   if (!defaults.variants.includes(String(value))) throw new RangeError(`${path} must be one of ${defaults.variants.join(', ')}.`);
-  return value !== defaults.variants[0] ? String(value) : undefined;
+  return value !== defaults.variant ? String(value) : undefined;
 }
 
 function parseTone(value: unknown, page: BookPageDefinition, path: string): BrandSurfaceTone | undefined {

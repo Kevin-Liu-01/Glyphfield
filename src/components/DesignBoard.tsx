@@ -36,7 +36,6 @@ import {
   isMoodboardComposition,
   MOODBOARD_ASPECT_LABELS,
   MOODBOARD_EXPORT_PRESETS,
-  moodboardAssets,
   moodboardFilename,
   resolveMoodboardExport,
   type MoodboardComposition,
@@ -53,7 +52,7 @@ import {
   MOODBOARD_TILE_SPANS,
   MOODBOARD_TILE_VARIANTS,
   MOODBOARD_VARIANT_LABELS,
-  moodboardImageAssetIds,
+  moodboardImageAssets,
   moodboardSourceBoards,
   parseMoodboardOverrides,
   resetMoodboardBoard,
@@ -319,12 +318,10 @@ export default function DesignBoard({
   const exportDimensions = resolveMoodboardExport(exportPresetId, customWidth, composition);
   // A preset names the output width; the board is vector, so it renders at that size directly.
   const raster = resolveSvgRasterDimensions(exportDimensions.width, exportDimensions.height, 1);
-  const boardAssets = useMemo(() => moodboardAssets(identity), [identity]);
+  // Every asset a tile can show, including a custom identity's own visuals, so no image slot falls back to the device.
+  const boardAssets = useMemo(() => moodboardImageAssets(identity), [identity]);
   const previewAssets = useMemo(() => moodboardPreviewAssets(identity, boardAssets), [boardAssets, identity]);
-  const imageOptions = useMemo(() => {
-    const assets = new Map(identity.assets.map((asset) => [asset.id, asset]));
-    return moodboardImageAssetIds(identity).map((id) => ({ label: assets.get(id)?.label ?? id, value: id }));
-  }, [identity]);
+  const imageOptions = useMemo(() => boardAssets.map(({ id, label }) => ({ label, value: id })), [boardAssets]);
   const colors = boardColors(identity, board.surface);
   const selectedTile = board.tiles.find((tile) => tile.id === selectedTileId) ?? null;
 

@@ -7,14 +7,14 @@ import { Panel } from '@/components/BrandIdentityFields';
 import { Button } from '@/components/ui/Button';
 import { Copy, Download, FileJson, FileText, Package } from '@/components/ui/SolidIcons';
 import type { BrandIdentity } from '@/lib/brandIdentity';
-import { BRAND_KIT_FILE_NAMES, brandKitIncludedFonts, brandKitTextFile, type BrandKitFormat } from '@/lib/brandKit';
+import { BRAND_KIT_FILE_NAMES, brandKitArtworkAssets, brandKitIncludedFonts, brandKitTextFile, type BrandKitFormat } from '@/lib/brandKit';
 
 import styles from './BrandIdentityStudio.module.css';
 
 type TextFormat = Exclude<BrandKitFormat, 'logos' | 'zip'>;
 
 const OUTPUTS: readonly { description: string; format: BrandKitFormat; icon: typeof Package; label: string }[] = [
-  { description: 'Everything below in one archive: brand.md, tokens, identity.json, logos and redistributable fonts.', format: 'zip', icon: Package, label: 'Brand kit (.zip)' },
+  { description: 'Everything below in one archive: brand.md, tokens, identity.json, logos, and redistributable artwork and fonts.', format: 'zip', icon: Package, label: 'Brand kit (.zip)' },
   { description: 'Guidelines written for coding agents: rules, voice, tokens, contrast pairs, type and logo use.', format: 'markdown', icon: FileText, label: 'brand.md' },
   { description: 'W3C Design Tokens (DTCG 2025.10) for Style Dictionary, Tokens Studio and other tools.', format: 'dtcg', icon: FileJson, label: 'Design tokens (JSON)' },
   { description: 'CSS custom properties prefixed --brand-, with @font-face rules for the kit fonts.', format: 'css', icon: FileText, label: 'CSS variables' },
@@ -45,10 +45,11 @@ export default function BrandIdentityKitPanel({
   const previewText = new TextDecoder().decode(brandKitTextFile(identity, preview).bytes);
   const logos = identity.assets.filter(({ type }) => type === 'logo').length;
   const fonts = brandKitIncludedFonts(identity).length;
+  const artwork = brandKitArtworkAssets(identity).length;
 
   return (
     <div className={styles.sectionStack}>
-      <Panel description={gt('{logos} logo files and {fonts} font files are packaged. Fonts are included only when uploaded by you or under an open font license.', { fonts, logos })} title={<T>Files</T>}>
+      <Panel description={gt('{logos} logo files, {artwork} artwork files and {fonts} font files are packaged. Artwork is included only when it is original or bundled, and fonts only when uploaded by you or under an open font license.', { artwork, fonts, logos })} title={<T>Files</T>}>
         <ul className={styles.kitList}>
           {OUTPUTS.map((output) => {
             const Icon = output.icon;

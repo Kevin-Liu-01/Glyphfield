@@ -1,3 +1,4 @@
+import { isBrandCoverAsset } from './brandCover';
 import type { BrandAsset, BrandIdentity } from './brandIdentity';
 
 export type MoodboardExportPresetId =
@@ -36,7 +37,9 @@ const MOODBOARD_ASSET_TYPES: readonly BrandAsset['type'][] = [
 const SCREEN_CAPTURE_PATH = /(?:^|\/)(?:references|screenshots)(?:\/|$)|(?:screen[-_ ]?shot|capture|homepage)/i;
 
 export function isMoodboardAsset(asset: BrandAsset): boolean {
-  if (!asset.id.startsWith('library-')) return false;
+  // The identity's signature art (its cover or identity field) belongs on the board with the library.
+  const cover = isBrandCoverAsset(asset);
+  if (!cover && !asset.id.startsWith('library-')) return false;
   if (!MOODBOARD_ASSET_TYPES.includes(asset.type)) return false;
   if (SCREEN_CAPTURE_PATH.test(asset.path)) return false;
   if (asset.tags?.some((tag) => /screen[-_ ]?shot|site-capture|browser-capture/i.test(tag))) {
@@ -44,6 +47,7 @@ export function isMoodboardAsset(asset: BrandAsset): boolean {
   }
 
   return Boolean(
+    cover ||
     asset.tags?.includes('source-native') ||
     asset.tags?.includes('brand-diagram') ||
     asset.tags?.includes('original-system')
