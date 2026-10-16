@@ -4349,7 +4349,9 @@ input.studio-range.color-hue-range[data-studio-range='true']::-webkit-slider-thu
   top: calc(100% + 8px);
   right: 0;
   width: min(340px, calc(100vw - 24px));
-  overflow: hidden;
+  max-height: calc(100dvh - 64px);
+  overflow: hidden auto;
+  overscroll-behavior: contain;
   border: 0;
   border-radius: var(--studio-corner-lg);
   background: hsl(var(--background));
@@ -4419,18 +4421,20 @@ input.studio-range.color-hue-range[data-studio-range='true']::-webkit-slider-thu
 }
 
 .appearance-section > div:first-child,
-.appearance-section--split label > span {
+.appearance-toggles label > span {
   display: flex;
   flex-direction: column;
   gap: 0.18rem;
 }
 
-.appearance-section strong {
+.appearance-section strong,
+.appearance-toggles strong {
   font-size: 0.72rem;
   font-weight: 550;
 }
 
-.appearance-section small {
+.appearance-section small,
+.appearance-toggles small {
   color: hsl(var(--muted-foreground));
   font-size: 0.62rem;
   line-height: 1.35;
@@ -4537,28 +4541,21 @@ input.studio-range.color-hue-range[data-studio-range='true']::-webkit-slider-thu
   background: conic-gradient(from 90deg, #ff5f6d, #ffc371, #9ce85f, #2bd2ff, #7656ff, #ff5f6d);
 }
 
-.appearance-section--split {
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0;
-  border-bottom: 0;
-}
-
-.appearance-section--split label {
-  min-height: 68px;
-  padding: 0.8rem 1rem;
+/* One row per switch, each with its own rule, so no switch reads as part of its neighbor. */
+.appearance-toggles label {
+  padding: 0.75rem 1rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 1rem;
+  cursor: pointer;
 }
 
-.appearance-section--split label + label {
-  border-left: 1px solid hsl(var(--border));
+.appearance-toggles label + label {
+  border-top: 1px solid hsl(var(--border));
 }
 
-.appearance-section--split input {
+.appearance-toggles input {
   accent-color: hsl(var(--primary));
 }
 
@@ -4646,6 +4643,18 @@ html.dark .studio-app .studio-app-header > a img {
 
 .studio-app[data-studio-density='compact'] {
   --studio-inspector-width: 260px;
+}
+
+.studio-app[data-studio-contrast='high'] {
+  --muted-foreground: 0 0% 28%;
+  --border: 0 0% 60%;
+  --input: 0 0% 50%;
+}
+
+html.dark .studio-app[data-studio-contrast='high'] {
+  --muted-foreground: 0 0% 82%;
+  --border: 0 0% 44%;
+  --input: 0 0% 54%;
 }
 
 .studio-app[data-studio-density='compact'] .studio-nav > div {
@@ -4774,14 +4783,6 @@ html.dark .studio-app .studio-app-header > a img {
     justify-content: start;
   }
 
-  .appearance-section--split {
-    grid-template-columns: 1fr;
-  }
-
-  .appearance-section--split label + label {
-    border-top: 1px solid hsl(var(--border));
-    border-left: 0;
-  }
 }
 
 .moodboard-preview svg {

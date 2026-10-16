@@ -230,6 +230,7 @@ type StudioAppearance = {
   /** The custom accent, used when `accent` is `custom`. */
   accentColor: string;
   canvas: 'dots' | 'grid' | 'plain';
+  contrast: 'standard' | 'high';
   corners: 'rounded' | 'square';
   density: 'compact' | 'comfortable';
   font: 'helvetica' | 'be-vietnam-pro' | 'schibsted-grotesk' | 'rethink-sans';
@@ -244,6 +245,7 @@ const DEFAULT_APPEARANCE: StoredStudioAppearance = {
   accent: 'neutral',
   accentColor: '#6B45EE',
   canvas: 'dots',
+  contrast: 'standard',
   corners: 'rounded',
   density: 'comfortable',
   font: 'helvetica',
@@ -654,7 +656,7 @@ function AppearanceMenu({
             />
           </section>
 
-          <section className='appearance-section appearance-section--split'>
+          <section className='appearance-toggles'>
             <label>
               <span>
                 <strong><T>Compact UI</T></strong>
@@ -685,6 +687,17 @@ function AppearanceMenu({
               <StudioCheckbox
                 checked={appearance.tooltips !== 'off'}
                 onChange={(event) => onChange({ tooltips: event.target.checked ? 'on' : 'off' })}
+                variant='switch'
+              />
+            </label>
+            <label>
+              <span>
+                <strong><T>High contrast</T></strong>
+                <small><T>Stronger borders and secondary text</T></small>
+              </span>
+              <StudioCheckbox
+                checked={appearance.contrast === 'high'}
+                onChange={(event) => onChange({ contrast: event.target.checked ? 'high' : 'standard' })}
                 variant='switch'
               />
             </label>
@@ -1976,6 +1989,7 @@ export default function StudioApp() {
       data-studio-accent={resolvedAppearance.accent}
       data-studio-tooltips={resolvedAppearance.tooltips}
       data-studio-canvas={resolvedAppearance.canvas}
+      data-studio-contrast={resolvedAppearance.contrast}
       data-studio-corners={resolvedAppearance.corners}
       data-studio-density={resolvedAppearance.density}
       data-studio-font={resolvedAppearance.font}
