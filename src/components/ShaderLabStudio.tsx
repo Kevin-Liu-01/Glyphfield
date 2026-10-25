@@ -416,7 +416,7 @@ function emptyDesignCanvas(): DesignArtboard {
       effectLayers: [], groups: [], layerOrder: [], layerShaders: {}, logos: [],
       ratio: 'wide', shaderLayers: [], textLayers: [],
       shaderSequence: { ...DEFAULT_DESIGN_SHADER_SEQUENCE_SETTINGS, targetLayerId: null },
-      timeline: { frame: 0, paused: true, timeMs: 0 },
+      timeline: { frame: 0, paused: false, timeMs: 0 },
     },
   };
 }
@@ -605,6 +605,14 @@ function designArtboardDisplaySize(dimensions: StudioArtboardDimensions, display
   return designSurfaceSize(dimensions, displayScale);
 }
 
+/**
+ * Opened projects play their shaders. Every source capture stores a paused
+ * timeline, so honouring it would open each project on a frozen canvas.
+ */
+function playingSnapshot(snapshot: DesignArtboardSnapshot): DesignArtboardSnapshot {
+  return { ...snapshot, timeline: { ...snapshot.timeline, paused: false } };
+}
+
 function restoreDesignArtboardWorkspace(
   workspace: DesignArtboardWorkspaceSource | undefined,
   activeSnapshot: DesignArtboardSnapshot
@@ -616,7 +624,7 @@ function restoreDesignArtboardWorkspace(
     return [{
       ...artboard,
       name: resolvedDesignArtboardName(artboard.name),
-      snapshot: cloneArtboardSnapshot(artboard.snapshot),
+      snapshot: playingSnapshot(cloneArtboardSnapshot(artboard.snapshot)),
       x: artboard.x,
       y: artboard.y,
     }];
@@ -4085,7 +4093,7 @@ export default function ShaderLabStudio({
         shaderLayers: [],
         shaderSequence: { ...DEFAULT_DESIGN_SHADER_SEQUENCE_SETTINGS, targetLayerId: null },
         textLayers: [],
-        timeline: { frame: 0, paused: true, timeMs: 0 },
+        timeline: { frame: 0, paused: false, timeMs: 0 },
       } satisfies DesignArtboardSnapshot;
       const nextArtboard: DesignArtboard = {
         id,
@@ -5984,7 +5992,7 @@ export default function ShaderLabStudio({
       shaderLayers: nextShaderLayers,
       shaderSequence: nextShaderSequence,
       textLayers: nextTextLayers,
-      timeline: { frame: nextPreviewFrame, paused: parsed.timeline?.paused ?? paused, timeMs: nextTimeMs },
+      timeline: { frame: nextPreviewFrame, paused: false, timeMs: nextTimeMs },
     };
     const restoredWorkspace = restoreDesignArtboardWorkspace(parsed.workspace, restoredActiveSnapshot);
     const restoredWorkspaceSnapshot = restoredWorkspace.artboards.find(
@@ -6027,7 +6035,7 @@ export default function ShaderLabStudio({
     setPreviewFrame(nextPreviewFrame);
     previewTimeRef.current = nextTimeMs;
     setPreviewTimeMs(nextTimeMs);
-    setPaused(parsed.timeline?.paused ?? paused);
+    setPaused(false);
     setSelectedLayerId(null);
     setSelectedCanvasLayerIds([]);
   }
