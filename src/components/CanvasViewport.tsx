@@ -210,6 +210,14 @@ const CanvasViewportToolbar = memo(function CanvasViewportToolbar({
  * An auto-fitted stage stays hidden, on the server too, until its first fit:
  * showing it at 100% first would move it the moment the fit lands.
  */
+/** Focusing an artboard glides the canvas there over this long instead of jumping. */
+const FOCUS_GLIDE_MS = 360;
+
+function prefersReducedCanvasMotion(): boolean {
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
+    || document.querySelector('.studio-app[data-studio-motion="reduced"]') !== null;
+}
+
 function revealsAfterFirstFit(autoFit: boolean, focusKey: string | undefined): boolean {
   return autoFit && !focusKey;
 }
@@ -611,22 +619,49 @@ export default function CanvasViewport({
     const stageElement = stageRef.current;
     const target = stageElement?.querySelector<HTMLElement>('[data-canvas-focus-target="true"]');
     if (!scrollElement || !stageElement || !target) return;
+    let focusFrame = 0;
+    const applyView = (nextZoom: number, nextPan: { x: number; y: number }) => {
+      zoomRef.current = nextZoom;
+      setZoom(nextZoom);
+      panOffsetRef.current = nextPan;
+      setPanOffset(nextPan);
+    };
     const focusTarget = () => {
       const focusedZoom = clampCanvasZoom(Math.min(
         100,
         (scrollElement.clientWidth - 96) / Math.max(1, target.offsetWidth) * 100,
         (scrollElement.clientHeight - 96) / Math.max(1, target.offsetHeight) * 100
       ), minZoom, maxZoom);
-      const scale = focusedZoom / 100;
-      zoomRef.current = focusedZoom;
-      setZoom(focusedZoom);
-      const nextPan = {
-        x: scrollElement.clientWidth / 2 - (target.offsetLeft + target.offsetWidth / 2) * scale,
-        y: scrollElement.clientHeight / 2 - (target.offsetTop + target.offsetHeight / 2) * scale + focusOffsetY,
+      const centerX = scrollElement.clientWidth / 2;
+      const centerY = scrollElement.clientHeight / 2 + focusOffsetY;
+      const targetPoint = { x: target.offsetLeft + target.offsetWidth / 2, y: target.offsetTop + target.offsetHeight / 2 };
+      const panFor = (zoomValue: number, point: { x: number; y: number }) => ({
+        x: centerX - point.x * zoomValue / 100,
+        y: centerY - point.y * zoomValue / 100,
+      });
+      // The first view and reduced motion frame at once; a later focus glides there, so the canvas never jumps.
+      if (!viewInitializedRef.current || prefersReducedCanvasMotion()) {
+        applyView(focusedZoom, panFor(focusedZoom, targetPoint));
+        setViewInitialized(true);
+        return;
+      }
+      const startZoom = zoomRef.current;
+      const startPan = panOffsetRef.current;
+      const startPoint = { x: (centerX - startPan.x) / (startZoom / 100), y: (centerY - startPan.y) / (startZoom / 100) };
+      const startTime = performance.now();
+      const step = (now: number) => {
+        const progress = Math.min(1, (now - startTime) / FOCUS_GLIDE_MS);
+        const eased = progress < 0.5 ? 4 * progress ** 3 : 1 - (-2 * progress + 2) ** 3 / 2;
+        // Zoom moves geometrically while the point under the view's centre glides to the target.
+        const zoomValue = startZoom * (focusedZoom / startZoom) ** eased;
+        const point = {
+          x: startPoint.x + (targetPoint.x - startPoint.x) * eased,
+          y: startPoint.y + (targetPoint.y - startPoint.y) * eased,
+        };
+        applyView(progress < 1 ? zoomValue : focusedZoom, panFor(progress < 1 ? zoomValue : focusedZoom, progress < 1 ? point : targetPoint));
+        if (progress < 1) focusFrame = window.requestAnimationFrame(step);
       };
-      panOffsetRef.current = nextPan;
-      setPanOffset(nextPan);
-      setViewInitialized(true);
+      focusFrame = window.requestAnimationFrame(step);
     };
     if (!viewInitializedRef.current && 'ResizeObserver' in window) {
       // The restored editor is still hidden. Wait for browser layout instead of
@@ -636,9 +671,13 @@ export default function CanvasViewport({
         focusTarget();
       });
       observer.observe(scrollElement);
-      return () => observer.disconnect();
+      return () => {
+        observer.disconnect();
+        window.cancelAnimationFrame(focusFrame);
+      };
     }
     focusTarget();
+    return () => window.cancelAnimationFrame(focusFrame);
   }, [fitBeforeReveal, focusKey, focusOffsetY, initialViewReady, viewInitializedRef, zoomRef]);
 
   function resetView() {
