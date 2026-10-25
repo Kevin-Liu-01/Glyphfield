@@ -206,18 +206,18 @@ const CanvasViewportToolbar = memo(function CanvasViewportToolbar({
   );
 });
 
-/**
- * An auto-fitted stage stays hidden, on the server too, until its first fit:
- * showing it at 100% first would move it the moment the fit lands.
- */
 /** Focusing an artboard glides the canvas there over this long instead of jumping. */
-const FOCUS_GLIDE_MS = 360;
+const FOCUS_GLIDE_MS = 480;
 
 function prefersReducedCanvasMotion(): boolean {
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
     || document.querySelector('.studio-app[data-studio-motion="reduced"]') !== null;
 }
 
+/**
+ * An auto-fitted stage stays hidden, on the server too, until its first fit:
+ * showing it at 100% first would move it the moment the fit lands.
+ */
 function revealsAfterFirstFit(autoFit: boolean, focusKey: string | undefined): boolean {
   return autoFit && !focusKey;
 }
@@ -647,18 +647,21 @@ export default function CanvasViewport({
       }
       const startZoom = zoomRef.current;
       const startPan = panOffsetRef.current;
-      const startPoint = { x: (centerX - startPan.x) / (startZoom / 100), y: (centerY - startPan.y) / (startZoom / 100) };
+      // Where the target sits on screen, relative to the view's centre, when the glide starts.
+      const startOffset = {
+        x: targetPoint.x * startZoom / 100 + startPan.x - centerX,
+        y: targetPoint.y * startZoom / 100 + startPan.y - centerY,
+      };
       const startTime = performance.now();
       const step = (now: number) => {
         const progress = Math.min(1, (now - startTime) / FOCUS_GLIDE_MS);
         const eased = progress < 0.5 ? 4 * progress ** 3 : 1 - (-2 * progress + 2) ** 3 / 2;
-        // Zoom moves geometrically while the point under the view's centre glides to the target.
-        const zoomValue = startZoom * (focusedZoom / startZoom) ** eased;
-        const point = {
-          x: startPoint.x + (targetPoint.x - startPoint.x) * eased,
-          y: startPoint.y + (targetPoint.y - startPoint.y) * eased,
-        };
-        applyView(progress < 1 ? zoomValue : focusedZoom, panFor(progress < 1 ? zoomValue : focusedZoom, progress < 1 ? point : targetPoint));
+        // Zoom moves geometrically while the target travels straight to the centre on screen,
+        // so a large zoom never swings it outward before it settles.
+        const zoomValue = progress < 1 ? startZoom * (focusedZoom / startZoom) ** eased : focusedZoom;
+        const remaining = progress < 1 ? 1 - eased : 0;
+        const target = panFor(zoomValue, targetPoint);
+        applyView(zoomValue, { x: target.x + startOffset.x * remaining, y: target.y + startOffset.y * remaining });
         if (progress < 1) focusFrame = window.requestAnimationFrame(step);
       };
       focusFrame = window.requestAnimationFrame(step);

@@ -653,7 +653,8 @@ export const DesignLabArtboardFrame = memo(function DesignLabArtboardFrame({
       }}
       onDoubleClickCapture={(event) => {
         // Inert artboard previews cannot receive their own pointer events.
-        // Resolve their topmost layer by geometry, then select after hydration.
+        // Resolve their topmost layer by geometry, then select after hydration
+        // and frame the opened board.
         if (selectedReady || (event.target instanceof Element && event.target.closest('.design-artboard-label'))) return;
         const layer = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[data-canvas-layer-id]')).reverse().find((node) => {
           const bounds = node.getBoundingClientRect();
@@ -664,7 +665,7 @@ export const DesignLabArtboardFrame = memo(function DesignLabArtboardFrame({
         event.preventDefault();
         event.stopPropagation();
         actions.queueArtboardLayer(artboard.id, layerId);
-        void actions.activateArtboard(artboard.id).then((activated) => {
+        void actions.activateArtboard(artboard.id, true).then((activated) => {
           if (!activated) actions.queueArtboardLayer(artboard.id, null);
         });
       }}
