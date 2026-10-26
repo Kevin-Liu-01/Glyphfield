@@ -171,6 +171,25 @@ describe('animation font families', () => {
     renderFrame(context, [{ id: 'text', kind: 'text', text: 'Welcome' }], renderConfig({ backgroundStyle: 'solid' }), position);
     expect(context.font).toBe('550 24px Switzer, Arial, sans-serif');
   });
+
+  it('sets each glyph of a text entrance at its kerned place in the whole string', () => {
+    const { context } = createRenderContext();
+    // "We" kerns 6px tighter than "W" and "e" measured apart.
+    context.measureText = vi.fn((text: string) => ({
+      width: text.length * 20 - (text.includes('We') ? 6 : 0),
+    } as Pick<TextMetrics, 'width'> as TextMetrics));
+    const source = {
+      id: 'text',
+      kind: 'text' as const,
+      motionElapsedMs: 900,
+      text: 'We',
+      textAnimation: { durationMs: 1000, easing: [0.4, 0, 0.2, 1] as const, preset: 'glyph-stagger' as const, staggerMs: 0 },
+    };
+    renderFrame(context, [source], renderConfig({ backgroundStyle: 'solid' }), position);
+    // The string is 34px wide and centred, so "e" starts at -17 + 14 and is drawn about its centre.
+    expect(context.translate).toHaveBeenCalledWith(7, expect.any(Number));
+    expect(context.translate).not.toHaveBeenCalledWith(13, expect.any(Number));
+  });
 });
 
 describe('direct shader compositing', () => {

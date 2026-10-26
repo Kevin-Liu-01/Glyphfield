@@ -203,9 +203,18 @@ function drawTrackedText(
   let prefix = '';
   context.textAlign = 'left';
   units.forEach((unit, index) => {
-    context.fillText(unit, originX + context.measureText(prefix).width + extraSpacing * index, 0);
+    context.fillText(unit, originX + unitOffset(context, prefix, unit) + extraSpacing * index, 0);
     prefix += unit;
   });
+}
+
+/**
+ * Where a unit starts in the full string. The kerning between a unit and the one
+ * before it shows only when both are measured together, so measuring the prefix
+ * alone placed kerned pairs apart until the settled frame drew the whole string.
+ */
+function unitOffset(context: CanvasRenderingContext2D, prefix: string, unit: string): number {
+  return prefix ? context.measureText(prefix + unit).width - context.measureText(unit).width : 0;
 }
 
 function applyTracking(context: CanvasRenderingContext2D, tracking: number | undefined, fontSize: number): void {
@@ -249,7 +258,7 @@ function drawAnimatedText(
   context.textAlign = 'left';
   let prefix = '';
   units.forEach((unit, index) => {
-    const offset = context.measureText(prefix).width;
+    const offset = unitOffset(context, prefix, unit);
     prefix += unit;
     const state = textUnitState(settings.preset, textUnitProgress(settings, index, units.length, elapsedMs), fontSize);
     if (state.alpha <= 0) return;
