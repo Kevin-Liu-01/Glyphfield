@@ -189,6 +189,50 @@ function useExportPreviewRefresh({
   }, [needsRefresh]);
 }
 
+/** Cancel and download. After a download the dialog stays open on its success state. */
+function ExportPreviewActions({
+  downloaded,
+  format,
+  needsRefresh,
+  onClose,
+  onDownload,
+  refreshing,
+}: {
+  downloaded: boolean;
+  format: ExportPreviewAsset['format'];
+  needsRefresh: boolean;
+  onClose: () => void;
+  onDownload: () => void;
+  refreshing: boolean;
+}) {
+  let icon = <Download aria-hidden='true' />;
+  let label = `Download ${format}`;
+  if (needsRefresh) {
+    icon = <RefreshCw aria-hidden='true' />;
+    label = 'Updating preview…';
+  } else if (downloaded) {
+    icon = <CheckCircle2 aria-hidden='true' />;
+    label = 'Downloaded';
+  }
+  return (
+    <div className='shader-export-actions'>
+      <Button className='flex-1' onClick={onClose} type='button' variant='outline'>
+        {downloaded ? 'Done' : 'Cancel'}
+      </Button>
+      <Button
+        className='flex-1'
+        disabled={refreshing || needsRefresh}
+        loading={refreshing || needsRefresh}
+        onClick={onDownload}
+        type='button'
+      >
+        {icon}
+        {label}
+      </Button>
+    </div>
+  );
+}
+
 export default function ExportPreview({
   asset,
   autoRefresh = true,
@@ -261,7 +305,6 @@ export default function ExportPreview({
   if (!asset || !url) return null;
 
   const dimensions = exportDimensions(asset);
-  const downloaded = downloadedBlob === asset.blob;
   const previewKind = exportPreviewKind(asset);
   const fallbackBaseName = fileNameParts(asset.fileName, asset.format).base;
   const typedBaseName = fileNameExtension && fileNameBase.toLocaleLowerCase().endsWith(`.${fileNameExtension}`)
@@ -401,24 +444,17 @@ export default function ExportPreview({
                   </div>
                 ) : null}
 
-                <div className='shader-export-actions'>
-                  <Button className='flex-1' onClick={() => setOpen(false)} type='button' variant='outline'>
-                    {downloaded ? 'Done' : 'Cancel'}
-                  </Button>
-                  <Button
-                    className='flex-1'
-                    disabled={refreshing || needsRefresh}
-                    loading={refreshing || needsRefresh}
-                    onClick={() => {
-                      downloadBlob(asset.blob, downloadFileName);
-                      setDownloadedBlob(asset.blob);
-                    }}
-                    type='button'
-                  >
-                    {needsRefresh ? <RefreshCw aria-hidden='true' /> : downloaded ? <CheckCircle2 aria-hidden='true' /> : <Download aria-hidden='true' />}
-                    {needsRefresh ? 'Updating preview…' : downloaded ? 'Downloaded' : `Download ${asset.format}`}
-                  </Button>
-                </div>
+                <ExportPreviewActions
+                  downloaded={downloadedBlob === asset.blob}
+                  format={asset.format}
+                  needsRefresh={needsRefresh}
+                  onClose={() => setOpen(false)}
+                  onDownload={() => {
+                    downloadBlob(asset.blob, downloadFileName);
+                    setDownloadedBlob(asset.blob);
+                  }}
+                  refreshing={refreshing}
+                />
               </aside>
             </div>
           </section>

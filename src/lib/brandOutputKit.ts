@@ -4,7 +4,7 @@
  * fitting for SVG layout, and the generative graphic device for each identity.
  */
 import type { BrandAsset, BrandIdentity } from './brandIdentity';
-import { colorContrastRatio, mixHexColors, normalizeHexOrFallback } from './color';
+import { mixHexColors, normalizeHexOrFallback } from './color';
 import { signalWindowDevice } from './brandDevices/signalWindow';
 import { interruptionDevice } from './brandDevices/interruption';
 import { ledgerDevice } from './brandDevices/ledger';
@@ -15,7 +15,7 @@ import { horizonDevice } from './brandDevices/horizon';
 import { programmableFieldDevice } from './brandDevices/programmableField';
 import { gridDevice } from './brandDevices/grid';
 import { orbitDevice } from './brandDevices/orbit';
-import { contrastRatio, deviceBackground, readableOn, round, type DeviceContext } from './brandDeviceContext';
+import { contrastRatio, readableOn, round, type DeviceContext } from './brandDeviceContext';
 
 export { contrastRatio, readableOn };
 
