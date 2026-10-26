@@ -218,6 +218,8 @@ export default function ExportPreview({
   const [url, setUrl] = useState<string | null>(null);
   const [fileNameBase, setFileNameBase] = useState('export');
   const [fileNameExtension, setFileNameExtension] = useState('');
+  // The file last downloaded; the dialog stays open on its success state until closed.
+  const [downloadedBlob, setDownloadedBlob] = useState<Blob | null>(null);
   const customizedNameRef = useRef(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -259,6 +261,7 @@ export default function ExportPreview({
   if (!asset || !url) return null;
 
   const dimensions = exportDimensions(asset);
+  const downloaded = downloadedBlob === asset.blob;
   const previewKind = exportPreviewKind(asset);
   const fallbackBaseName = fileNameParts(asset.fileName, asset.format).base;
   const typedBaseName = fileNameExtension && fileNameBase.toLocaleLowerCase().endsWith(`.${fileNameExtension}`)
@@ -400,7 +403,7 @@ export default function ExportPreview({
 
                 <div className='shader-export-actions'>
                   <Button className='flex-1' onClick={() => setOpen(false)} type='button' variant='outline'>
-                    Cancel
+                    {downloaded ? 'Done' : 'Cancel'}
                   </Button>
                   <Button
                     className='flex-1'
@@ -408,12 +411,12 @@ export default function ExportPreview({
                     loading={refreshing || needsRefresh}
                     onClick={() => {
                       downloadBlob(asset.blob, downloadFileName);
-                      setOpen(false);
+                      setDownloadedBlob(asset.blob);
                     }}
                     type='button'
                   >
-                    {needsRefresh ? <RefreshCw aria-hidden='true' /> : <Download aria-hidden='true' />}
-                    {needsRefresh ? 'Updating preview…' : `Download ${asset.format}`}
+                    {needsRefresh ? <RefreshCw aria-hidden='true' /> : downloaded ? <CheckCircle2 aria-hidden='true' /> : <Download aria-hidden='true' />}
+                    {needsRefresh ? 'Updating preview…' : downloaded ? 'Downloaded' : `Download ${asset.format}`}
                   </Button>
                 </div>
               </aside>
