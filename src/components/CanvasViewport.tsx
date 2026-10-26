@@ -208,6 +208,8 @@ const CanvasViewportToolbar = memo(function CanvasViewportToolbar({
 
 /** Focusing an artboard glides the canvas there over this long instead of jumping. */
 const FOCUS_GLIDE_MS = 480;
+/** The most one frame advances the glide, so a long frame slows it instead of skipping it. */
+const FOCUS_GLIDE_MAX_STEP_MS = 34;
 
 function prefersReducedCanvasMotion(): boolean {
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
@@ -333,7 +335,7 @@ export default function CanvasViewport({
       stageRef.current.style.setProperty('--canvas-zoom', scale);
       stageRef.current.style.setProperty('--canvas-zoom-inverse', String(100 / zoomRef.current));
     }
-    const label = `${zoomRef.current}%`;
+    const label = `${Math.round(zoomRef.current)}%`;
     if (zoomValueRef.current && zoomValueRef.current.textContent !== label) zoomValueRef.current.textContent = label;
     const range = viewportRef.current?.querySelector<HTMLInputElement>('.canvas-zoom-range input');
     if (range && range.value !== String(zoomRef.current)) range.value = String(zoomRef.current);
@@ -652,17 +654,27 @@ export default function CanvasViewport({
         x: targetPoint.x * startZoom / 100 + startPan.x - centerX,
         y: targetPoint.y * startZoom / 100 + startPan.y - centerY,
       };
-      const startTime = performance.now();
+      // The glide's clock starts on its first frame: opening a board blocks the page for a
+      // moment, and a clock started before that would finish the glide unseen.
+      let elapsed = 0;
+      let lastFrame: number | null = null;
       const step = (now: number) => {
-        const progress = Math.min(1, (now - startTime) / FOCUS_GLIDE_MS);
+        if (lastFrame !== null) elapsed += Math.min(now - lastFrame, FOCUS_GLIDE_MAX_STEP_MS);
+        lastFrame = now;
+        const progress = Math.min(1, elapsed / FOCUS_GLIDE_MS);
         const eased = progress < 0.5 ? 4 * progress ** 3 : 1 - (-2 * progress + 2) ** 3 / 2;
         // Zoom moves geometrically while the target travels straight to the centre on screen,
         // so a large zoom never swings it outward before it settles.
-        const zoomValue = progress < 1 ? startZoom * (focusedZoom / startZoom) ** eased : focusedZoom;
-        const remaining = progress < 1 ? 1 - eased : 0;
+        const zoomValue = startZoom * (focusedZoom / startZoom) ** eased;
         const target = panFor(zoomValue, targetPoint);
-        applyView(zoomValue, { x: target.x + startOffset.x * remaining, y: target.y + startOffset.y * remaining });
+        const pan = { x: target.x + startOffset.x * (1 - eased), y: target.y + startOffset.y * (1 - eased) };
+        // Each frame goes straight to the stage at the exact zoom, as a wheel zoom does. The zoom
+        // state snaps to 5% steps, so committing every frame shook the board against its pan.
+        zoomRef.current = zoomValue;
+        panOffsetRef.current = pan;
+        applyStageTransform(pan.x, pan.y);
         if (progress < 1) focusFrame = window.requestAnimationFrame(step);
+        else applyView(focusedZoom, pan);
       };
       focusFrame = window.requestAnimationFrame(step);
     };
