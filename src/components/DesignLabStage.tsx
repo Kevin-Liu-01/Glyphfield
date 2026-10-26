@@ -4,7 +4,7 @@
 // a memoized component with narrow props, so a commit re-renders only the
 // layers whose data, selection or playback state changed. Editor actions come
 // from the host as stable handlers.
-import { memo, useCallback, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from 'react';
+import { memo, useCallback, useRef, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from 'react';
 
 import {
   CanvasTextLayerContent,
@@ -569,6 +569,9 @@ export type DesignLabArtboardActions = {
   queueArtboardLayer: (artboardId: DesignArtboard['id'], layerId: CanvasLayerId | null) => void;
 };
 
+/** A double-click that opens a board frames it when its second press lands within this long. */
+const DOUBLE_CLICK_OPEN_MS = 1000;
+
 /**
  * One artboard on the workspace. Inactive artboards render their snapshot and
  * skip every commit that does not change them; the active artboard receives
@@ -606,6 +609,9 @@ export const DesignLabArtboardFrame = memo(function DesignLabArtboardFrame({
   stageRef?: RefObject<HTMLDivElement | null>;
 }) {
   const { beginArtboardMove, nudgeArtboard } = actions;
+  // When the board was pressed while still a preview. The first press of a double-click
+  // can open the board before the second press lands.
+  const openingPressRef = useRef<number | null>(null);
   const size = designSurfaceSize(snapshot.dimensions, artboard.displayScale);
   const preset = STUDIO_ARTBOARD_PRESETS.find(({ id }) => id === snapshot.ratio);
   const ratioPresentation = preset
@@ -646,16 +652,28 @@ export const DesignLabArtboardFrame = memo(function DesignLabArtboardFrame({
       onPointerDownCapture={(event) => {
         const target = event.target instanceof Element ? event.target : null;
         if (event.button !== 0 || event.currentTarget.closest('[data-space-pressed="true"]')) return;
+        if (!selectedReady) openingPressRef.current = event.timeStamp;
         if (!selectedReady || target?.closest('.design-artboard-label')
           || !target?.closest('.editable-canvas-layer, [data-canvas-selection-preserve]')) {
           beginArtboardMove(event, artboard);
         }
       }}
       onDoubleClickCapture={(event) => {
+        const openingPress = openingPressRef.current;
+        openingPressRef.current = null;
+        if (event.target instanceof Element && event.target.closest('.design-artboard-label')) return;
+        if (selectedReady) {
+          // The double-click's first press opened the board and its second press selected
+          // the layer under the pointer, so only the framing is left.
+          if (openingPress === null || event.timeStamp - openingPress > DOUBLE_CLICK_OPEN_MS) return;
+          event.preventDefault();
+          event.stopPropagation();
+          void actions.activateArtboard(artboard.id, true);
+          return;
+        }
         // Inert artboard previews cannot receive their own pointer events.
         // Resolve their topmost layer by geometry, then select after hydration
         // and frame the opened board.
-        if (selectedReady || (event.target instanceof Element && event.target.closest('.design-artboard-label'))) return;
         const layer = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[data-canvas-layer-id]')).reverse().find((node) => {
           const bounds = node.getBoundingClientRect();
           return event.clientX >= bounds.left && event.clientX <= bounds.right && event.clientY >= bounds.top && event.clientY <= bounds.bottom;
