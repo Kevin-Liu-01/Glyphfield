@@ -220,6 +220,19 @@ The ShaderGradient materials render with
 License. The npm package declares the license in its `package.json` and does not ship a separate
 license file.
 
+## Mediabunny
+
+MP4 exports are written with [`mediabunny`](https://github.com/Vanilagy/mediabunny) 1.53.0 by
+Vanilagy, used unmodified under the [Mozilla Public License 2.0](https://mozilla.org/MPL/2.0/). Its
+source code is available from that repository and in its npm package. Mediabunny drives the
+browser's own WebCodecs encoder, so Glyphfield bundles no video encoder.
+
+## gifenc
+
+GIF exports are encoded with [`gifenc`](https://github.com/mattdesl/gifenc) 1.0.3 by Matt
+DesLauriers, licensed under the MIT License (Copyright (c) 2017 Matt DesLauriers). The npm package
+ships the full license text.
+
 ## Geist Mono
 
 `public/fonts/geist-mono-variable.ttf` and `public/fonts/geist-mono-latin.woff2` are Geist Mono by The
