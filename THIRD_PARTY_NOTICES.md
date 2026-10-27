@@ -233,6 +233,15 @@ GIF exports are encoded with [`gifenc`](https://github.com/mattdesl/gifenc) 1.0.
 DesLauriers, licensed under the MIT License (Copyright (c) 2017 Matt DesLauriers). The npm package
 ships the full license text.
 
+## Katagami
+
+Glyphfield ships Katagami 0.2 by Kevin Liu, from https://github.com/Kevin-Liu-01/Katagami
+(https://katagami.kevinliu.studio): Katagami Sans, Round, Text, Serif and Mono with their
+italics, and Katagami CJK SC, TC, JP and KR, as lossless WOFF2 conversions of the released
+variable fonts in `public/fonts/katagami`. Katagami is licensed under the SIL Open Font License
+1.1. `public/fonts/katagami/OFL.txt` holds the license with its copyright lines for Katagami,
+Inter, the Noto scripts and Noto Sans CJK.
+
 ## Geist Mono
 
 `public/fonts/geist-mono-variable.ttf` and `public/fonts/geist-mono-latin.woff2` are Geist Mono by The

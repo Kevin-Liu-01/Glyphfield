@@ -59,6 +59,46 @@ export type StarterDirection = Required<StarterKitChoice> & {
 
 /* Fonts ------------------------------------------------------------------ */
 
+const KATAGAMI_MEMBERS = [
+  { member: 'Sans', weightMax: 900 },
+  { member: 'Round', weightMax: 900 },
+  { member: 'Text', weightMax: 900 },
+  { member: 'Serif', weightMax: 900 },
+  { member: 'Mono', weightMax: 700 },
+] as const;
+
+function katagamiFont(member: string, style: BrandFontAsset['style'], weightMax: number): BrandFontAsset {
+  const slug = `${member.toLowerCase().replace(/ /g, '-')}${style === 'italic' ? '-italic' : ''}`;
+  const italic = style === 'italic' ? ' Italic' : '';
+  return {
+    family: `Katagami ${member}`,
+    fileName: `Katagami${member.replace(/ /g, '')}${style === 'italic' ? '-Italic' : ''}-Variable.woff2`,
+    format: 'woff2',
+    id: `katagami-${slug}-variable`,
+    label: `Katagami ${member}${italic} Variable`,
+    license: 'SIL Open Font License 1.1',
+    path: `/fonts/katagami/katagami-${slug}.woff2`,
+    sourceUrl: 'https://katagami.kevinliu.studio',
+    style,
+    weight: 400,
+    weightMax,
+    weightMin: 100,
+  };
+}
+
+/**
+ * Katagami 0.2 (katagami.kevinliu.studio): five variable members, each with an
+ * italic, and the CJK companions for Simplified and Traditional Chinese,
+ * Japanese and Korean.
+ */
+const KATAGAMI_FONTS: readonly BrandFontAsset[] = [
+  ...KATAGAMI_MEMBERS.flatMap(({ member, weightMax }) => [
+    katagamiFont(member, 'normal', weightMax),
+    katagamiFont(member, 'italic', weightMax),
+  ]),
+  ...['SC', 'TC', 'JP', 'KR'].map((script) => katagamiFont(`CJK ${script}`, 'normal', 900)),
+];
+
 /** Every font file Glyphfield ships for general use; brand-licensed faces live with their brands. */
 export const STARTER_KIT_FONTS: readonly BrandFontAsset[] = [
   {
@@ -120,6 +160,7 @@ export const STARTER_KIT_FONTS: readonly BrandFontAsset[] = [
     style: 'normal',
     weight: 400,
   },
+  ...KATAGAMI_FONTS,
 ];
 
 /* Palettes --------------------------------------------------------------- */
@@ -309,6 +350,18 @@ export const STARTER_PAIRINGS: readonly StarterPairing[] = [
       { family: 'Inter', fontId: 'inter-variable', letterSpacing: 0, lineHeight: 1.55, role: 'Body', usage: 'Interface copy, documentation and long-form reading', weight: 400 },
       { family: 'Geist Mono', fontId: 'geist-mono-variable', letterSpacing: 0, lineHeight: 1.4, role: 'Accent', usage: 'Labels, states and short emphasis', weight: 400 },
       { family: 'Geist Mono', fontId: 'geist-mono-variable', letterSpacing: 0, lineHeight: 1.5, role: 'Code', usage: 'Commands, tokens, data and logs', weight: 400 },
+    ],
+  },
+  {
+    description: 'Katagami Sans, Text, Serif and Mono',
+    fonts: kitFonts(['katagami-sans-variable', 'katagami-text-variable', 'katagami-serif-variable', 'katagami-mono-variable']),
+    id: 'katagami',
+    name: 'Katagami',
+    typography: [
+      { family: 'Katagami Sans', fontId: 'katagami-sans-variable', letterSpacing: -0.7, lineHeight: 0.98, role: 'Display', usage: 'Headlines, statements and key figures', weight: 550 },
+      { family: 'Katagami Text', fontId: 'katagami-text-variable', letterSpacing: 0, lineHeight: 1.55, role: 'Body', usage: 'Interface copy and long-form reading', weight: 400 },
+      { family: 'Katagami Serif', fontId: 'katagami-serif-variable', letterSpacing: -0.2, lineHeight: 1.15, role: 'Accent', usage: 'Quotes, captions and editorial emphasis', weight: 400 },
+      { family: 'Katagami Mono', fontId: 'katagami-mono-variable', letterSpacing: 0, lineHeight: 1.5, role: 'Code', usage: 'Commands, tokens, data and technical metadata', weight: 400 },
     ],
   },
 ];

@@ -36,6 +36,7 @@ import {
   type BrandVoiceExample,
 } from '@/lib/brandIdentity';
 import { brandContrastResults } from '@/lib/brandHealth';
+import { STARTER_KIT_FONTS } from '@/lib/brandStarterKit';
 import { BRAND_LOGO_SLOTS, type BrandLogoSlot } from '@/lib/brandSource';
 import { brandTypeScale } from '@/lib/brandTokens';
 import { formatOklch, hexToOklch } from '@/lib/color';
@@ -412,6 +413,8 @@ export function ColorSection({ identity, update }: { identity: BrandIdentity; up
 
 function FontFiles({ fonts, identity, onAddFont, update }: { fonts: BrandFontAsset[]; identity: BrandIdentity; onAddFont: (file: File) => void; update: BrandIdentityUpdate }) {
   const gt = useGT();
+  // Every font Glyphfield ships that this identity does not store yet, such as the Katagami family.
+  const bundled = STARTER_KIT_FONTS.filter((font) => !fonts.some((candidate) => candidate.id === font.id));
   const removeFont = (fontId: string) => {
     const nextFonts = fonts.filter((font) => font.id !== fontId);
     update({
@@ -428,6 +431,18 @@ function FontFiles({ fonts, identity, onAddFont, update }: { fonts: BrandFontAss
         <span><strong><T>Upload font file</T></strong><small><T>TTF, OTF, WOFF, or WOFF2 · stored with this identity</T></small></span>
         <input accept='.ttf,.otf,.woff,.woff2,font/*' className='sr-only' onChange={(event) => { const file = event.target.files?.[0]; if (file) onAddFont(file); event.target.value = ''; }} type='file' />
       </label>
+      {bundled.length ? (
+        <StudioSelect
+          ariaLabel={gt('Add a bundled font')}
+          onValueChange={(fontId) => {
+            const font = bundled.find((candidate) => candidate.id === fontId);
+            if (font) update({ fonts: [...fonts, { ...font }] });
+          }}
+          options={bundled.map((font) => ({ label: font.label, value: font.id }))}
+          placeholder={gt('Add a bundled font')}
+          value=''
+        />
+      ) : null}
       <div className='brand-font-file-list'>
         {fonts.map((font) => (
           <div key={font.id}>

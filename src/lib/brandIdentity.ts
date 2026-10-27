@@ -353,14 +353,15 @@ export type BrandIdentity = {
 };
 
 /** The bundled faces an identity without font records falls back to. */
-const DEFAULT_BRAND_FONT_ASSETS: readonly BrandFontAsset[] = STARTER_KIT_FONTS.filter(({ family }) => family !== 'Instrument Serif');
+const DEFAULT_BRAND_FONT_IDS: ReadonlySet<string> = new Set(['switzer-400', 'switzer-500', 'inter-variable', 'geist-mono-variable']);
+const DEFAULT_BRAND_FONT_ASSETS: readonly BrandFontAsset[] = STARTER_KIT_FONTS.filter(({ id }) => DEFAULT_BRAND_FONT_IDS.has(id));
 
 function bundledFontId(family: string, role: BrandTypography['role']): string | undefined {
   const normalizedFamily = family.toLocaleLowerCase();
   if (normalizedFamily.includes('switzer')) return role === 'Display' ? 'switzer-500' : 'switzer-400';
   if (normalizedFamily.includes('geist mono')) return 'geist-mono-variable';
   if (normalizedFamily.includes('inter')) return 'inter-variable';
-  return undefined;
+  return STARTER_KIT_FONTS.find((font) => font.style === 'normal' && font.family.toLocaleLowerCase() === normalizedFamily)?.id;
 }
 
 function normalizeTypography(font: BrandTypography): BrandTypography {
