@@ -366,7 +366,7 @@ export const STUDIO_TOOL_ACTION_CONTRACTS = {
     },
     'design.text.format': {
       description: 'Format a non-empty range of text on the active surface without changing other characters. Ordered runs survive source, history, saved designs, and export.',
-      input: "{ layerId, start, end, style: { color?, fontRole?: 'Display' | 'Body' | 'Accent' | 'Code', fontSize?, weight?, fontStyle?: 'normal' | 'italic', underline?, strikethrough?, tracking? } }; start/end are UTF-16 offsets, end exclusive; fontSize is authored pixels before layer scale",
+      input: "{ layerId, start, end, style: { color?, fontRole?: 'Display' | 'Body' | 'Accent' | 'Code', fontId?: brand or shipped font id (wins over fontRole), fontSize?, weight?, fontStyle?: 'normal' | 'italic', underline?, strikethrough?, tracking? } }; start/end are UTF-16 offsets, end exclusive; fontSize is authored pixels before layer scale",
       output: 'null',
     },
     'design.export.gif': { description: 'Render the current design as GIF.', input: 'No input', output: EXPORT_ARTIFACT },

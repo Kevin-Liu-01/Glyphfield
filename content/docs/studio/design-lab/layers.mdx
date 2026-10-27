@@ -10,7 +10,7 @@ Every element in Design Lab, the layered composition tool, is a layer in one ord
 
 | Kind | Add with | Default box | Inspector controls |
 | --- | --- | --- | --- |
-| Text | **Text** or T | 72% × 25% of the artboard | Copy, font role, size, weight, styles, color, alignment, wrapping, line height, tracking, text effect, outline, shadow, opacity |
+| Text | **Text** or T | 72% × 25% of the artboard | Copy, font, size, weight, styles, color, alignment, wrapping, line height, tracking, text effect, outline, shadow, opacity |
 | Shader | **Shader**, S, or a library card | The full artboard | Colors, palette, material settings, zoom, frame position and size, opacity, blend mode ([Shaders and time](/docs/studio/design-lab/shaders)) |
 | Effect | **Effect** or E | The full artboard | Converter type or image effect, effect settings, opacity ([Effect layers](/docs/studio/design-lab/effects)) |
 | Mark | **Mark** or M | 42% × 32% | Mark asset, color, appearance, opacity |
@@ -78,9 +78,9 @@ Text is a canvas layer with its own box. New text starts at 48 px.
 | Control | Range or values |
 | --- | --- |
 | Text content | Any text. Edit it in the inspector, or click the text on the canvas and type |
-| Font role | Display, Body, Accent, Code (from the identity) |
+| Font | A brand role (Display, Body, Accent, Code), which follows the identity, or one font: the brand's font files and every font Glyphfield ships, Katagami included |
 | **Text size in pixels** and **Text size** | 1–2048 artboard pixels in the number field. The slider reaches 512 |
-| **Font weight** | The supported range of the selected brand font |
+| **Font weight** | The supported range of the selected font |
 | Bold, Italic, Underline, Strikethrough | Toggles. Underline and strikethrough combine |
 | Alignment | Left, center, right |
 | Wrapping | **Wrap** or **Single line** |
@@ -100,7 +100,7 @@ Select words or lines on the canvas or in the inspector text field. The inspecto
 
 While editing with a range of text selected, ⌘/Ctrl + B, ⌘/Ctrl + I, and ⌘/Ctrl + U toggle bold, italic, and underline. Formatting follows the characters as text is inserted or deleted. Plain-text paste takes the formatting at the insertion point. Pasted HTML is not imported.
 
-In source, a text element stores its plain `value` and optional ordered `runs`: `{ start, end, style }` with UTF-16 offsets and an exclusive end. Unset style fields inherit from the layer. Run `fontSize` is in authored pixels before layer scale.
+In source, a text element stores its plain `value` and optional ordered `runs`: `{ start, end, style }` with UTF-16 offsets and an exclusive end. Unset style fields inherit from the layer. Run `fontSize` is in authored pixels before layer scale. A `fontId` on the layer or a run names one font file and wins over `fontRole`. Setting either one replaces the other.
 
 `design.text.format` applies run styling through the Browser API (`window.glyphfield.studio`):
 
@@ -113,7 +113,7 @@ await window.glyphfield.studio.invoke('design.text.format', {
 });
 ```
 
-`style` accepts `color`, `fontRole` (`Display`, `Body`, `Accent`, `Code`), `fontSize`, `weight`, `fontStyle` (`normal`, `italic`), `underline`, `strikethrough`, and `tracking`. The range must be non-empty and inside the text. The action returns `null`. Read `element.data.runs` from `readSource()` to confirm the change.
+`style` accepts `color`, `fontRole` (`Display`, `Body`, `Accent`, `Code`), `fontId` (a brand font id or a shipped one such as `katagami-sans-variable`), `fontSize`, `weight`, `fontStyle` (`normal`, `italic`), `underline`, `strikethrough`, and `tracking`. The range must be non-empty and inside the text. The action returns `null`. Read `element.data.runs` from `readSource()` to confirm the change.
 
 ### Text rendering options
 

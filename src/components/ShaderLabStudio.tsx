@@ -128,11 +128,9 @@ import { immutableJsonSignature } from '@/lib/immutableJsonSignature';
 import { usePortableCanvasWorkspace } from '@/hooks/usePortableCanvasWorkspace';
 import {
   brandAssetPath,
-  brandFontAssets,
-  brandTypographyFamily,
   brandTypographyRole,
-  brandTypographyWeightRange,
   resolveBrandTypographyWeight,
+  selectableFontAssets,
   type BrandAsset,
   type BrandIdentity,
 } from '@/lib/brandIdentity';
@@ -291,9 +289,13 @@ import {
   resolvedLogoAppearance,
   resolvedTextAppearance,
   resolvedTextTransform,
+  resolveTextFontWeight,
   resolveTextRunStyle,
   STICKER_IMAGE_APPEARANCE,
   STICKER_TEXT_APPEARANCE,
+  textFontFamily,
+  textFontWeightRange,
+  textLayerFont,
   textShadowStyle,
   type AssetLayerId,
   type CanvasLayerId,
@@ -1492,8 +1494,8 @@ export function paintDesignLabTextLayer({
   // and an export-only minimum must never change the font or its line breaks.
   const fontSize = resolveDesignLabFontSize(layer, canvasHeight) * width / canvasWidth;
   const spacing = layer.tracking * fontSize;
-  const fontWeight = resolveBrandTypographyWeight(identity, appearance.fontRole, layer.weight);
-  const fontFamily = `${JSON.stringify(brandTypographyFamily(identity, appearance.fontRole))}, Arial, sans-serif`;
+  const { family, weight: fontWeight } = textLayerFont(identity, layer);
+  const fontFamily = `${JSON.stringify(family)}, Arial, sans-serif`;
   context.font = `${layer.fontStyle ?? 'normal'} ${fontWeight} ${fontSize}px ${canvasPaintFamilyList(fontFamily)}`;
   context.fontKerning = 'normal';
   const supportsNativeLetterSpacing = typeof context.letterSpacing === 'string';
@@ -1964,12 +1966,10 @@ function resolveContentLayerSelection({
     : null;
   const textTransform = textLayer ? resolvedTextTransform(textLayer.transform) : null;
   const textAppearance = textLayer ? resolvedTextAppearance(textLayer) : null;
-  const textWeightRange = textAppearance
-    ? brandTypographyWeightRange(identity, textAppearance.fontRole)
+  const textWeightRange = textLayer
+    ? textFontWeightRange(identity, textFontFamily(identity, textLayer))
     : { max: 900, min: 100 };
-  const textRenderedWeight = textLayer && textAppearance
-    ? resolveBrandTypographyWeight(identity, textAppearance.fontRole, textLayer.weight)
-    : 400;
+  const textRenderedWeight = textLayer ? textLayerFont(identity, textLayer).weight : 400;
   const logoLayer = isLogoLayerId(selectedLayerId)
     ? logos.find(({ id }) => id === selectedLayerId) ?? null
     : null;
@@ -4353,18 +4353,9 @@ export default function ShaderLabStudio({
   }, [brandPalette.colors, draftHydrated, identity.id, initialShaderLayer, legacyDefaultShaderLayer, setShaderLayers, tool.id]);
 
   useEffect(() => {
-    const needsWeightNormalization = textLayers.some((layer) => {
-      const fontRole = resolvedTextAppearance(layer).fontRole;
-      return layer.weight !== resolveBrandTypographyWeight(identity, fontRole, layer.weight);
-    });
+    const needsWeightNormalization = textLayers.some((layer) => layer.weight !== textLayerFont(identity, layer).weight);
     if (!needsWeightNormalization) return;
-    setTextLayers((current) => current.map((layer) => {
-      const fontRole = resolvedTextAppearance(layer).fontRole;
-      return {
-        ...layer,
-        weight: resolveBrandTypographyWeight(identity, fontRole, layer.weight),
-      };
-    }));
+    setTextLayers((current) => current.map((layer) => ({ ...layer, weight: textLayerFont(identity, layer).weight })));
   }, [identity, setTextLayers, textLayers]);
 
   function updateSelectedShader(update: Partial<ShaderApplication>) {
@@ -4958,7 +4949,7 @@ export default function ShaderLabStudio({
     if (!layer || !range || range.layerId !== id) return;
     const style = textStyleSegments(layer.value, layer.runs).find((run) => run.start <= range.start && run.end > range.start)?.style ?? {};
     const resolved = { ...layer, ...style };
-    const bounds = brandTypographyWeightRange(identity, resolvedTextAppearance(resolved).fontRole);
+    const bounds = textFontWeightRange(identity, textFontFamily(identity, layer, style));
     if (format === 'bold' && (bounds.max < 600 || bounds.min >= 600)) return;
     updateTextFormatting(id, format === 'bold' ? { weight: resolved.weight >= 600 ? 400 : 700 }
       : format === 'italic' ? { fontStyle: resolved.fontStyle === 'italic' ? 'normal' : 'italic' }
@@ -6407,23 +6398,22 @@ export default function ShaderLabStudio({
     await document.fonts.ready;
     const families = new Set<string>();
     await Promise.all(visibleTextLayers.flatMap((layer) => textStyleSegments(layer.value, layer.runs).map(async (run) => {
-      const appearance = { ...resolvedTextAppearance(layer), ...run.style };
-      const family = brandTypographyFamily(identity, appearance.fontRole);
+      const family = textFontFamily(identity, layer, run.style);
       families.add(family);
-      const weight = resolveBrandTypographyWeight(identity, appearance.fontRole, run.style.weight ?? layer.weight);
+      const weight = resolveTextFontWeight(identity, family, run.style.weight ?? layer.weight);
       const style = run.style.fontStyle ?? layer.fontStyle ?? 'normal';
       const faces = await document.fonts.load(
         `${style} ${weight} 64px ${JSON.stringify(family)}`,
         layer.value.slice(run.start, run.end) || 'Ag'
       );
-      const isBundledBrandFont = brandFontAssets(identity).some((font) => (
+      const isBundledBrandFont = selectableFontAssets(identity).some((font) => (
         font.family === family && (font.style === style || font.style === 'normal')
       ));
       if (isBundledBrandFont && faces.length === 0) {
         throw new Error(`${family} ${weight} could not be loaded for export.`);
       }
     })));
-    await prepareCanvasPaintFamilies(brandFontAssets(identity), families);
+    await prepareCanvasPaintFamilies(selectableFontAssets(identity), families);
     await document.fonts.ready;
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
   }

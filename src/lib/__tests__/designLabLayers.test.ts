@@ -75,7 +75,7 @@ describe('Playground optional layers', () => {
     expect(designLab).not.toContain("shader-lab-v2-composition-subhead'><h4>Output</h4>");
     expect(exportPreview).toContain('configuration?: ReactNode;');
     expect(exportPreview).toContain("<strong>Export settings</strong>");
-    expect(exportPreview).toContain("needsRefresh ? 'Updating preview…'");
+    expect(exportPreview).toContain("label = 'Updating preview…';");
     expect(studioStyles).toContain('.shader-export-settings,');
     expect(studioStyles).toContain('.shader-export-format {');
   });
@@ -336,7 +336,7 @@ describe('Playground optional layers', () => {
   });
 
   it('renders previews and exports from the same logical text geometry', () => {
-    expect(designLab).toContain('resolveBrandTypographyWeight(identity, appearance.fontRole, layer.weight)');
+    expect(designLab).toContain('const { family, weight: fontWeight } = textLayerFont(identity, layer);');
     expect(designLab).toContain('const box = outputLayerBox(layerId, transform, width, height);');
     expect(designLab).toContain('const fontSize = resolveDesignLabFontSize(layer, canvasHeight) * width / canvasWidth;');
     expect(designLab).toContain('resolveDesignLabFontSizeCqw(textLayer, canvasDimensions)');

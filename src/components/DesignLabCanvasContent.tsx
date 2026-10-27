@@ -7,12 +7,13 @@ import type { CSSProperties, ReactNode } from 'react';
 
 import CanvasEditableText from '@/components/CanvasEditableText';
 import LogoAppearancePreview, { AppearanceFilteredContent } from '@/components/LogoAppearancePreview';
-import { brandTypographyFamily, resolveBrandTypographyWeight, type BrandIdentity } from '@/lib/brandIdentity';
+import type { BrandIdentity } from '@/lib/brandIdentity';
 import { canvasTextTypography } from '@/lib/canvasTextLayout';
 import {
   resolvedLogoAppearance,
   resolvedTextAppearance,
   resolveTextRunStyle,
+  textLayerFont,
   textShadowStyle,
   type CompositionTextLayer,
   type ShaderApplication,
@@ -318,9 +319,9 @@ export function CanvasTextLayerContent({
           const resolved = resolveTextRunStyle(layer, identity, canvasHeight, style);
           return {
             color: application || appearance.textEffect.kind !== 'solid' || !style.color ? 'inherit' : resolved.color,
-            fontFamily: style.fontRole ? resolved.fontFamily : 'inherit',
+            fontFamily: style.fontRole || style.fontId ? resolved.fontFamily : 'inherit',
             fontSize: style.fontSize === undefined ? 'inherit' : `${fontSizeCqw * resolved.fontSize / resolveDesignLabFontSize(layer, canvasHeight)}cqw`,
-            fontWeight: style.weight !== undefined || style.fontRole ? String(resolved.fontWeight) : 'inherit', fontStyle: style.fontStyle ?? 'inherit',
+            fontWeight: style.weight !== undefined || style.fontRole || style.fontId ? String(resolved.fontWeight) : 'inherit', fontStyle: style.fontStyle ?? 'inherit',
             letterSpacing: style.tracking === undefined ? 'inherit' : `${resolved.tracking}em`,
             textDecorationLine: designLabTextDecorationLine(resolved),
             textDecorationColor: 'currentColor', textDecorationThickness: 'from-font', textUnderlineOffset: '0.12em',
@@ -332,10 +333,10 @@ export function CanvasTextLayerContent({
           color: appearance.color,
           ...canvasTextTypography({
             align: layer.align,
-            fontFamily: `${JSON.stringify(brandTypographyFamily(identity, appearance.fontRole))}, Arial, sans-serif`,
+            fontFamily: `${JSON.stringify(textLayerFont(identity, layer).family)}, Arial, sans-serif`,
             fontSize: `${fontSizeCqw}cqw`,
             fontStyle: layer.fontStyle ?? 'normal',
-            fontWeight: resolveBrandTypographyWeight(identity, appearance.fontRole, layer.weight),
+            fontWeight: textLayerFont(identity, layer).weight,
             lineHeight: layer.lineHeight,
             tracking: layer.tracking,
             wrap: layer.wrap,

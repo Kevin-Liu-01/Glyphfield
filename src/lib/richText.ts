@@ -3,6 +3,8 @@ export type TextSelectionRange = { start: number; end: number; backward?: boolea
 export type InlineTextStyle = {
   color?: string;
   fontRole?: 'Display' | 'Body' | 'Accent' | 'Code';
+  /** A font file id. It wins over fontRole at the same level. */
+  fontId?: string;
   fontSize?: number;
   weight?: number;
   fontStyle?: 'normal' | 'italic';
@@ -16,7 +18,12 @@ export type ResolvedTextStyle = {
   fontWeight: number; tracking: number; underline: boolean; strikethrough: boolean;
 };
 export type ResolvedTextSegment = TextSelectionRange & { style: ResolvedTextStyle };
-export const INLINE_TEXT_KEYS = ['color', 'fontRole', 'fontSize', 'weight', 'fontStyle', 'underline', 'strikethrough', 'tracking'] as const;
+export const INLINE_TEXT_KEYS = ['color', 'fontRole', 'fontId', 'fontSize', 'weight', 'fontStyle', 'underline', 'strikethrough', 'tracking'] as const;
+
+/** A role and a font file are one setting: a patch that sets either replaces both. */
+export function withFontChoice<Patch extends Pick<InlineTextStyle, 'fontId' | 'fontRole'>>(patch: Patch): Patch {
+  return patch.fontRole === undefined && patch.fontId === undefined ? patch : { fontId: undefined, fontRole: undefined, ...patch };
+}
 
 function sameStyle(a: InlineTextStyle, b: InlineTextStyle) {
   return INLINE_TEXT_KEYS.every((key) => a[key] === b[key]);
@@ -45,7 +52,7 @@ function compactRuns(runs: TextStyleRun[]): TextStyleRun[] {
 export function formatTextRange(value: string, runs: readonly TextStyleRun[] | undefined, range: TextSelectionRange, patch: InlineTextStyle): TextStyleRun[] {
   const start = Math.max(0, Math.min(value.length, range.start));
   const end = Math.max(start, Math.min(value.length, range.end));
-  return compactRuns(textStyleSegments(value, [...(runs ?? []), { start, end, style: patch }]));
+  return compactRuns(textStyleSegments(value, [...(runs ?? []), { start, end, style: withFontChoice(patch) }]));
 }
 
 function selectionExplainsEdit(previous: string, next: string, selection: TextSelectionRange) {
@@ -84,14 +91,19 @@ export function clearTextStyleProperties(runs: readonly TextStyleRun[] | undefin
   if (!runs) return undefined;
   return compactRuns(runs.map((run) => {
     const style = { ...run.style };
-    for (const key of INLINE_TEXT_KEYS) if (patch[key] !== undefined) delete style[key];
+    for (const key of INLINE_TEXT_KEYS) if (key in withFontChoice(patch)) delete style[key];
     return { ...run, style };
   }));
 }
 
+function validateFontChoice(style: Record<string, unknown>) {
+  if (style.fontRole !== undefined && !['Display', 'Body', 'Accent', 'Code'].includes(String(style.fontRole))) throw new TypeError('Text run fontRole is unsupported.');
+  if (style.fontId !== undefined && (typeof style.fontId !== 'string' || !style.fontId || style.fontId.length > 200)) throw new TypeError('Text run fontId must be a font id.');
+}
+
 function validateInlineTextStyle(style: Record<string, unknown>) {
   for (const key of Object.keys(style)) if (!INLINE_TEXT_KEYS.includes(key as keyof InlineTextStyle)) throw new TypeError(`Unsupported text run style: ${key}.`);
-  if (style.fontRole !== undefined && !['Display', 'Body', 'Accent', 'Code'].includes(String(style.fontRole))) throw new TypeError('Text run fontRole is unsupported.');
+  validateFontChoice(style);
   if (style.fontStyle !== undefined && !['normal', 'italic'].includes(String(style.fontStyle))) throw new TypeError('Text run fontStyle is unsupported.');
   for (const key of ['underline', 'strikethrough']) if (style[key] !== undefined && typeof style[key] !== 'boolean') throw new TypeError(`Text run ${key} must be Boolean.`);
   for (const [key, min, max] of [['fontSize', Number.MIN_VALUE, 1_000_000], ['weight', 1, 1000], ['tracking', -10, 100]] as const) {

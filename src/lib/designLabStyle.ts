@@ -9,13 +9,14 @@ import type {
   ShaderApplication,
 } from './designLabModel';
 import type { LogoAppearanceSettings } from './logoAppearance';
-import { clearTextStyleProperties, INLINE_TEXT_KEYS, type InlineTextStyle } from './richText';
+import { clearTextStyleProperties, INLINE_TEXT_KEYS, withFontChoice, type InlineTextStyle } from './richText';
 import type { StickerFinishSettings } from './surfaceSticker';
 
 export const DESIGN_LAB_TEXT_STYLE_KEYS = [
   'align',
   'color',
   'fontRole',
+  'fontId',
   'fontSize',
   'fontStyle',
   'lineHeight',
@@ -115,7 +116,7 @@ export function applyDesignLabLayerStyle<Layer extends DesignLabStyledLayer>(
     const inline = Object.fromEntries(Object.entries(style.text).filter(([key]) => (
       (INLINE_TEXT_KEYS as readonly string[]).includes(key)
     ))) as InlineTextStyle;
-    const restyled: CompositionTextLayer = { ...text, ...style.text, ...opacity };
+    const restyled: CompositionTextLayer = { ...text, ...withFontChoice(style.text), ...opacity };
     if (text.runs) restyled.runs = clearTextStyleProperties(text.runs, inline);
     return { layer: restyled as Layer, material };
   }

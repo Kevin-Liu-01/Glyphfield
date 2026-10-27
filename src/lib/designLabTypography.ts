@@ -79,6 +79,9 @@ export function validateDesignLabTextTypography(value: unknown): void {
   if (typography.fontSize !== undefined && !isPositiveFiniteNumber(typography.fontSize)) {
     throw new TypeError('Text fontSize must be a positive finite number.');
   }
+  if (typography.fontId !== undefined && (typeof typography.fontId !== 'string' || !typography.fontId || typography.fontId.length > 200)) {
+    throw new TypeError('Text fontId must be a font id.');
+  }
   if (typography.fontStyle !== undefined && typography.fontStyle !== 'normal' && typography.fontStyle !== 'italic') {
     throw new TypeError('Text fontStyle must be normal or italic.');
   }

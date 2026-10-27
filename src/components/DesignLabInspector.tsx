@@ -77,8 +77,8 @@ import { useValueStore, type ValueStore } from '@/hooks/useValueStore';
 import {
   brandTypographyFamily,
   brandTypographyRole,
-  brandTypographyWeightRange,
   resolveBrandTypographyWeight,
+  selectableFontAssets,
   type BrandIdentity,
   type BrandTypography,
 } from '@/lib/brandIdentity';
@@ -116,7 +116,11 @@ import {
   DEFAULT_LAYER_TRANSFORM,
   DEFAULT_TEXT_LAYER_TRANSFORM,
   layerGeometry,
+  resolveTextFontWeight,
   STICKER_IMAGE_APPEARANCE,
+  textFontChoice,
+  textFontFamily,
+  textFontWeightRange,
   type AssetLayerId,
   type CanvasLayerId,
   type CompositionAsset,
@@ -814,11 +818,53 @@ export const DesignLabAssetLayerInspector = memo(function DesignLabAssetLayerIns
   );
 });
 
+const TEXT_FONT_ROLES = ['Display', 'Body', 'Accent', 'Code'] as const satisfies readonly BrandTypography['role'][];
+
+/** Stored brand fonts carry a project prefix in their family name. */
+function fontLabel(family: string): string {
+  return family.replace(/^Glyphfield Project [\da-f]+(?:-[\da-f]+)*:: /, '');
+}
+
+/** The four brand roles, then one entry per upright family the layer can draw in. */
+function DesignLabTextFontSelect({ choice, family, identity, onChange, weight }: {
+  choice: ReturnType<typeof textFontChoice>;
+  family: string;
+  identity: BrandIdentity;
+  onChange: (update: Pick<CompositionTextLayer, 'fontId' | 'fontRole' | 'weight'>) => void;
+  weight: number;
+}) {
+  const fonts = selectableFontAssets(identity).filter((font, index, all) => (
+    font.style === 'normal' && all.findIndex((other) => other.family === font.family && other.style === 'normal') === index
+  ));
+  const pickedFont = choice.fontId === undefined ? undefined : fonts.find((font) => font.family === family);
+  return <label className='shader-lab-v2-field'>
+    <span>Font</span>
+    <StudioSelect
+      ariaLabel='Text font role'
+      onValueChange={(value) => {
+        const role = TEXT_FONT_ROLES.find((candidate) => candidate === value);
+        const font = fonts.find(({ id }) => id === value);
+        if (role) {
+          onChange({ fontId: undefined, fontRole: role, weight: resolveBrandTypographyWeight(identity, role, brandTypographyRole(identity, role).weight ?? weight) });
+        } else if (font) {
+          onChange({ fontId: font.id, weight: resolveTextFontWeight(identity, font.family, weight) });
+        }
+      }}
+      options={[
+        ...TEXT_FONT_ROLES.map((role) => ({ label: `${role} · ${fontLabel(brandTypographyFamily(identity, role))}`, value: role })),
+        ...fonts.map((font) => ({ label: fontLabel(font.family), value: font.id })),
+      ]}
+      value={pickedFont?.id ?? choice.fontRole}
+    />
+  </label>;
+}
+
 function textInspectorRange(selection: SelectedTextInspector, range: TextSelectionRange | null) {
   const { layer, appearance } = selection;
   const segments = textStyleSegments(layer.value, layer.runs).filter((run) => !range || (run.start < range.end && run.end > range.start));
   const style = range ? segments[0]?.style ?? {} : {};
   return {
+    rangeStyle: style,
     selectedTextLayer: { ...layer, ...style },
     selectedTextAppearance: { ...appearance, ...style },
     mixedFormatting: segments.some((run) => INLINE_TEXT_KEYS.some((key) => (run.style[key] ?? layer[key]) !== (segments[0].style[key] ?? layer[key]))),
@@ -896,9 +942,10 @@ export const DesignLabTextLayerInspector = memo(function DesignLabTextLayerInspe
     layer: baseLayer,
     transform: selectedTextTransform,
   } = selection;
-  const { selectedTextLayer, selectedTextAppearance, mixedFormatting } = textInspectorRange(selection, textRange);
-  const resolvedWeight = resolveBrandTypographyWeight(identity, selectedTextAppearance.fontRole, selectedTextLayer.weight);
-  const rangeWeightBounds = brandTypographyWeightRange(identity, selectedTextAppearance.fontRole);
+  const { rangeStyle, selectedTextLayer, selectedTextAppearance, mixedFormatting } = textInspectorRange(selection, textRange);
+  const family = textFontFamily(identity, baseLayer, rangeStyle);
+  const resolvedWeight = resolveTextFontWeight(identity, family, selectedTextLayer.weight);
+  const rangeWeightBounds = textFontWeightRange(identity, family);
   return <>
     <TextSelectionScope range={textRange} mixed={mixedFormatting} onClear={clearTextRange} />
     <label className='shader-lab-v2-text-input'>
@@ -918,28 +965,13 @@ export const DesignLabTextLayerInspector = memo(function DesignLabTextLayerInspe
       />
     </label>
     <div aria-label='Typography' className='shader-lab-v2-text-controls'>
-      <label className='shader-lab-v2-field'>
-        <span>Brand font</span>
-        <StudioSelect
-          ariaLabel='Text font role'
-          onValueChange={(fontRole) => {
-            const nextRole = fontRole as BrandTypography['role'];
-            updateTextLayer(selectedTextLayer.id, {
-              fontRole: nextRole,
-              weight: resolveBrandTypographyWeight(
-                identity,
-                nextRole,
-                brandTypographyRole(identity, nextRole).weight ?? selectedTextLayer.weight
-              ),
-            });
-          }}
-          options={(['Display', 'Body', 'Accent', 'Code'] as const).map((role) => ({
-            label: `${role} · ${brandTypographyFamily(identity, role).replace(/^Glyphfield Project [\da-f]+(?:-[\da-f]+)*:: /, '')}`,
-            value: role,
-          }))}
-          value={selectedTextAppearance.fontRole}
-        />
-      </label>
+      <DesignLabTextFontSelect
+        choice={textFontChoice(baseLayer, rangeStyle)}
+        family={family}
+        identity={identity}
+        onChange={(update) => updateTextLayer(selectedTextLayer.id, update)}
+        weight={selectedTextLayer.weight}
+      />
       <ColorControl
         ariaLabel='Text color'
         label='Text color'
@@ -1005,11 +1037,11 @@ export const DesignLabTextLayerInspector = memo(function DesignLabTextLayerInspe
         max={textRange ? rangeWeightBounds.max : textWeightRange.max}
         min={textRange ? rangeWeightBounds.min : textWeightRange.min}
         onChange={(weight) => updateTextLayer(selectedTextLayer.id, {
-          weight: resolveBrandTypographyWeight(identity, selectedTextAppearance.fontRole, weight),
+          weight: resolveTextFontWeight(identity, family, weight),
         })}
         onPreview={(weight) => {
           if (textRange) return;
-          const resolvedWeight = resolveBrandTypographyWeight(identity, selectedTextAppearance.fontRole, weight);
+          const resolvedWeight = resolveTextFontWeight(identity, family, weight);
           previewSelectedTextStyle(stageRef.current, selectedCanvasLayerCount, 'fontWeight', String(resolvedWeight));
           previewSelectedTextLayer({ weight: resolvedWeight });
         }}

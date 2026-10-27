@@ -408,15 +408,7 @@ export function brandTypographyWeightRange(
   identity: BrandIdentity,
   role: BrandTypography['role']
 ): { max: number; min: number } {
-  const family = brandTypographyFamily(identity, role);
-  const assets = brandFontAssets(identity).filter((font) => (
-    font.family === family && font.style === 'normal'
-  ));
-  if (assets.length === 0) return { max: 900, min: 100 };
-  return {
-    max: Math.max(...assets.map((font) => font.weightMax ?? font.weight)),
-    min: Math.min(...assets.map((font) => font.weightMin ?? font.weight)),
-  };
+  return fontFamilyWeightRange(brandFontAssets(identity), brandTypographyFamily(identity, role));
 }
 
 export function resolveBrandTypographyWeight(
@@ -424,10 +416,33 @@ export function resolveBrandTypographyWeight(
   role: BrandTypography['role'],
   requestedWeight: number
 ): number {
-  const family = brandTypographyFamily(identity, role);
-  const assets = brandFontAssets(identity).filter((font) => (
-    font.family === family && font.style === 'normal'
-  ));
+  return resolveFontFamilyWeight(brandFontAssets(identity), brandTypographyFamily(identity, role), requestedWeight);
+}
+
+/** The brand's fonts, then each shipped font whose family the brand does not store. */
+export function selectableFontAssets(identity: BrandIdentity): BrandFontAsset[] {
+  const brand = brandFontAssets(identity);
+  return [...brand, ...STARTER_KIT_FONTS.filter((font) => !brand.some(({ family }) => family === font.family))];
+}
+
+export function fontFamilyWeightRange(
+  fonts: readonly BrandFontAsset[],
+  family: string
+): { max: number; min: number } {
+  const assets = fonts.filter((font) => font.family === family && font.style === 'normal');
+  if (assets.length === 0) return { max: 900, min: 100 };
+  return {
+    max: Math.max(...assets.map((font) => font.weightMax ?? font.weight)),
+    min: Math.min(...assets.map((font) => font.weightMin ?? font.weight)),
+  };
+}
+
+export function resolveFontFamilyWeight(
+  fonts: readonly BrandFontAsset[],
+  family: string,
+  requestedWeight: number
+): number {
+  const assets = fonts.filter((font) => font.family === family && font.style === 'normal');
   if (assets.length === 0) return Math.min(900, Math.max(100, Math.round(requestedWeight)));
 
   const variableAsset = assets.find((font) => (

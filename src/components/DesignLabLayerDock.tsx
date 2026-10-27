@@ -12,7 +12,7 @@ import { imageCropElementStyle } from '@/components/DesignLabCanvasContent';
 import { ArrowDown, ArrowUp, Copy, Eye, EyeOff, Grid3X3, ImagePlus, Layers3, Lock, LockOpen, Sparkles, Sticker, Trash2, Type } from '@/components/ui/SolidIcons';
 import { contextMenuPositionFromElement, contextMenuPositionFromEvent, type StudioContextMenuPosition } from '@/components/ui/StudioContextMenu';
 import StudioPreviewTooltip from '@/components/ui/StudioPreviewTooltip';
-import { brandTypographyFamily, resolveBrandTypographyWeight, type BrandIdentity } from '@/lib/brandIdentity';
+import type { BrandIdentity } from '@/lib/brandIdentity';
 import {
   isAssetLayerId,
   isCanvasLayerId,
@@ -24,6 +24,7 @@ import {
   isTextLayerId,
   resolvedTextAppearance,
   resolveTextRunStyle,
+  textLayerFont,
   type CanvasLayerId,
   type CompositionAsset,
   type CompositionEffectLayer,
@@ -225,8 +226,8 @@ export function TextLayerDockPreview({ layer, identity, onSelect, onChange }: {
   const appearance = resolvedTextAppearance(layer);
   return <input aria-label={`Edit ${layer.name}`} onChange={(event) => onChange(event.target.value)}
     onFocus={onSelect} onKeyDown={(event) => event.stopPropagation()}
-    style={{ color: appearance.color, fontFamily: `${JSON.stringify(brandTypographyFamily(identity, appearance.fontRole))}, sans-serif`,
-      fontStyle: layer.fontStyle ?? 'normal', fontWeight: resolveBrandTypographyWeight(identity, appearance.fontRole, layer.weight),
+    style={{ color: appearance.color, fontFamily: `${JSON.stringify(textLayerFont(identity, layer).family)}, sans-serif`,
+      fontStyle: layer.fontStyle ?? 'normal', fontWeight: textLayerFont(identity, layer).weight,
       letterSpacing: `${layer.tracking}em`, opacity: appearance.opacity, textDecorationColor: appearance.color,
       textDecorationLine: designLabTextDecorationLine(layer), textDecorationThickness: 'from-font', textUnderlineOffset: '0.12em' }}
     type='text' value={layer.value} />;
@@ -265,9 +266,9 @@ export function LayerDockTooltipPreview({
         <span
           style={{
             color: textAppearance.color,
-            fontFamily: `${JSON.stringify(brandTypographyFamily(identity, textAppearance.fontRole))}, sans-serif`,
+            fontFamily: `${JSON.stringify(textLayerFont(identity, textLayer).family)}, sans-serif`,
             fontStyle: textLayer.fontStyle ?? 'normal',
-            fontWeight: resolveBrandTypographyWeight(identity, textAppearance.fontRole, textLayer.weight),
+            fontWeight: textLayerFont(identity, textLayer).weight,
             letterSpacing: `${textLayer.tracking}em`,
             opacity: textAppearance.opacity,
             textDecorationColor: textAppearance.color,

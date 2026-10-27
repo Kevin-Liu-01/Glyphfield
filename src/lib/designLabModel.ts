@@ -1,7 +1,7 @@
 // Design Lab editor model: layer and artboard shapes, layer-id guards, and the
 // resolved appearance defaults shared by the editor, its canvas, and export.
 import { STUDIO_ARTBOARD_PRESETS, type StudioArtboardDimensions, type StudioArtboardPresetId } from '@/lib/artboardSizes';
-import { brandTypographyFamily, resolveBrandTypographyWeight, type BrandIdentity, type BrandTypography } from '@/lib/brandIdentity';
+import { brandTypographyFamily, fontFamilyWeightRange, resolveFontFamilyWeight, selectableFontAssets, type BrandIdentity, type BrandTypography } from '@/lib/brandIdentity';
 import type { MotionExportQuality, MotionLoopMode } from '@/lib/canvasExport';
 import type { CanvasLayerTransform } from '@/lib/canvasInteraction';
 import type { CanvasTextAlign, CanvasTextWrap } from '@/lib/canvasText';
@@ -101,6 +101,8 @@ export type CompositionTextLayer = {
   align: CanvasTextAlign;
   color?: string;
   fontRole?: BrandTypography['role'];
+  /** A font file id. It wins over fontRole; an id that no longer resolves falls back to the role. */
+  fontId?: string;
   fontSize?: number;
   fontStyle?: 'normal' | 'italic';
   id: TextLayerId;
@@ -136,15 +138,44 @@ export type LayerGeometry = {
   baseY: number;
 };
 
+/** A run's own font choice beats its layer's, and a font file beats a role. */
+export function textFontChoice(layer: CompositionTextLayer, style: InlineTextStyle = {}): { fontId?: string; fontRole: BrandTypography['role'] } {
+  const own = style.fontId !== undefined || style.fontRole !== undefined;
+  return {
+    fontId: own ? style.fontId : layer.fontId,
+    fontRole: (own ? style.fontRole : undefined) ?? layer.fontRole ?? DEFAULT_TEXT_APPEARANCE.fontRole,
+  };
+}
+
+export function textFontFamily(identity: BrandIdentity, layer: CompositionTextLayer, style: InlineTextStyle = {}): string {
+  const { fontId, fontRole } = textFontChoice(layer, style);
+  const font = fontId === undefined ? undefined : selectableFontAssets(identity).find(({ id }) => id === fontId);
+  return font?.family ?? brandTypographyFamily(identity, fontRole);
+}
+
+export function resolveTextFontWeight(identity: BrandIdentity, family: string, requestedWeight: number): number {
+  return resolveFontFamilyWeight(selectableFontAssets(identity), family, requestedWeight);
+}
+
+export function textFontWeightRange(identity: BrandIdentity, family: string): { max: number; min: number } {
+  return fontFamilyWeightRange(selectableFontAssets(identity), family);
+}
+
+/** The family and rendered weight of a text layer's box-wide style. */
+export function textLayerFont(identity: BrandIdentity, layer: CompositionTextLayer): { family: string; weight: number } {
+  const family = textFontFamily(identity, layer);
+  return { family, weight: resolveTextFontWeight(identity, family, layer.weight) };
+}
+
 export function resolveTextRunStyle(layer: CompositionTextLayer, identity: BrandIdentity, canvasHeight: number, style: InlineTextStyle): ResolvedTextStyle {
   const appearance = resolvedTextAppearance(layer);
-  const fontRole = style.fontRole ?? appearance.fontRole;
+  const family = textFontFamily(identity, layer, style);
   return {
     color: style.color ?? appearance.color,
-    fontFamily: `${JSON.stringify(brandTypographyFamily(identity, fontRole))}, Arial, sans-serif`,
+    fontFamily: `${JSON.stringify(family)}, Arial, sans-serif`,
     fontSize: style.fontSize === undefined ? resolveDesignLabFontSize(layer, canvasHeight) : style.fontSize * layer.transform.scale,
     fontStyle: style.fontStyle ?? layer.fontStyle ?? 'normal',
-    fontWeight: resolveBrandTypographyWeight(identity, fontRole, style.weight ?? layer.weight),
+    fontWeight: resolveTextFontWeight(identity, family, style.weight ?? layer.weight),
     tracking: style.tracking ?? layer.tracking,
     underline: style.underline ?? layer.underline ?? false,
     strikethrough: style.strikethrough ?? layer.strikethrough ?? false,

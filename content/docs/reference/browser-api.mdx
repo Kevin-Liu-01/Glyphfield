@@ -149,7 +149,7 @@ design.export.shader-sequence.mp4
 
 ### Text
 
-`design.text.format` applies inline styling to a text layer on the active surface with `{ layerId, start, end, style }`. Offsets count UTF-16 code units, the end is exclusive, and the range must be non-empty and inside the text. `style` accepts `color`, `fontRole`, `fontSize`, `weight`, `fontStyle`, `underline`, `strikethrough` and `tracking`. Font sizes are authored pixels before layer scale. Characters outside the range keep their styles. Read `element.data.runs` back after a change. [Text](/docs/studio/design-lab/layers#text) describes the source model and box-wide settings.
+`design.text.format` applies inline styling to a text layer on the active surface with `{ layerId, start, end, style }`. Offsets count UTF-16 code units, the end is exclusive, and the range must be non-empty and inside the text. `style` accepts `color`, `fontRole`, `fontId`, `fontSize`, `weight`, `fontStyle`, `underline`, `strikethrough` and `tracking`. Font sizes are authored pixels before layer scale. Characters outside the range keep their styles. Read `element.data.runs` back after a change. [Text](/docs/studio/design-lab/layers#text) describes the source model and box-wide settings.
 
 ### Shader frames and motion
 
