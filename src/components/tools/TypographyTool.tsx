@@ -49,6 +49,7 @@ import {
   type BrandIdentity,
   type BrandTypography,
 } from '@/lib/brandIdentity';
+import { STARTER_KIT_FONTS } from '@/lib/brandStarterKit';
 import { BRAND_TYPE_STEPS, brandCssVariables, brandDesignTokens, brandRoleTypeStep, brandTailwindTheme, brandTypeScale } from '@/lib/brandTokens';
 import { copyTextToClipboard } from '@/lib/clipboard';
 import { blobToDataUrl } from '@/lib/download';
@@ -190,6 +191,8 @@ function RoleLibrary({ identity, onFile, onSelect, selectedRole }: { identity: B
 type TypeActions = {
   applyRecommendedTracking: () => void;
   begin: () => void;
+  /** Stores a font Glyphfield ships with the identity and sets it for the role. */
+  chooseBundledFont: (role: Role, font: BrandFontAsset) => void;
   commit: () => void;
   previewRole: (role: Role, patch: Partial<BrandTypography>) => void;
   commitRole: (role: Role, patch: Partial<BrandTypography>, clear?: readonly (keyof BrandTypography)[]) => void;
@@ -201,12 +204,23 @@ function TypefaceSection({ actions, identity, role }: { actions: TypeActions; id
   const working = useWorkingTypeIdentity(identity);
   const typography = roleTypography(working, role);
   const fonts = brandFontAssets(working);
+  // Upright fonts Glyphfield ships that the identity does not store yet, such as the Katagami family.
+  const bundled = STARTER_KIT_FONTS.filter((font) => font.style === 'normal' && !fonts.some((candidate) => candidate.id === font.id));
   const size = useSpecimen((state) => clampTypographyPreviewSize(role, state.previewSizes[role] ?? TYPOGRAPHY_PREVIEW_DEFAULT_SIZES[role]));
   const specimen = useSpecimenStore();
+  const chooseFont = (fontId: string) => {
+    const font = fonts.find((candidate) => candidate.id === fontId);
+    if (font) {
+      actions.commitRole(role, { family: font.family, fontId });
+      return;
+    }
+    const shipped = bundled.find((candidate) => candidate.id === fontId);
+    if (shipped) actions.chooseBundledFont(role, shipped);
+  };
   return (
     <LabInspectorSection meta={role} title={<T>Typeface</T>}>
       <Field label={<T>Font family</T>}>
-        <StudioSelect ariaLabel={`${role} font`} onValueChange={(fontId) => { const font = fonts.find((candidate) => candidate.id === fontId); if (font) actions.commitRole(role, { family: font.family, fontId }); }} options={fonts.map((font) => ({ label: font.label, value: font.id }))} value={typography.fontId ?? fonts[0]?.id ?? ''} />
+        <StudioSelect ariaLabel={`${role} font`} onValueChange={chooseFont} options={[...fonts, ...bundled].map((font) => ({ label: font.label, value: font.id }))} value={typography.fontId ?? fonts[0]?.id ?? ''} />
       </Field>
       <RangeField label={<T>Preview size</T>} max={TYPOGRAPHY_PREVIEW_MAX_SIZES[role]} min={10} onChange={(value) => specimen.set((current) => ({ ...current, previewSizes: { ...current.previewSizes, [role]: value } }))} suffix='px' value={size} />
       <RangeField label={<T>Weight</T>} max={MAX_VISIBLE_FONT_WEIGHT} min={100} onChange={(weight) => actions.previewRole(role, { weight })} onChangeEnd={actions.commit} onChangeStart={actions.begin} step={25} value={typography.weight ?? 400} />
@@ -435,6 +449,11 @@ function TypographyTool({ identity, onIdentityChange, tool }: { identity: BrandI
   const actions: TypeActions = {
     applyRecommendedTracking,
     begin: () => { gesture.current = true; },
+    chooseBundledFont: (role, font) => {
+      patchRole(role, { family: font.family, fontId: font.id });
+      const next = withState(store.get());
+      onIdentityChangeRef.current({ ...next, fonts: [...brandFontAssets(identityRef.current), { ...font }] });
+    },
     commit,
     commitRole: (role, patch, clear) => { patchRole(role, patch, clear); commit(); },
     commitScale: (patch) => { patchScale(patch); commit(); },
