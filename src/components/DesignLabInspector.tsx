@@ -92,7 +92,6 @@ import {
 } from '@/lib/liveMaterials';
 import type { LogoAppearanceSettings } from '@/lib/logoAppearance';
 import { DEFAULT_IMAGE_CROP, normalizeImageCropSettings, type ImageCropSettings } from '@/lib/imagePlacement';
-import { shaderLabSettingsFor } from '@/lib/shaderLab';
 import {
   clampShaderZoom,
   formatShaderZoom,
@@ -112,6 +111,7 @@ import {
   type StickerFinishSettings,
 } from '@/lib/surfaceSticker';
 import { TEXT_EFFECT_PRESETS, type TextEffectSettings } from '@/lib/textEffects';
+import type { AssetLayerEdit, LogoLayerEdit, ShaderEdit, TextLayerEdit } from '@/lib/designLabSelectionEdit';
 import {
   DEFAULT_LAYER_TRANSFORM,
   DEFAULT_TEXT_LAYER_TRANSFORM,
@@ -654,14 +654,12 @@ export const DesignLabAssetLayerInspector = memo(function DesignLabAssetLayerIns
   previewImageCrop: (patch: Partial<ImageCropSettings>) => void;
   previewOpacity: (value: number) => void;
   previewStickerFinish: (patch: Partial<StickerFinishSettings>) => void;
-  updateAsset: (update: Partial<Omit<CompositionAsset, 'id'>>) => void;
+  updateAsset: (update: AssetLayerEdit) => void;
 }) {
   const sticker = asset.kind === 'sticker';
   const crop = normalizeImageCropSettings(asset.imageCrop);
   const finish = normalizeStickerFinish(asset.stickerFinish);
-  const updateFinish = (patch: Partial<StickerFinishSettings>) => updateAsset({
-    stickerFinish: normalizeStickerFinish({ ...finish, ...patch }),
-  });
+  const updateFinish = (patch: Partial<StickerFinishSettings>) => updateAsset({ stickerFinish: patch });
 
   return (
     <div aria-label={sticker ? 'Sticker appearance' : 'Image appearance'} className='shader-lab-v2-layer-settings' role='group'>
@@ -796,7 +794,7 @@ export const DesignLabAssetLayerInspector = memo(function DesignLabAssetLayerIns
 
       <LogoAppearanceControls
         kind={sticker ? 'sticker' : 'image'}
-        onChange={(patch) => updateAsset({ appearance: { ...appearance, ...patch } })}
+        onChange={(patch) => updateAsset({ appearance: patch })}
         onPreview={previewAppearance}
         settings={appearance}
       />
@@ -935,8 +933,8 @@ export const DesignLabTextLayerInspector = memo(function DesignLabTextLayerInspe
   stageRef: RefObject<HTMLDivElement | null>;
   textRenderedWeight: number;
   textWeightRange: { max: number; min: number };
-  updateTextLayer: (id: TextLayerId, update: Partial<Omit<CompositionTextLayer, 'id'>>) => void;
-  updateTextBox: (id: TextLayerId, update: Partial<Omit<CompositionTextLayer, 'id'>>) => void;
+  updateTextLayer: (id: TextLayerId, update: TextLayerEdit) => void;
+  updateTextBox: (id: TextLayerId, update: TextLayerEdit) => void;
 }) {
   const {
     layer: baseLayer,
@@ -1130,7 +1128,7 @@ export const DesignLabTextLayerInspector = memo(function DesignLabTextLayerInspe
                 ariaLabel='Text effect background color'
                 label='Background'
                 onChange={(backgroundColor) => updateTextLayer(selectedTextLayer.id, {
-                  textEffect: { ...selectedTextAppearance.textEffect, backgroundColor },
+                  textEffect: { backgroundColor },
                 })}
                 onPreview={(backgroundColor) => previewSelectedTextAppearance({ textEffect: { backgroundColor } })}
                 value={selectedTextAppearance.textEffect.backgroundColor}
@@ -1143,7 +1141,7 @@ export const DesignLabTextLayerInspector = memo(function DesignLabTextLayerInspe
                 max={100}
                 min={0}
                 onChange={(amount) => updateTextLayer(selectedTextLayer.id, {
-                  textEffect: { ...selectedTextAppearance.textEffect, amount },
+                  textEffect: { amount },
                 })}
                 onPreview={(amount) => previewSelectedTextAppearance({ textEffect: { amount } })}
                 step={1}
@@ -1155,7 +1153,7 @@ export const DesignLabTextLayerInspector = memo(function DesignLabTextLayerInspe
                 max={36}
                 min={4}
                 onChange={(scale) => updateTextLayer(selectedTextLayer.id, {
-                  textEffect: { ...selectedTextAppearance.textEffect, scale },
+                  textEffect: { scale },
                 })}
                 onPreview={(scale) => previewSelectedTextAppearance({ textEffect: { scale } })}
                 step={1}
@@ -1169,7 +1167,7 @@ export const DesignLabTextLayerInspector = memo(function DesignLabTextLayerInspe
                 max={180}
                 min={-180}
                 onChange={(angle) => updateTextLayer(selectedTextLayer.id, {
-                  textEffect: { ...selectedTextAppearance.textEffect, angle },
+                  textEffect: { angle },
                 })}
                 onPreview={(angle) => previewSelectedTextAppearance({ textEffect: { angle } })}
                 step={1}
@@ -1203,11 +1201,11 @@ export const DesignLabTextLayerInspector = memo(function DesignLabTextLayerInspe
 export const DesignLabShaderInspector = memo(function DesignLabShaderInspector({
   brandPalette,
   editingShader,
-  initialSettings,
   material,
   previewSelectedShaderOpacity,
   previewSelectedShaderSize,
   previewSelectedShaderSetting,
+  resetSelectedShader,
   settings,
   shaderSize,
   updateSelectedShader,
@@ -1215,14 +1213,14 @@ export const DesignLabShaderInspector = memo(function DesignLabShaderInspector({
 }: {
   brandPalette: ReturnType<typeof brandMaterialPalette>;
   editingShader: ShaderApplication;
-  initialSettings: LiveMaterialSettings;
   material: LiveMaterialOption;
   previewSelectedShaderOpacity: (value: number) => void;
   previewSelectedShaderSize: (value: number) => void;
   previewSelectedShaderSetting: <Key extends keyof LiveMaterialSettings>(key: Key, value: LiveMaterialSettings[Key]) => void;
+  resetSelectedShader: () => void;
   settings: LiveMaterialSettings;
   shaderSize: number;
-  updateSelectedShader: (update: Partial<ShaderApplication>) => void;
+  updateSelectedShader: (update: ShaderEdit) => void;
   updateSetting: <Key extends keyof LiveMaterialSettings>(key: Key, value: LiveMaterialSettings[Key]) => void;
 }) {
   return <>
@@ -1249,12 +1247,7 @@ export const DesignLabShaderInspector = memo(function DesignLabShaderInspector({
             aria-label={`Apply ${palette.name} palette`}
             key={palette.id}
             onClick={() => updateSelectedShader({
-              settings: {
-                ...settings,
-                colorA: palette.colors[0],
-                colorB: palette.colors[1],
-                colorC: palette.colors[2],
-              },
+              settings: { colorA: palette.colors[0], colorB: palette.colors[1], colorC: palette.colors[2] },
             })}
             title={palette.name}
             type='button'
@@ -1265,10 +1258,7 @@ export const DesignLabShaderInspector = memo(function DesignLabShaderInspector({
       </div>
       <div className='shader-lab-v2-shader-meta'>
         <button
-          onClick={() => updateSelectedShader({
-            settings: shaderLabSettingsFor(editingShader.materialId, initialSettings),
-            shaderSize: 1,
-          })}
+          onClick={resetSelectedShader}
           type='button'
         ><RotateCcw aria-hidden='true' />Reset shader</button>
         {material.sourceUrl ? (
@@ -1496,6 +1486,7 @@ export type DesignLabInspectorActions = {
   rememberTextSelection: (layerId: TextLayerId, range: TextSelectionRange) => void;
   removeActiveArtboard: () => void;
   removeShaderFromSelectedContent: () => void;
+  resetSelectedShader: () => void;
   renameActiveArtboard: (name: string) => void;
   resetAssetTransform: (id: AssetLayerId) => void;
   resetLogoTransform: (id: LogoLayerId) => void;
@@ -1506,16 +1497,16 @@ export type DesignLabInspectorActions = {
   setImageCropEditing: (id: AssetLayerId, editing: boolean) => void;
   toggleWorkspaceTour: () => void;
   updateActiveArtboardDimensions: (dimensions: StudioArtboardDimensions) => void;
-  updateAssetLayer: (id: AssetLayerId, update: Partial<Omit<CompositionAsset, 'id'>>) => void;
+  updateAssetLayer: (id: AssetLayerId, update: AssetLayerEdit) => void;
   updateCanvasBackground: (color: string) => void;
   updateCanvasLayerTransform: (id: CanvasLayerId, transform: CanvasLayerTransform) => void;
   rotateCanvasLayer: (id: CanvasLayerId, rotation: number) => void;
   updateEffectLayer: (id: EffectLayerId, update: Partial<Omit<CompositionEffectLayer, 'id'>>) => void;
-  updateLogoLayer: (id: LogoLayerId, update: Partial<Omit<CompositionLogoLayer, 'id'>>) => void;
-  updateSelectedShader: (update: Partial<ShaderApplication>) => void;
+  updateLogoLayer: (id: LogoLayerId, update: LogoLayerEdit) => void;
+  updateSelectedShader: (update: ShaderEdit) => void;
   updateSetting: <Key extends keyof LiveMaterialSettings>(key: Key, value: LiveMaterialSettings[Key]) => void;
-  updateTextFormatting: (id: TextLayerId, update: Partial<Omit<CompositionTextLayer, 'id'>>) => void;
-  updateTextLayer: (id: TextLayerId, update: Partial<Omit<CompositionTextLayer, 'id'>>) => void;
+  updateTextFormatting: (id: TextLayerId, update: TextLayerEdit) => void;
+  updateTextLayer: (id: TextLayerId, update: TextLayerEdit) => void;
 };
 
 /**
@@ -1541,7 +1532,6 @@ export const DesignLabInspectorPanel = memo(function DesignLabInspectorPanel({
   editingShader,
   identity,
   imageEffectStatusStore,
-  initialSettings,
   layerRows,
   material,
   outputArtboards,
@@ -1592,7 +1582,6 @@ export const DesignLabInspectorPanel = memo(function DesignLabInspectorPanel({
   editingShader: ShaderApplication | null;
   identity: BrandIdentity;
   imageEffectStatusStore: DesignLabImageEffectStatusStore;
-  initialSettings: LiveMaterialSettings;
   layerRows: ReactNode;
   material: LiveMaterialOption;
   outputArtboards: readonly DesignLabInspectorArtboard[];
@@ -1728,11 +1717,11 @@ export const DesignLabInspectorPanel = memo(function DesignLabInspectorPanel({
         <DesignLabShaderInspector
           brandPalette={brandPalette}
           editingShader={editingShader}
-          initialSettings={initialSettings}
           material={material}
           previewSelectedShaderOpacity={previewSelectedShaderOpacity}
           previewSelectedShaderSize={previewSelectedShaderSize}
           previewSelectedShaderSetting={previewSelectedShaderSetting}
+          resetSelectedShader={actions.resetSelectedShader}
           settings={settings}
           shaderSize={shaderSize}
           updateSelectedShader={updateSelectedShader}
@@ -1748,7 +1737,7 @@ export const DesignLabInspectorPanel = memo(function DesignLabInspectorPanel({
           onRotate={(rotation) => actions.rotateCanvasLayer(selectedShaderLayer.id, rotation)}
         />
       )}</OptionalRender>
-      <OptionalRender value={selectedContentLayerId}>{() => <LabInspectorSection className='shader-lab-v2-control-section shader-lab-v2-layer-inspector' data-canvas-selection-preserve meta={contentKind ?? ''} title='Selected layer'>
+      <OptionalRender value={selectedContentLayerId}>{() => <LabInspectorSection className='shader-lab-v2-control-section shader-lab-v2-layer-inspector' data-canvas-selection-preserve meta={selectedCanvasLayerCount > 1 ? `${selectedCanvasLayerCount} layers` : contentKind ?? ''} title='Selected layer'>
         <OptionalRender value={selectedTextInspector}>{(selection) => (
           <DesignLabTextLayerInspector
             key={selection.layer.id}
@@ -1795,7 +1784,7 @@ export const DesignLabInspectorPanel = memo(function DesignLabInspectorPanel({
               value={selectedLogoLayer.opacity ?? 1}
             />
             <LogoAppearanceControls
-              onChange={(patch) => actions.updateLogoLayer(selectedLogoLayer.id, { appearance: { ...selectedLogoAppearance, ...patch } })}
+              onChange={(patch) => actions.updateLogoLayer(selectedLogoLayer.id, { appearance: patch })}
               onPreview={previewSelectedLogoAppearance}
               settings={selectedLogoAppearance}
             />

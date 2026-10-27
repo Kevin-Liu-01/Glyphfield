@@ -30,6 +30,18 @@ A new layer is selected when it is added.
 
 Text and image boxes do not resize to fit their contents. Text that overflows a narrow box stays visible in the preview and in the export.
 
+### Edit several layers at once
+
+With more than one layer selected, the inspector shows the last layer you selected and its meta reads the number of layers. A change in the inspector applies to every selected layer that has that setting:
+
+- Layers of the same kind take every change: font, color, size, weight, styles, line height, tracking, text effect, outline, shadow, appearance, sticker finish and box width.
+- Text, marks and images all take **Layer opacity**, and marks and images share appearance.
+- **Layer rotation** turns each selected layer about its own center.
+- Shader settings, palettes, **Reset shader**, a material picked from the library and **Remove shader from layer** reach every selected shader layer and every selected layer with a material. A layer without a material only gains one when you pick a material.
+- On shader layers, **Frame width** and **Frame height** apply to each selected shader layer, and the position fields move the selection together.
+
+Text content, image crop, a mark's source and each layer's position stay per layer. A font size is set on each text box from its own box, so boxes keep their positions. When part of a text box is selected for formatting, changes apply only to those characters.
+
 ## Rotate layers
 
 Text, mark, image, sticker, and shader layers rotate about their centers.

@@ -324,6 +324,16 @@ import {
   type TextAppearanceSettings,
   type TextLayerId,
 } from '@/lib/designLabModel';
+import {
+  applyAssetEdit,
+  applyLogoEdit,
+  applyPeerTextEdit,
+  peerEdit,
+  type AssetLayerEdit,
+  type LogoLayerEdit,
+  type ShaderEdit,
+  type TextLayerEdit,
+} from '@/lib/designLabSelectionEdit';
 import { applyImageCropPreviewStyles, stickerFinishCssVariables } from '@/components/DesignLabCanvasContent';
 import {
   DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT,
@@ -2036,7 +2046,6 @@ type DesignLabLayerActionsInput = {
   removeEffectLayer: (id: EffectLayerId) => void;
   removeLogoLayer: (id: LogoLayerId) => void;
   removeTextLayer: (id: TextLayerId) => void;
-  selectedContentLayerId: ContentLayerId | null;
   setCompositionAssets: Dispatch<SetStateAction<CompositionAsset[]>>;
   setEffectLayers: Dispatch<SetStateAction<CompositionEffectLayer[]>>;
   setExportError: Dispatch<SetStateAction<string | null>>;
@@ -2060,7 +2069,6 @@ function useDesignLabLayerActions({
   removeEffectLayer,
   removeLogoLayer,
   removeTextLayer,
-  selectedContentLayerId,
   setCompositionAssets,
   setEffectLayers,
   setExportError,
@@ -2255,11 +2263,11 @@ function useDesignLabLayerActions({
     setCompositionAssets((current) => current.map((layer) => targets.has(layer.id) ? { ...layer, visible } : layer));
   }
 
-  function removeShaderFromSelectedContent() {
-    if (!selectedContentLayerId) return;
+  function removeShadersFromContent(ids: readonly ContentLayerId[]) {
+    if (!ids.length) return;
     setLayerShaders((current) => {
       const next = { ...current };
-      delete next[selectedContentLayerId];
+      ids.forEach((id) => delete next[id]);
       return next;
     });
   }
@@ -2278,7 +2286,7 @@ function useDesignLabLayerActions({
     return layerKind(id);
   }
 
-  return { duplicateLayer, duplicateLayers, layerLabel, removeLayer, removeShaderFromSelectedContent, resolvedLayerKind, setLayersVisibility, toggleLayerVisibility };
+  return { duplicateLayer, duplicateLayers, layerLabel, removeLayer, removeShadersFromContent, resolvedLayerKind, setLayersVisibility, toggleLayerVisibility };
 }
 
 function useDesignLabCanvasSelection({
@@ -2404,6 +2412,34 @@ function useDesignLabCanvasSelection({
     ids.forEach((layerId) => {
       const transform = canvasLayerTransform(layerId);
       if (transform) updates.set(layerId, withCanvasLayerRotation(transform, degrees));
+    });
+    updateCanvasLayerTransforms(updates);
+  }
+
+  /** An inspector frame edit: the selection moves together, and layers of the same kind take the new size. */
+  function updateSelectionFrame(id: CanvasLayerId, nextTransform: CanvasLayerTransform) {
+    const current = canvasLayerTransform(id);
+    if (!current) return;
+    const ids = selectedCanvasLayerIdSet.has(id) ? selectedCanvasLayerIds : [id];
+    if (ids.length <= 1) {
+      updateCanvasLayerTransforms(new Map([[id, nextTransform]]));
+      return;
+    }
+    const before: Partial<Record<string, unknown>> = current;
+    const after: Partial<Record<string, unknown>> = nextTransform;
+    const size = Object.fromEntries([...new Set([...Object.keys(before), ...Object.keys(after)])]
+      .filter((key) => key !== 'x' && key !== 'y' && before[key] !== after[key])
+      .map((key) => [key, after[key]]));
+    const updates = new Map<CanvasLayerId, CanvasLayerTransform>();
+    ids.forEach((layerId) => {
+      const transform = canvasLayerTransform(layerId);
+      if (!transform) return;
+      updates.set(layerId, {
+        ...transform,
+        ...(layerKind(layerId) === layerKind(id) ? size : {}),
+        x: transform.x + nextTransform.x - current.x,
+        y: transform.y + nextTransform.y - current.y,
+      });
     });
     updateCanvasLayerTransforms(updates);
   }
@@ -2599,6 +2635,7 @@ function useDesignLabCanvasSelection({
     selectLayerFromStack,
     ungroupCanvasSelection,
     updateCanvasLayerTransform,
+    updateSelectionFrame,
   };
 }
 
@@ -3496,7 +3533,7 @@ export default function ShaderLabStudio({
     duplicateLayers,
     layerLabel,
     removeLayer,
-    removeShaderFromSelectedContent,
+    removeShadersFromContent,
     resolvedLayerKind,
     setLayersVisibility,
     toggleLayerVisibility,
@@ -3509,7 +3546,6 @@ export default function ShaderLabStudio({
     removeEffectLayer,
     removeLogoLayer,
     removeTextLayer,
-    selectedContentLayerId,
     setCompositionAssets,
     setEffectLayers,
     setExportError,
@@ -3546,6 +3582,7 @@ export default function ShaderLabStudio({
     selectLayerFromStack,
     ungroupCanvasSelection,
     updateCanvasLayerTransform,
+    updateSelectionFrame,
   } = useDesignLabCanvasSelection({
     canvasDimensions,
     compositionAssets,
@@ -4358,28 +4395,51 @@ export default function ShaderLabStudio({
     setTextLayers((current) => current.map((layer) => ({ ...layer, weight: textLayerFont(identity, layer).weight })));
   }, [identity, setTextLayers, textLayers]);
 
-  function updateSelectedShader(update: Partial<ShaderApplication>) {
-    const recipeUpdate = update.materialId !== undefined || update.settings !== undefined || update.shaderSize !== undefined
-      ? { ...update, frameSnapshot: undefined, ...(update.materialId !== undefined ? { frameState: undefined } : {}) } : update;
-    const normalizedUpdate = recipeUpdate.shaderSize === undefined
-      ? recipeUpdate
-      : { ...recipeUpdate, shaderSize: clampShaderZoom(recipeUpdate.shaderSize) };
-    if (selectedShaderLayer) {
-      shaderApplicationPreviewOverridesRef.current.delete(selectedShaderLayer.id);
-      setShaderLayers((current) => current.map((layer) => (
-        layer.id === selectedShaderLayer.id ? { ...layer, ...normalizedUpdate } : layer
-      )));
-      return;
+  /** The primary layer's shader, then every other selected shader layer and content layer. */
+  function shaderEditTargets(): CanvasLayerId[] {
+    const primary = selectedShaderLayer?.id ?? selectedContentLayerId;
+    if (!primary) return [];
+    return selectedCanvasLayerIds.includes(primary) ? [primary, ...selectedCanvasLayerIds.filter((id) => id !== primary)] : [primary];
+  }
+
+  /** Edits each target's material. Only the primary content layer gains one; peers without a material keep none. */
+  function editSelectedShaders(editFor: (application: ShaderApplication) => ShaderEdit) {
+    const targets = shaderEditTargets();
+    const primary = targets[0];
+    if (!primary) return;
+    function apply<Application extends ShaderApplication>(application: Application): Application {
+      const edit = editFor(application);
+      const recipeChanged = edit.materialId !== undefined || edit.settings !== undefined || edit.shaderSize !== undefined;
+      return {
+        ...application,
+        ...edit,
+        settings: edit.settings ? { ...application.settings, ...edit.settings } : application.settings,
+        shaderSize: edit.shaderSize === undefined ? application.shaderSize : clampShaderZoom(edit.shaderSize),
+        ...(recipeChanged ? { frameSnapshot: undefined } : {}),
+        ...(edit.materialId === undefined ? {} : { frameState: undefined }),
+      };
     }
-    if (!selectedContentLayerId) return;
-    shaderApplicationPreviewOverridesRef.current.delete(selectedContentLayerId);
-    setLayerShaders((current) => ({
-      ...current,
-      [selectedContentLayerId]: {
-        ...(current[selectedContentLayerId] ?? shaderApplicationFor(activeMaterialId, brandPalette.colors)),
-        ...normalizedUpdate,
-      },
-    }));
+    targets.forEach((id) => shaderApplicationPreviewOverridesRef.current.delete(id));
+    const shaderIds = new Set<CanvasLayerId>(targets.filter(isShaderLayerId));
+    if (shaderIds.size) setShaderLayers((current) => current.map((layer) => shaderIds.has(layer.id) ? apply(layer) : layer));
+    const contentIds = targets.filter(isContentLayerId);
+    if (contentIds.length) setLayerShaders((current) => {
+      const next = { ...current };
+      contentIds.forEach((id) => {
+        const application = current[id] ?? (id === primary ? shaderApplicationFor(activeMaterialId, brandPalette.colors) : undefined);
+        if (application) next[id] = apply(application);
+      });
+      return next;
+    });
+  }
+
+  /** `settings` is a partial patch: each target keeps the settings the edit does not name. */
+  function updateSelectedShader(update: ShaderEdit) {
+    editSelectedShaders(() => update);
+  }
+
+  function resetSelectedShader() {
+    editSelectedShaders((application) => ({ settings: shaderLabSettingsFor(application.materialId, initialSettings), shaderSize: 1 }));
   }
 
   function updateCanvasBackground(color: string) {
@@ -4607,28 +4667,29 @@ export default function ShaderLabStudio({
   }
 
   function updateSetting<Key extends keyof LiveMaterialSettings>(key: Key, value: LiveMaterialSettings[Key]) {
-    updateSelectedShader({ settings: { ...settings, [key]: value } });
+    updateSelectedShader({ settings: { [key]: value } });
   }
 
+  /** Puts the material on every selected layer; each keeps its own blend mode, opacity and zoom. */
   function selectMaterial(nextId: LiveMaterialId) {
-    const nextApplication = shaderApplicationFor(nextId, brandPalette.colors, {
-      blendMode: editingShader?.blendMode,
-      opacity: editingShader?.opacity,
-      shaderSize: editingShader?.shaderSize,
+    const targets = shaderEditTargets();
+    if (!targets.length) {
+      addCanvasShader(nextId);
+      return;
+    }
+    const applicationFor = (current?: ShaderApplication) => shaderApplicationFor(nextId, brandPalette.colors, {
+      blendMode: current?.blendMode,
+      opacity: current?.opacity,
+      shaderSize: current?.shaderSize,
     });
-    if (selectedShaderLayer) {
-      shaderApplicationPreviewOverridesRef.current.delete(selectedShaderLayer.id);
-      setShaderLayers((current) => current.map((layer) => (
-        layer.id === selectedShaderLayer.id ? { ...layer, ...nextApplication } : layer
-      )));
-      return;
-    }
-    if (selectedContentLayerId) {
-      shaderApplicationPreviewOverridesRef.current.delete(selectedContentLayerId);
-      setLayerShaders((current) => ({ ...current, [selectedContentLayerId]: nextApplication }));
-      return;
-    }
-    addCanvasShader(nextId);
+    targets.forEach((id) => shaderApplicationPreviewOverridesRef.current.delete(id));
+    const shaderIds = new Set<CanvasLayerId>(targets.filter(isShaderLayerId));
+    if (shaderIds.size) setShaderLayers((current) => current.map((layer) => shaderIds.has(layer.id) ? { ...layer, ...applicationFor(layer) } : layer));
+    const contentIds = targets.filter(isContentLayerId);
+    if (contentIds.length) setLayerShaders((current) => ({
+      ...current,
+      ...Object.fromEntries(contentIds.map((id) => [id, applicationFor(current[id])])),
+    }));
   }
 
   function selectRandomMaterial() {
@@ -4977,6 +5038,68 @@ export default function ShaderLabStudio({
 
   function updateLogoTransform(id: LogoLayerId, transform: CanvasLayerTransform) {
     setLogoLayers((current) => current.map((layer) => layer.id === id ? { ...layer, transform } : layer));
+  }
+
+  /** The other selected content layers, when the primary is part of a multi-layer selection. */
+  function selectionPeers(id: ContentLayerId): Set<CompositionLayerId> {
+    if (!selectedCanvasLayerIds.includes(id)) return new Set();
+    return new Set<CompositionLayerId>(selectedCanvasLayerIds.filter((peer) => peer !== id && isContentLayerId(peer)));
+  }
+
+  function editSelectionPeers(primary: { id: ContentLayerId; transform: CanvasLayerTransform }, edit: TextLayerEdit | LogoLayerEdit | AssetLayerEdit) {
+    const peers = selectionPeers(primary.id);
+    if (!peers.size) return;
+    const shared = <Edit extends TextLayerEdit | LogoLayerEdit | AssetLayerEdit>(id: ContentLayerId) => (
+      peers.has(id) ? peerEdit<Edit>(edit, primary, id) : null
+    );
+    peers.forEach((id) => {
+      textLayerPreviewOverridesRef.current.delete(id as TextLayerId);
+      logoLayerPreviewOverridesRef.current.delete(id as LogoLayerId);
+      assetLayerPreviewOverridesRef.current.delete(id as AssetLayerId);
+    });
+    setTextLayers((current) => current.map((layer) => {
+      const peer = shared<TextLayerEdit>(layer.id);
+      return peer ? applyPeerTextEdit(layer, peer) : layer;
+    }));
+    setLogoLayers((current) => current.map((layer) => {
+      const peer = shared<LogoLayerEdit>(layer.id);
+      return peer ? applyLogoEdit(layer, peer) : layer;
+    }));
+    setCompositionAssets((current) => current.map((layer) => {
+      const peer = shared<AssetLayerEdit>(layer.id);
+      return peer ? applyAssetEdit(layer, peer) : layer;
+    }));
+  }
+
+  /** An inspector text edit. A character range stays within its own box; otherwise the selection follows. */
+  function editTextSelection(id: TextLayerId, edit: TextLayerEdit, formatting: boolean) {
+    const primary = textLayers.find((layer) => layer.id === id);
+    if (!primary) return;
+    const { textEffect, transform, ...rest } = edit;
+    const update: Partial<Omit<CompositionTextLayer, 'id'>> = {
+      ...rest,
+      ...(textEffect ? { textEffect: { ...resolveTextEffectSettings(primary.textEffect), ...textEffect } } : {}),
+      ...(transform ? { transform: { ...primary.transform, ...transform } } : {}),
+    };
+    if (formatting) updateTextFormatting(id, update);
+    else updateTextLayer(id, update);
+    const range = textSelectionRef.current;
+    if (formatting && range?.layerId === id && selectedLayerId === id) return;
+    editSelectionPeers(primary, edit);
+  }
+
+  function editLogoSelection(id: LogoLayerId, edit: LogoLayerEdit) {
+    const primary = logoLayers.find((layer) => layer.id === id);
+    if (!primary) return;
+    updateLogoLayer(id, applyLogoEdit(primary, edit));
+    editSelectionPeers(primary, edit);
+  }
+
+  function editAssetSelection(id: AssetLayerId, edit: AssetLayerEdit) {
+    const primary = compositionAssets.find((layer) => layer.id === id);
+    if (!primary) return;
+    updateAssetLayer(id, applyAssetEdit(primary, edit));
+    editSelectionPeers(primary, edit);
   }
 
   function updateLogoLayer(id: LogoLayerId, update: Partial<Omit<CompositionLogoLayer, 'id'>>) {
@@ -7581,7 +7704,8 @@ export default function ShaderLabStudio({
     previewSelectedTextWidth,
     rememberTextSelection,
     removeActiveArtboard: () => removeActiveArtboard(),
-    removeShaderFromSelectedContent: () => removeShaderFromSelectedContent(),
+    removeShaderFromSelectedContent: () => removeShadersFromContent(shaderEditTargets().filter(isContentLayerId)),
+    resetSelectedShader,
     renameActiveArtboard,
     resetAssetTransform: (id) => updateAssetTransform(id, DEFAULT_LAYER_TRANSFORM),
     resetLogoTransform: (id) => updateLogoTransform(id, DEFAULT_LAYER_TRANSFORM),
@@ -7592,16 +7716,16 @@ export default function ShaderLabStudio({
     setImageCropEditing,
     toggleWorkspaceTour: () => setWorkspaceTourOpen((value) => !value),
     updateActiveArtboardDimensions,
-    updateAssetLayer,
+    updateAssetLayer: editAssetSelection,
     updateCanvasBackground,
-    updateCanvasLayerTransform,
-    rotateCanvasLayer: (id, rotation) => rotateCanvasLayers([id], rotation),
+    updateCanvasLayerTransform: updateSelectionFrame,
+    rotateCanvasLayer: (id, rotation) => rotateCanvasLayers(selectedCanvasLayerIds.includes(id) ? selectedCanvasLayerIds : [id], rotation),
     updateEffectLayer,
-    updateLogoLayer,
+    updateLogoLayer: editLogoSelection,
     updateSelectedShader,
     updateSetting,
-    updateTextFormatting,
-    updateTextLayer,
+    updateTextFormatting: (id, edit) => editTextSelection(id, edit, true),
+    updateTextLayer: (id, edit) => editTextSelection(id, edit, false),
   });
   const inspectorComposition = useMemo(() => ({
     effectCount: effectLayers.length,
@@ -8038,7 +8162,6 @@ export default function ShaderLabStudio({
           editingCanvas={editingCanvas}
           editingShader={editingShader}
           identity={identity}
-          initialSettings={initialSettings}
           layerRows={inspectorLayerRows}
           material={material}
           outputArtboards={inspectorArtboards}
