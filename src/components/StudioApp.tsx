@@ -754,13 +754,13 @@ function ProjectTabContextMenu({
               label: gt('Open project'),
               onSelect: () => onOpen(identity.id),
             },
-            ...(identity.kind === 'custom' ? [{
+            {
               icon: <FilePenLine aria-hidden='true' />,
               id: 'rename-project',
               label: gt('Rename project'),
               onSelect: () => onRename(identity.id),
               shortcut: 'F2',
-            }] : []),
+            },
             {
               icon: <Copy aria-hidden='true' />,
               id: 'duplicate-project',
@@ -1709,7 +1709,7 @@ export default function StudioApp() {
 
   function beginProjectRename(identityId: string) {
     const identity = identityById.get(identityId);
-    if (!identity || identity.kind !== 'custom') return;
+    if (!identity) return;
     setProjectTabMenu(null);
     selectIdentity(identityId);
     setProjectNameDraft(identity.name);
@@ -1718,7 +1718,7 @@ export default function StudioApp() {
 
   function commitIdentityName(identityId: string, name: string) {
     const identity = identities.find((candidate) => candidate.id === identityId);
-    if (!identity || identity.kind !== 'custom') return;
+    if (!identity) return;
     const renamedIdentity = renameBrandIdentity(identity, name);
     if (renamedIdentity === identity) return;
     commitIdentities(identities.map((candidate) =>
@@ -1876,7 +1876,7 @@ export default function StudioApp() {
           openProjectTabContext(identity.id, contextMenuPositionFromEvent(event));
         }}
         onKeyDown={(event) => {
-          if (event.key === 'F2' && identity.kind === 'custom') {
+          if (event.key === 'F2') {
             event.preventDefault();
             beginProjectRename(identity.id);
           } else if (event.altKey && event.key === 'ArrowLeft') {
@@ -1900,7 +1900,7 @@ export default function StudioApp() {
         role='group'
         title={identity.name}
       >
-        {renamingIdentityId === identity.id && identity.kind === 'custom' ? (
+        {renamingIdentityId === identity.id ? (
           <div className='project-tab-editor flex min-w-0 flex-1 items-center gap-2'>
             <ProjectTabMark identity={identity} selected={selected} />
             <span className='project-tab-separator font-mono text-muted-foreground' aria-hidden='true'>/</span>
@@ -1930,9 +1930,7 @@ export default function StudioApp() {
           <button
             aria-current={selected ? 'page' : undefined}
             aria-label={gt('Open {name} project', { name: identity.name })}
-            aria-keyshortcuts={identity.kind === 'custom'
-              ? 'Alt+ArrowLeft Alt+ArrowRight Shift+F10 F2'
-              : 'Alt+ArrowLeft Alt+ArrowRight Shift+F10'}
+            aria-keyshortcuts='Alt+ArrowLeft Alt+ArrowRight Shift+F10 F2'
             className='flex min-w-0 flex-1 items-center gap-2 text-left'
             id={`project-tab-trigger-${identity.id}`}
             onClick={() => {
@@ -1940,7 +1938,6 @@ export default function StudioApp() {
               selectIdentity(identity.id);
             }}
             onDoubleClick={(event) => {
-              if (identity.kind !== 'custom') return;
               event.preventDefault();
               event.stopPropagation();
               beginProjectRename(identity.id);
@@ -1954,7 +1951,7 @@ export default function StudioApp() {
             </span>
           </button>
         )}
-        {selected && identity.kind === 'custom' && renamingIdentityId !== identity.id ? (
+        {selected && renamingIdentityId !== identity.id ? (
           <button
             aria-label={gt('Rename {name}', { name: identity.name })}
             className='project-tab-rename'

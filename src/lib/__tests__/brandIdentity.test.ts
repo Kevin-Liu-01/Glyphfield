@@ -525,3 +525,12 @@ describe('hydrateBrandIdentities', () => {
     expect(gt.assets.some(({ id }) => id === 'upload-1')).toBe(true);
   });
 });
+
+describe('built-in project names', () => {
+  it('keeps a renamed built-in project across reloads', () => {
+    const gt = hydrateBrandIdentities([]).find(({ id }) => id === 'gt')!;
+    const renamed = renameBrandIdentity(gt, 'GT team');
+    const reloaded = hydrateBrandIdentities([renamed]).find(({ id }) => id === 'gt')!;
+    expect(reloaded).toMatchObject({ builtIn: true, kind: gt.kind, name: 'GT team' });
+  });
+});

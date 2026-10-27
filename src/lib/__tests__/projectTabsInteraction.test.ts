@@ -34,8 +34,7 @@ describe('project tab interaction', () => {
   });
 
   it('keeps click, close, keyboard, and pointer alternatives independent', () => {
-    expect(studioApp).toContain("? 'Alt+ArrowLeft Alt+ArrowRight Shift+F10 F2'");
-    expect(studioApp).toContain(": 'Alt+ArrowLeft Alt+ArrowRight Shift+F10'}");
+    expect(studioApp).toContain("aria-keyshortcuts='Alt+ArrowLeft Alt+ArrowRight Shift+F10 F2'");
     expect(studioApp).toContain("target.closest('.project-tab-close, .project-tab-rename, input, textarea, select, [contenteditable]')");
     expect(studioApp).toContain('onContextMenu={(event) => {');
     expect(studioApp).toContain("className='project-tab-close'");
@@ -47,7 +46,7 @@ describe('project tab interaction', () => {
   it('numbers duplicates and saves deliberate inline tab renames', () => {
     expect(studioApp).toContain('resolvedIdentities.map(({ name }) => name)');
     expect(studioApp).toContain("label: gt('Rename project')");
-    expect(studioApp).toContain("? 'Alt+ArrowLeft Alt+ArrowRight Shift+F10 F2'");
+    expect(studioApp).not.toContain("identity.kind !== 'custom') return;");
     expect(studioApp).toContain('onDoubleClick={(event) => {');
     expect(studioApp).toContain('onBlur={() => finishProjectRename(identity.id, true)}');
     expect(studioApp).toContain('commitIdentityName(identityId, projectNameDraft)');
