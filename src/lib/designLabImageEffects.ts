@@ -170,3 +170,10 @@ export async function resolveImageEffectOutputs<Id extends string, EffectId exte
   }
   return resolved;
 }
+
+/** Layers by id, keeping the first entry per id as `find` would. */
+export function firstLayerById<T extends { id: string }>(layers: readonly T[]): Map<string, T> {
+  const byId = new Map<string, T>();
+  for (const layer of layers) if (!byId.has(layer.id)) byId.set(layer.id, layer);
+  return byId;
+}

@@ -356,6 +356,7 @@ import {
   designLabImageEffect,
   designLabImageEffectPalette,
   planImageEffectPasses,
+  firstLayerById,
   resolveImageEffectOutputs,
   type DesignLabImageEffectId,
   type DesignLabImageEffectStatus,
@@ -6559,7 +6560,7 @@ export default function ShaderLabStudio({
       })));
   }
 
-  const effectLayersById = useMemo(() => new Map(effectLayers.map((layer) => [layer.id, layer])), [effectLayers]);
+  const effectLayersById = useMemo(() => firstLayerById(effectLayers), [effectLayers]);
 
   function imageEffectLayer(layerId: CompositionLayerId): (CompositionEffectLayer & { settings: { effectId: DesignLabImageEffectId } }) | null {
     if (!isEffectLayerId(layerId)) return null;

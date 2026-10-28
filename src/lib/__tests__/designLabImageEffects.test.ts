@@ -9,6 +9,7 @@ import {
   assertDesignLabEffectSettings,
   designLabImageEffectGroups,
   isDesignLabImageEffectId,
+  firstLayerById,
   planImageEffectPasses,
   resolveImageEffectOutputs,
 } from '../designLabImageEffects';
@@ -122,5 +123,21 @@ describe('Design Lab image effects', () => {
     const first = await resolveImageEffectOutputs<string, string>(options);
     const second = await resolveImageEffectOutputs<string, string>(options);
     expect(second.get('effect-x')).toBe(first.get('effect-x'));
+  });
+});
+
+describe('firstLayerById', () => {
+  it('keeps the first entry per id and preserves order and contents', () => {
+    const layers = [
+      { id: 'a', name: 'first a' },
+      { id: 'b', name: 'only b' },
+      { id: 'a', name: 'second a' },
+      { id: 'c', name: 'only c' },
+    ];
+    const byId = firstLayerById(layers);
+    expect([...byId.keys()]).toEqual(['a', 'b', 'c']);
+    expect(byId.get('a')?.name).toBe('first a');
+    expect(byId.get('b')?.name).toBe('only b');
+    expect(byId.get('c')?.name).toBe('only c');
   });
 });
