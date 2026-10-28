@@ -24,7 +24,7 @@ import {
   type BrandSourceIssue,
   type BrandSourceRemoval,
 } from './brandSource';
-import { blobToDataUrl } from './download';
+import { blobToDataUrl, resolveLocalAssetUrl } from './download';
 import { readEmbeddedImageFile } from './imageAssets';
 import { createStoredZip } from './zipStore';
 
@@ -295,7 +295,9 @@ export type BrandKitArtifact = {
 
 /** Fetch a same-origin public file for the kit. */
 export const fetchBrandKitFile: BrandKitFileLoader = async (path) => {
-  const response = await fetch(path);
+  const href = resolveLocalAssetUrl(path);
+  if (!href) throw new Error(`Could not read ${path} for the brand kit (not a same-origin URL).`);
+  const response = await fetch(href);
   if (!response.ok) throw new Error(`Could not read ${path} for the brand kit (HTTP ${response.status}).`);
   return new Uint8Array(await response.arrayBuffer());
 };

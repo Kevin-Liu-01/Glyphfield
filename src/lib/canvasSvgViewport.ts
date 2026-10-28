@@ -1,4 +1,5 @@
 import { loadCanvasImage } from './canvasDrawing';
+import { resolveLocalAssetUrl } from './download';
 
 /** Prepared SVG pixels depend on the embedding viewport as well as the URL. */
 export function canvasImageViewportKey(source: string, width: number, height: number): string {
@@ -26,7 +27,9 @@ export function svgAtCanvasViewport(source: string, width: number, height: numbe
 }
 
 export async function loadCanvasImageAtViewport(source: string, width: number, height: number): Promise<HTMLImageElement> {
-  const response = await fetch(source);
+  const href = resolveLocalAssetUrl(source);
+  if (!href) throw new Error('Canvas image could not be loaded (not a same-origin URL).');
+  const response = await fetch(href);
   if (!response.ok) throw new Error(`Canvas image could not be loaded (${response.status}).`);
   let blob = await response.blob();
   if (blob.type.split(';', 1)[0] === 'image/svg+xml') {

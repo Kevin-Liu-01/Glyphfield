@@ -1,7 +1,7 @@
 'use client';
 
 import type { BrandIdentity } from '@/lib/brandIdentity';
-import { blobToDataUrl } from '@/lib/download';
+import { blobToDataUrl, resolveLocalAssetUrl } from '@/lib/download';
 import { EXPRESSION_COLOR_ROLES, type ExpressionColor } from '@/lib/expressionModel';
 
 export async function readFileAsAsset(file: File): Promise<{ name: string; url: string }> {
@@ -10,18 +10,20 @@ export async function readFileAsAsset(file: File): Promise<{ name: string; url: 
 
 /** Width / height of an image; SVGs without intrinsic size fall back to the viewBox. */
 export async function measureImageAspect(source: string, fallback = 1): Promise<number> {
+  const href = resolveLocalAssetUrl(source);
+  if (!href) return fallback;
   try {
     const image = new Image();
-    image.src = source;
+    image.src = href;
     await image.decode();
     if (image.naturalWidth > 0 && image.naturalHeight > 0) return image.naturalWidth / image.naturalHeight;
   } catch {
     // Fall through to the viewBox read below.
   }
   try {
-    const text = source.startsWith('data:image/svg+xml')
-      ? decodeURIComponent(source.slice(source.indexOf(',') + 1))
-      : source.endsWith('.svg') ? await (await fetch(source)).text() : '';
+    const text = href.startsWith('data:image/svg+xml')
+      ? decodeURIComponent(href.slice(href.indexOf(',') + 1))
+      : href.endsWith('.svg') ? await (await fetch(href)).text() : '';
     const viewBox = /viewBox="\s*[-\d.]+\s+[-\d.]+\s+([\d.]+)\s+([\d.]+)/.exec(text);
     if (viewBox) return Number(viewBox[1]) / Number(viewBox[2]);
   } catch {

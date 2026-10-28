@@ -77,6 +77,53 @@ describe('BrandIdentity source contract', () => {
   });
 });
 
+describe('local-file asset paths', () => {
+  const fixture = () => JSON.parse(JSON.stringify(createBrandIdentity('Acme', 'acme')));
+  const pathIssues = (identity: { assets: { path: string }[] }) => errors(identity).filter(({ path }) => path === 'assets[0].path');
+
+  it('rejects URL-parsing bypasses that a text prefix cannot see', () => {
+    for (const path of ['/\\evil.test/x', '/\t/evil.test', '/ok\\evil.test', '/x"quote']) {
+      const identity = fixture();
+      identity.assets[0].path = path;
+      expect(pathIssues(identity).map(({ code }) => code), JSON.stringify(path)).toEqual(['format']);
+    }
+  });
+
+  it('rejects every path character that can escape a CSS url("…") or the origin', () => {
+    for (const path of ['/a b.svg', '/a\'b.svg', '/a(b).svg', '/x\nevil.svg', '/x\0evil.svg', '/x\x1fevil.svg']) {
+      const identity = fixture();
+      identity.assets[0].path = path;
+      expect(pathIssues(identity).map(({ code }) => code), JSON.stringify(path)).toEqual(['format']);
+    }
+  });
+
+  it('still accepts shipped asset paths, encoded spaces, data: URLs and an empty preview path', () => {
+    const identity = fixture();
+    identity.motion = [{ curve: 'linear', durationMs: 100, id: 'tick', name: 'Tick', previewPath: '' }];
+    for (const path of [
+      '/fonts/brands/ramp/lausanne-300.woff2',
+      '/fonts/basement-grotesque/BasementGrotesk-Black_v1.202.woff2',
+      '/examples/gt-morph.gif',
+      '/marks/mark-dark%20v2.svg',
+      'data:image/svg+xml;base64,PHN2Zy8+',
+    ]) {
+      identity.assets[0].path = path;
+      expect(pathIssues(identity), path).toEqual([]);
+    }
+    expect(errors(identity)).toEqual([]);
+  });
+
+  it('keeps remote URLs and ".." on their own precise issues', () => {
+    const identity = fixture();
+    for (const path of ['//evil.test/x.svg', 'https://evil.test/x.svg']) {
+      identity.assets[0].path = path;
+      expect(pathIssues(identity).map(({ code }) => code), path).toEqual(['remote_url']);
+    }
+    identity.assets[0].path = '/a/../b.svg';
+    expect(pathIssues(identity).map(({ code }) => code)).toEqual(['format']);
+  });
+});
+
 describe('colour system and type axis fields', () => {
   it('validates color refs, scale settings, role steps and variation axes', () => {
     const identity = JSON.parse(JSON.stringify(createBrandIdentity('Acme', 'acme')));

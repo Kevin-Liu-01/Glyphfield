@@ -1,3 +1,5 @@
+import { resolveLocalAssetUrl } from './download';
+
 /**
  * Read the variation axes (`fvar`) of a font file without React or DOM:
  * TrueType/OpenType directly, WOFF through zlib, and WOFF2 when the runtime's
@@ -199,10 +201,13 @@ const axisCache = new Map<string, Promise<FontAxis[] | null>>();
 export function loadFontAxes(url: string): Promise<FontAxis[] | null> {
   const cached = axisCache.get(url);
   if (cached) return cached;
-  const pending = fetch(url)
-    .then((response) => (response.ok ? response.arrayBuffer() : null))
-    .then((buffer) => (buffer ? readFontAxes(buffer) : null))
-    .catch(() => null);
+  const href = resolveLocalAssetUrl(url);
+  const pending = href === null
+    ? Promise.resolve(null)
+    : fetch(href)
+      .then((response) => (response.ok ? response.arrayBuffer() : null))
+      .then((buffer) => (buffer ? readFontAxes(buffer) : null))
+      .catch(() => null);
   axisCache.set(url, pending);
   return pending;
 }

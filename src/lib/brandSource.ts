@@ -388,7 +388,11 @@ const PATTERNS: Record<StringFormat, RegExp> = {
   'color-ref': /^[a-z][a-z0-9-]{0,39}(?:\.(?:50|100|200|300|400|500|600|700|800|900|950))?$/,
   email: /^(?:[^\s@]+@[^\s@]+\.[^\s@]+)?$/,
   hex: /^#[0-9A-Fa-f]{6}$/,
-  'local-file': /^(?:$|data:[^,]*,|\/(?!\/))/,
+  // Whole-string match: a path is one "/" plus file characters only. "\\",
+  // whitespace, quotes and parentheses are rejected because browsers fold them
+  // into //host navigations or break a url("…") context; "//" and "\" also stop
+  // protocol-relative smuggling. Spaces belong in the path as %20.
+  'local-file': /^(?:$|data:[^,]*,[\s\S]*|\/(?:[^\\/\s"'()][^\\"'()\s]*)?)$/,
   'record-id': /^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/,
   'social-handle': /^(?:@[A-Za-z0-9_.]{1,60})?$/,
   'web-url': /^(?:https?:\/\/\S+|[a-z0-9][a-z0-9.-]*\.[a-z]{2,}(?:\/\S*)?)?$/i,
@@ -399,7 +403,7 @@ const FORMAT_HINTS: Record<StringFormat, string> = {
   'color-ref': 'a colors[].id such as "ink" or one of its scale steps such as "ink.700"',
   email: 'an email address or an empty string',
   hex: 'a six-digit HEX color such as "#1A2B3C"',
-  'local-file': 'a data: URL or a root-relative path such as "/brands/acme/logo.svg"',
+  'local-file': 'a data: URL or a root-relative path such as "/brands/acme/logo.svg"; no backslashes, spaces, quotes or parentheses',
   'record-id': 'an ID of letters, digits, ".", "_", ":" or "-" that starts with a letter or digit',
   'social-handle': 'an empty string or a handle that starts with "@"',
   'web-url': 'an http(s) URL, a bare domain such as "acme.com", or an empty string',
@@ -503,6 +507,11 @@ function validateString(spec: Extract<FieldSpec, { kind: 'string' }>, value: unk
   }
   if (spec.format === 'local-file' && (value.includes('..') && !value.startsWith('data:'))) {
     issue(issues, 'format', path, `${path} must not contain "..".`);
+    return;
+  }
+  if (spec.format === 'local-file' && !value.startsWith('data:')
+    && [...value].some((char) => { const code = char.codePointAt(0)!; return code < 0x20 || code === 0x7f; })) {
+    issue(issues, 'format', path, `${path} must not contain control characters.`);
     return;
   }
   if (!PATTERNS[spec.format].test(value)) {

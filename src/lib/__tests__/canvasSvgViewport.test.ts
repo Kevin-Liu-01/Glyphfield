@@ -76,11 +76,20 @@ describe('SVG image viewport parity', () => {
     const revokeUrl = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
     vi.mocked(loadCanvasImage).mockRejectedValue(new Error('Decode failed'));
 
-    await expect(loadCanvasImageAtViewport('blob:raster', 40, 80)).rejects.toThrow('Decode failed');
+    await expect(loadCanvasImageAtViewport(`blob:${window.location.origin}/raster`, 40, 80)).rejects.toThrow('Decode failed');
 
     const prepared = createUrl.mock.calls[0][0] as Blob;
     expect(prepared.type).toBe('image/png');
     expect(await prepared.text()).toBe('original raster');
     expect(revokeUrl).toHaveBeenCalledWith('blob:failed-viewport-test');
+  });
+
+  it('rejects a cross-origin source before any fetch', async () => {
+    const fetch = vi.fn(async () => new Response(new Blob(['x'])));
+    vi.stubGlobal('fetch', fetch);
+
+    await expect(loadCanvasImageAtViewport('https://evil.test/raster.png', 40, 80)).rejects.toThrow('Canvas image could not be loaded');
+    await expect(loadCanvasImageAtViewport('/\\evil.test/raster.png', 40, 80)).rejects.toThrow('Canvas image could not be loaded');
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

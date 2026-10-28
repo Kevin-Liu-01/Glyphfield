@@ -19,6 +19,7 @@ import {
   formatAssetBytes,
   type ConvertedAsset,
 } from '@/lib/convertedAssets';
+import { resolveLocalAssetUrl } from '@/lib/download';
 
 function assetPreviewFormat(
   mimeType: string,
@@ -65,8 +66,9 @@ export default function AssetConversionLibrary({
   async function previewAsset(dataUrl: string, name: string, format: 'FILE' | 'PNG') {
     studioExport.start(`Preparing ${name} preview`);
     try {
-      const response = await fetch(dataUrl);
-      if (!response.ok) throw new Error(gt('The asset preview could not be loaded.'));
+      const href = resolveLocalAssetUrl(dataUrl);
+      const response = href ? await fetch(href) : null;
+      if (!response?.ok) throw new Error(gt('The asset preview could not be loaded.'));
       const blob = await response.blob();
       setLastExport({
         blob,

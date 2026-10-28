@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 
+import { cssUrl } from '@/lib/download';
 import {
   hasLogoAppearanceEffects,
   logoAppearanceDitherMask,
@@ -27,11 +28,11 @@ function sourceMaskStyle(url: string, fillFrame: boolean): CSSProperties {
   const size = fillFrame ? '100% 100%' : 'contain';
   return {
     backgroundColor: 'currentColor',
-    maskImage: `url("${url}")`,
+    maskImage: cssUrl(url),
     maskPosition: 'center',
     maskRepeat: 'no-repeat',
     maskSize: size,
-    WebkitMaskImage: `url("${url}")`,
+    WebkitMaskImage: cssUrl(url),
     WebkitMaskPosition: 'center',
     WebkitMaskRepeat: 'no-repeat',
     WebkitMaskSize: size,

@@ -56,7 +56,7 @@ import {
 } from '@/lib/brandIdentity';
 import { canvasRevisionFromSignature } from '@/lib/canvasDocument';
 import { exportCanvasDocumentStill } from '@/lib/canvasExport';
-import { blobToDataUrl, imageUrlToDataUrl } from '@/lib/download';
+import { blobToDataUrl, imageUrlToDataUrl, resolveLocalAssetUrl } from '@/lib/download';
 import {
   brandMaterialPalette,
   DEFAULT_LIVE_MATERIAL_ID,
@@ -950,8 +950,9 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
     const restored = parsed.state;
     let nextData: ArrayBuffer | LottieDocument = restored.source.data ?? {};
     if (restored.source.format === 'dotlottie') {
-      const response = await fetch(parsed.binarySource!);
-      if (!response.ok) throw new TypeError('The embedded .lottie bundle could not be read.');
+      const href = parsed.binarySource ? resolveLocalAssetUrl(parsed.binarySource) : null;
+      const response = href ? await fetch(href) : null;
+      if (!response?.ok) throw new TypeError('The embedded .lottie bundle could not be read.');
       nextData = await response.arrayBuffer();
     }
     const nextLottieSource: LottieSource = {
