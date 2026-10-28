@@ -130,14 +130,23 @@ export function isColorRole(value: unknown): value is ExpressionColorRole {
   return typeof value === 'string' && (EXPRESSION_COLOR_ROLES as readonly string[]).includes(value);
 }
 
+/** Stored colors are hex (3, 4, 6, or 8 digits); anything else is unsafe for markup. */
+const SAFE_EXPRESSION_COLOR = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}(?:[0-9a-f]{2})?)$/i;
+
+export function isSafeExpressionColor(value: unknown): value is string {
+  return typeof value === 'string' && SAFE_EXPRESSION_COLOR.test(value);
+}
+
 export function resolveExpressionColor(
   value: ExpressionColor | undefined,
   colors: Readonly<Record<string, string>>,
   fallback: string
 ): string {
-  if (!value) return fallback;
+  const safeFallback = isSafeExpressionColor(fallback) ? fallback : '#000000';
+  if (!value) return safeFallback;
   if (/^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(value)) return value.toUpperCase();
-  return colors[value] ?? fallback;
+  const resolved = Object.prototype.hasOwnProperty.call(colors, value) ? colors[value] : undefined;
+  return isSafeExpressionColor(resolved) ? resolved : safeFallback;
 }
 
 // ---------------------------------------------------------------------------
