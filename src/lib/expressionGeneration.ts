@@ -177,48 +177,49 @@ function base64Bytes(value: string): Uint8Array {
 
 const MAX_SVG_TAG_LENGTH = 8 * 1024;
 
+function skipUntil(text: string, index: number, terminator: string): number {
+  const end = text.indexOf(terminator, index);
+  return end < 0 ? -1 : end + terminator.length;
+}
+
+function skipDeclaration(text: string, index: number): number {
+  let close = text.indexOf('>', index);
+  let bracket = -1;
+  for (let scan = index; close >= 0 && scan < close; scan += 1) {
+    if (text[scan] === '[') {
+      bracket = scan;
+      break;
+    }
+  }
+  if (bracket >= 0) {
+    const subsetEnd = text.indexOf(']', bracket + 1);
+    if (subsetEnd < 0) return -1;
+    close = text.indexOf('>', subsetEnd + 1);
+  }
+  return close < 0 ? -1 : close + 1;
+}
+
 function skipProlog(text: string): number {
   let index = 0;
   const advance = () => {
     while (index < text.length && /\s/.test(text[index]!)) index += 1;
     if (text.charCodeAt(index) === 0xFEFF) index += 1;
   };
+  const next = () => {
+    if (text.startsWith('<?', index)) return skipUntil(text, index + 2, '?>');
+    if (text.startsWith('<!--', index)) return skipUntil(text, index + 4, '-->');
+    if (text.startsWith('<![CDATA[', index)) return skipUntil(text, index + 9, ']]>');
+    if (text.startsWith('<!', index)) return skipDeclaration(text, index + 2);
+    return index;
+  };
   advance();
   for (;;) {
-    if (text.startsWith('<?', index)) {
-      const end = text.indexOf('?>', index + 2);
-      if (end < 0) return -1;
-      index = end + 2;
-    } else if (text.startsWith('<!--', index)) {
-      const end = text.indexOf('-->', index + 4);
-      if (end < 0) return -1;
-      index = end + 3;
-    } else if (text.startsWith('<![CDATA[', index)) {
-      const end = text.indexOf(']]>', index + 9);
-      if (end < 0) return -1;
-      index = end + 3;
-    } else if (text.startsWith('<!', index)) {
-      let close = text.indexOf('>', index + 2);
-      let bracket = -1;
-      for (let scan = index + 2; close >= 0 && scan < close; scan += 1) {
-        if (text[scan] === '[') {
-          bracket = scan;
-          break;
-        }
-      }
-      if (bracket >= 0) {
-        const subsetEnd = text.indexOf(']', bracket + 1);
-        if (subsetEnd < 0) return -1;
-        close = text.indexOf('>', subsetEnd + 1);
-      }
-      if (close < 0) return -1;
-      index = close + 1;
-    } else {
-      break;
-    }
+    const end = next();
+    if (end < 0) return -1;
+    if (end === index) return index;
+    index = end;
     advance();
   }
-  return index;
 }
 
 function svgTagEnd(text: string, index: number): number {
