@@ -175,6 +175,21 @@ function base64Bytes(value: string): Uint8Array {
   return bytes;
 }
 
+const MAX_SVG_TAG_LENGTH = 8 * 1024;
+
+/** The root <svg> start tag, located without scanning for `>` more than once. */
+function rootSvgTag(text: string): string | null {
+  for (let index = text.indexOf('<svg'); index >= 0; index = text.indexOf('<svg', index + 4)) {
+    const next = text.charAt(index + 4);
+    if (next !== '' && next !== '>' && next !== '/' && !/\s/.test(next)) continue;
+    const end = text.indexOf('>', index + 4);
+    if (end < 0) return null;
+    const tag = text.slice(index, end + 1);
+    return tag.length <= MAX_SVG_TAG_LENGTH ? tag : null;
+  }
+  return null;
+}
+
 /** Width / height of an SVG or PNG data URL, read without decoding the image. */
 export function dataUrlAspect(source: string): number | null {
   const match = /^data:([^;,]+)(;base64)?,([\s\S]*)$/.exec(source);
@@ -183,10 +198,12 @@ export function dataUrlAspect(source: string): number | null {
   try {
     if (mime === 'image/svg+xml') {
       const text = base64 ? new TextDecoder().decode(base64Bytes(payload!)) : decodeURIComponent(payload!);
-      const viewBox = /viewBox=["']\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/.exec(text);
+      const tag = rootSvgTag(text);
+      if (!tag) return null;
+      const viewBox = /viewBox=["']\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/.exec(tag);
       if (viewBox && Number(viewBox[2]) > 0) return Number(viewBox[1]) / Number(viewBox[2]);
-      const width = /<svg[^>]*\swidth=["']([\d.]+)/.exec(text);
-      const height = /<svg[^>]*\sheight=["']([\d.]+)/.exec(text);
+      const width = /\swidth=["']([\d.]+)/.exec(tag);
+      const height = /\sheight=["']([\d.]+)/.exec(tag);
       return width && height && Number(height[1]) > 0 ? Number(width[1]) / Number(height[1]) : null;
     }
     if (mime === 'image/png' && base64) {

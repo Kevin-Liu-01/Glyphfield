@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { POST } from '@/app/api/generate/route';
+import { BUILT_IN_BRAND_IDENTITIES } from '../brandIdentity';
 
 function generationRequest(body: unknown): Request {
   return new Request('https://www.glyphfield.com/api/generate', {
@@ -46,4 +47,20 @@ describe('POST /api/generate', () => {
       });
     }
   );
+});
+
+describe('identity validation', () => {
+  it('returns 400 invalid_identity for a complete identity that fails the BrandIdentity schema', async () => {
+    const gt = JSON.parse(JSON.stringify(BUILT_IN_BRAND_IDENTITIES.find(({ id }) => id === 'gt')!)) as Record<string, unknown>;
+    gt.samples = { code: { label: 'demo', snippet: 'x'.repeat(5_000) } };
+    const response = await POST(generationRequest({ identity: gt, kind: 'template', template: 'blog' }));
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: {
+        code: 'invalid_identity',
+        field: 'identity.samples.code.snippet',
+      },
+      schemaVersion: 1,
+    });
+  });
 });

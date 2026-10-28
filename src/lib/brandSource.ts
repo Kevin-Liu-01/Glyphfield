@@ -534,7 +534,7 @@ function validateArray(
   if (value.length > spec.maxItems) {
     issue(issues, 'too_many', path, `${path} may contain at most ${spec.maxItems} items; received ${value.length}.`);
   }
-  value.forEach((item, index) => {
+  value.slice(0, spec.maxItems).forEach((item, index) => {
     const itemPath = joinPath(path, index);
     // A patch record only needs its merge key; the merged result is validated in full.
     const recordMode = mode === 'patch' && spec.mergeKey ? 'patch' : 'full';
@@ -616,7 +616,8 @@ function colorSystemReferences(system: unknown, colorIds: ReadonlySet<string>, i
   for (const mode of ['light', 'dark'] as const) {
     const roles = system[mode];
     if (!isRecord(roles)) continue;
-    for (const [role, ref] of Object.entries(roles)) {
+    for (const role of Object.keys(SEMANTIC_ROLE_FIELDS)) {
+      const ref = roles[role];
       const id = typeof ref === 'string' ? parseColorRef(ref)?.id : undefined;
       if (id && !colorIds.has(id)) issue(issues, 'reference', `colorSystem.${mode}.${role}`, `colorSystem.${mode}.${role} "${String(ref)}" does not match any colors[].id (${known}).`);
     }
@@ -641,13 +642,14 @@ function crossReferences(identity: Record<string, unknown>, issues: BrandSourceI
   const colorIds = new Set(Array.isArray(identity.colors)
     ? identity.colors.flatMap((color) => isRecord(color) && typeof color.id === 'string' ? [color.id] : [])
     : []);
+  const colorIdList = [...colorIds].join(', ') || 'none defined';
   if (Array.isArray(identity.colorPairings)) {
     identity.colorPairings.forEach((pairing, index) => {
       if (!isRecord(pairing)) return;
       for (const side of ['foreground', 'background'] as const) {
         const value = pairing[side];
         if (typeof value === 'string' && !colorIds.has(value)) {
-          issue(issues, 'reference', `colorPairings[${index}].${side}`, `colorPairings[${index}].${side} "${value}" does not match any colors[].id (${[...colorIds].join(', ') || 'none defined'}).`);
+          issue(issues, 'reference', `colorPairings[${index}].${side}`, `colorPairings[${index}].${side} "${value}" does not match any colors[].id (${colorIdList}).`);
         }
       }
     });
@@ -657,10 +659,11 @@ function crossReferences(identity: Record<string, unknown>, issues: BrandSourceI
 
   const fonts = Array.isArray(identity.fonts) ? identity.fonts.filter(isRecord) : [];
   const fontIds = new Set(fonts.flatMap((font) => typeof font.id === 'string' ? [font.id] : []));
+  const fontIdList = [...fontIds].join(', ');
   if (Array.isArray(identity.typography) && fontIds.size > 0) {
     identity.typography.forEach((role, index) => {
       if (isRecord(role) && typeof role.fontId === 'string' && !fontIds.has(role.fontId)) {
-        issue(issues, 'reference', `typography[${index}].fontId`, `typography[${index}].fontId "${role.fontId}" does not match any fonts[].id (${[...fontIds].join(', ')}). Add the file with identity.font.add or pick an existing font.`);
+        issue(issues, 'reference', `typography[${index}].fontId`, `typography[${index}].fontId "${role.fontId}" does not match any fonts[].id (${fontIdList}). Add the file with identity.font.add or pick an existing font.`);
       }
     });
   }
@@ -695,7 +698,7 @@ export function validateBrandIdentitySource(
 ): { issues: BrandSourceIssue[]; ok: boolean } {
   const issues: BrandSourceIssue[] = [];
   validateObject(IDENTITY_SPEC, input, '', issues, mode);
-  if (mode === 'full' && isRecord(input)) crossReferences(input, issues);
+  if (mode === 'full' && isRecord(input) && !issues.some(({ code }) => code === 'too_many')) crossReferences(input, issues);
   return { issues, ok: !issues.some(({ severity }) => severity === 'error') };
 }
 

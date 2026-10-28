@@ -108,7 +108,7 @@ const AGENT_IDENTITY_SCHEMA = {
     name: { maxLength: 80, minLength: 1, type: 'string' },
     paper: HEX_COLOR_SCHEMA,
     positioning: { maxLength: 320, minLength: 1, type: 'string' },
-    id: { description: 'An identity ID from /api/identities. Send { id } alone, or the complete identity object from /api/identities (custom identities included) to render with its edits. Do not combine with preset.', maxLength: 120, minLength: 1, type: 'string' },
+    id: { description: 'An identity ID from /api/identities. Send { id } alone, or the complete identity object from /api/identities (custom identities included) to render with its edits. Complete identity objects are validated against the BrandIdentity schema; invalid ones return 400 invalid_identity. Do not combine with preset.', maxLength: 120, minLength: 1, type: 'string' },
     preset: { enum: ['custom', 'starter', 'template', 'basement', 'gt', 'ramp', 'mintlify', 'tailwind', 'viteplus', 'cloudflare', 'stripe'], type: 'string' },
     shortName: { maxLength: 8, minLength: 1, type: 'string' },
     tagline: { maxLength: 180, minLength: 1, type: 'string' },
