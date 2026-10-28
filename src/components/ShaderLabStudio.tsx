@@ -6559,14 +6559,20 @@ export default function ShaderLabStudio({
       })));
   }
 
+  const effectLayersById = useMemo(() => new Map(effectLayers.map((layer) => [layer.id, layer])), [effectLayers]);
+
   function imageEffectLayer(layerId: CompositionLayerId): (CompositionEffectLayer & { settings: { effectId: DesignLabImageEffectId } }) | null {
     if (!isEffectLayerId(layerId)) return null;
-    const layer = effectLayers.find(({ id }) => id === layerId);
+    const layer = effectLayersById.get(layerId);
     return layer?.settings.effectId ? layer as CompositionEffectLayer & { settings: { effectId: DesignLabImageEffectId } } : null;
   }
 
   function imageEffectPassesFor(layerIds: readonly CompositionLayerId[]) {
     return planImageEffectPasses(layerIds, (layerId): layerId is EffectLayerId => imageEffectLayer(layerId) !== null);
+  }
+
+  function hasImageEffects(layerIds: readonly CompositionLayerId[]) {
+    return layerIds.some((layerId) => imageEffectLayer(layerId) !== null);
   }
 
   function setImageEffectStatus(layerId: EffectLayerId, status: DesignLabImageEffectStatus) {
@@ -6607,6 +6613,7 @@ export default function ShaderLabStudio({
     const resolve = () => resolveImageEffectOutputs({
       composeBeneath,
       height,
+      layerIds,
       outputs: imageEffectPreviewOutputsRef.current,
       passes: imageEffectPassesFor(layerIds),
       run: async (layerId, pixels) => {
@@ -6652,6 +6659,7 @@ export default function ShaderLabStudio({
     return resolveImageEffectOutputs({
       composeBeneath,
       height,
+      layerIds,
       passes,
       run: async (layerId, pixels) => {
         const layer = imageEffectLayer(layerId);
@@ -6712,7 +6720,7 @@ export default function ShaderLabStudio({
   }
 
   const composeFrameRef = useCommittedRef(composeFrame);
-  const imageEffectPassesForRef = useCommittedRef(imageEffectPassesFor);
+  const hasImageEffectsRef = useCommittedRef(hasImageEffects);
   const resolvePreviewImageEffectsRef = useCommittedRef(resolvePreviewImageEffects);
   const loadCompositionImagesRef = useCommittedRef(loadCompositionImages);
   const lastPreviewEffectIndex = visibleLayerIds.findLastIndex(isEffectLayerId);
@@ -6861,7 +6869,7 @@ export default function ShaderLabStudio({
         if (cancelled) return;
         redrawPausedSource();
         advanceImageEffectClock(now);
-        const hasImageEffects = imageEffectPassesForRef.current(previewLayerIds).length > 0;
+        const hasImageEffects = hasImageEffectsRef.current(previewLayerIds);
         if (rendering && paused) skippedWhileRendering = true;
         const frameRate = hasImageEffects ? Math.min(targetFrameRate, IMAGE_EFFECT_PREVIEW_FRAME_RATE) : targetFrameRate;
         const shouldRender = workspaceActiveRef.current
@@ -6897,7 +6905,7 @@ export default function ShaderLabStudio({
     compositionImageSignature,
     composeFrameRef,
     effectPreviewOrderSignature,
-    imageEffectPassesForRef,
+    hasImageEffectsRef,
     loadCompositionImagesRef,
     paused,
     pausedEffectPreviewSignature,

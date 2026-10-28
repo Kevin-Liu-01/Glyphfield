@@ -339,8 +339,9 @@ export async function importShaderFrameAssets(input: CanvasDocument | readonly C
     metadata: (input as CanvasDocument).metadata,
   });
   const references = new Map(referenced.map((snapshot) => [snapshot.assetId, snapshot]));
+  const assetIds = new Set(assets.map(({ id }) => id));
   for (const snapshot of referenced) {
-    if (!assets.some((asset) => asset.id === snapshot.assetId)) throw new TypeError('A captured shader frame is missing its portable asset.');
+    if (!assetIds.has(snapshot.assetId)) throw new TypeError('A captured shader frame is missing its portable asset.');
   }
   const seen = new Set<string>();
   for (const asset of assets) {

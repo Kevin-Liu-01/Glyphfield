@@ -498,3 +498,51 @@ describe('Design Lab canvas document adapter', () => {
     expect(restored.workspace).toEqual(input.workspace);
   });
 });
+
+describe('createDesignLabCanvasDocument assembly', () => {
+  function input(overrides: Partial<DesignLabDocumentInput> = {}): DesignLabDocumentInput {
+    return {
+      assets: [], backgroundColor: '#111111', brandId: 'test-brand', createdAt: '2026-09-09T00:00:00.000Z',
+      effectLayers: [], exportSettings: {}, groups: [], height: 540, id: 'project-test', layerOrder: [],
+      layerShaders: {}, logos: [], ratio: 'wide', revision: 5, shaderLayers: [], shaderSequence: {}, textLayers: [],
+      timeline: {}, title: 'Share study', updatedAt: '2026-09-09T00:00:00.000Z', width: 960,
+      ...overrides,
+    } as DesignLabDocumentInput;
+  }
+
+  it('keeps layerOrder order, repeats and last-write-wins assets like the per-layer inserts did', () => {
+    const photo = { id: 'photo', name: 'Photo', url: 'data:image/png;base64,AAAA', transform: { scale: 1, x: 0, y: 0 } };
+    const other = { id: 'other', name: 'Other', url: 'data:image/png;base64,BBBB', transform: { scale: 2, x: 3, y: 4 } };
+    const document = createDesignLabCanvasDocument(input({
+      assets: [photo, other],
+      layerOrder: ['other', 'photo', 'other', 'missing'],
+    }));
+    const pageId = document.pageIds[0]!;
+    // A repeated layerOrder id is appended again, exactly as insertCanvasElement did.
+    expect(document.pages[pageId]!.elementIds).toEqual(['other', 'photo', 'other']);
+    expect(Object.keys(document.elements).sort()).toEqual(['other', 'photo']);
+  });
+
+  it('registers every layer asset and frame snapshot asset once into a shared map', () => {
+    const frameId = `shader-frame:${'0'.repeat(64)}`;
+    const photo = { id: 'photo', name: 'Photo', url: 'data:image/png;base64,AAAA', transform: { scale: 1, x: 0, y: 0 } };
+    const shader = { id: 'shader', name: 'Shader', frameSnapshot: { assetId: frameId, height: 8, version: 1, width: 8 } };
+    const document = createDesignLabCanvasDocument(input({
+      assets: [photo],
+      layerOrder: ['photo', 'shader'],
+      shaderLayers: [shader],
+    }));
+    expect(document.assets[frameId]?.mimeType).toBe('image/png');
+    expect(Object.values(document.assets).some((asset) => asset.mimeType === 'image/png' && asset.source === 'data:image/png;base64,AAAA')).toBe(true);
+  });
+
+  it('builds a 20,000-layer document within a generous bound', () => {
+    const layers = Array.from({ length: 20_000 }, (_, index) => ({
+      id: `layer-${index}`, name: `Layer ${index}`, url: `data:image/png;base64,${'A'.repeat(16)}`, transform: { scale: 1, x: index, y: index },
+    }));
+    const started = Date.now();
+    const document = createDesignLabCanvasDocument(input({ assets: layers, layerOrder: layers.map(({ id }) => id) }));
+    expect(Date.now() - started).toBeLessThan(10_000);
+    expect(document.pages[document.pageIds[0]!]!.elementIds).toHaveLength(20_000);
+  });
+});

@@ -538,3 +538,34 @@ describe('canvas document', () => {
     );
   });
 });
+
+describe('repeated ids in parsed documents', () => {
+  function documentWithRepeatedIds(pageRepeats: number, elementRepeats: number) {
+    const document = createCanvasDocument('deck', 'gt', 'GT deck', 1200, 675, ['assets', 'layers', 'pages']);
+    const pageId = document.pageIds[0]!;
+    const element = createCanvasElement('e', 'Off-canvas hero', 'image', { height: 100, rotation: 0, width: 100, x: 5_000, y: 5_000 });
+    const withElement = insertCanvasElement(document, pageId, element);
+    const source = JSON.parse(serializeCanvasDocument(withElement)) as {
+      elements: Record<string, unknown>;
+      pageIds: string[];
+      pages: Record<string, { elementIds: string[]; id: string }>;
+    };
+    source.pages['repeated-page'] = { ...source.pages[pageId]!, id: 'repeated-page', elementIds: Array.from({ length: elementRepeats }, () => 'e') };
+    delete source.pages[pageId];
+    source.pageIds = Array.from({ length: pageRepeats }, () => 'repeated-page');
+    return JSON.stringify(source);
+  }
+
+  it('keeps only the first occurrence of repeated page and element ids', () => {
+    const parsed = parseCanvasDocument(documentWithRepeatedIds(3, 2));
+    expect(parsed.pageIds).toEqual(['repeated-page']);
+    expect(parsed.pages['repeated-page']!.elementIds).toEqual(['e']);
+  });
+
+  it('reports one preflight issue for one clipped element however the ids repeated', () => {
+    const parsed = parseCanvasDocument(documentWithRepeatedIds(2_000, 2_000));
+    expect(parsed.pageIds).toHaveLength(1);
+    expect(preflightCanvasDocument(parsed)).toHaveLength(1);
+    expect(preflightCanvasDocument(parsed)[0]).toMatchObject({ elementId: 'e', type: 'clipped' });
+  });
+});

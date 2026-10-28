@@ -66,8 +66,8 @@ describe('Design Lab image effects', () => {
     const ids = ['shader-a', 'effect-x', 'text-b', 'effect-y', 'logo-c'];
     const passes = planImageEffectPasses(ids, (id): id is 'effect-x' | 'effect-y' => id.startsWith('effect-'));
     expect(passes).toEqual([
-      { beneath: ['shader-a'], layerId: 'effect-x' },
-      { beneath: ['shader-a', 'effect-x', 'text-b'], layerId: 'effect-y' },
+      { beneathCount: 1, layerId: 'effect-x' },
+      { beneathCount: 3, layerId: 'effect-y' },
     ]);
   });
 
@@ -83,10 +83,11 @@ describe('Design Lab image effects', () => {
         return canvas;
       },
       height: 90,
+      layerIds: ['shader-a', 'effect-x', 'effect-y', 'effect-z'],
       passes: [
-        { beneath: ['shader-a'], layerId: 'effect-x' },
-        { beneath: ['shader-a', 'effect-x'], layerId: 'effect-y' },
-        { beneath: ['shader-a', 'effect-x', 'effect-y'], layerId: 'effect-z' },
+        { beneathCount: 1, layerId: 'effect-x' },
+        { beneathCount: 2, layerId: 'effect-y' },
+        { beneathCount: 3, layerId: 'effect-z' },
       ],
       run: async (layerId) => layerId === 'effect-y' ? null : fakeCanvas(`gpu-${layerId}`),
       source,
@@ -112,8 +113,9 @@ describe('Design Lab image effects', () => {
       composeBeneath: () => undefined,
       createCanvas: () => fakeCanvas('new'),
       height: 10,
+      layerIds: ['effect-x'],
       outputs: kept,
-      passes: [{ beneath: [] as string[], layerId: 'effect-x' }],
+      passes: [{ beneathCount: 0, layerId: 'effect-x' }],
       run,
       width: 10,
     };

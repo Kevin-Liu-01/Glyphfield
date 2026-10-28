@@ -604,7 +604,7 @@ function parseCanvasPage(value: CanvasJsonValue | undefined, key: string): Canva
   return {
     background: requiredString(page.background, `pages.${key}.background`),
     bleed: requiredNumber(page.bleed, `pages.${key}.bleed`),
-    elementIds: requiredStringArray(page.elementIds, `pages.${key}.elementIds`),
+    elementIds: [...new Set(requiredStringArray(page.elementIds, `pages.${key}.elementIds`))],
     height: requiredNumber(page.height, `pages.${key}.height`),
     id,
     name: requiredString(page.name, `pages.${key}.name`),
@@ -640,7 +640,7 @@ function parseCanvasDocumentV2(value: CanvasJsonObject): CanvasDocument {
   const elements = Object.fromEntries(Object.entries(rawElements).map(([key, element]) => [key, parseCanvasElement(element, key)]));
   const rawPages = requiredObject(value.pages, 'pages');
   const pages = Object.fromEntries(Object.entries(rawPages).map(([key, page]) => [key, parseCanvasPage(page, key)]));
-  const pageIds = requiredStringArray(value.pageIds, 'pageIds');
+  const pageIds = [...new Set(requiredStringArray(value.pageIds, 'pageIds'))];
   if (pageIds.some((pageId) => !pages[pageId])) throw new TypeError('pageIds references a missing page.');
   for (const page of Object.values(pages)) {
     if (page.elementIds.some((elementId) => !elements[elementId])) throw new TypeError(`${page.name} references a missing element.`);

@@ -181,10 +181,17 @@ function assertEmbeddedImage(source: string, name: string): void {
 }
 
 function assertProjectImages(document: CanvasDocument, layers: readonly CanvasJsonObject[]): void {
+  // One source can be shared by many layers; decode each distinct one once.
+  const checked = new Set<string>();
+  const check = (source: string, name: string) => {
+    if (checked.has(source)) return;
+    assertEmbeddedImage(source, name);
+    checked.add(source);
+  };
   for (const asset of Object.values(document.assets)) {
-    if (asset.kind === 'image') assertEmbeddedImage(asset.source, asset.name || asset.id);
+    if (asset.kind === 'image') check(asset.source, asset.name || asset.id);
   }
-  for (const layer of layers) assertEmbeddedImage(layer.url as string, String(layer.name ?? layer.id ?? 'Artboard image'));
+  for (const layer of layers) check(layer.url as string, String(layer.name ?? layer.id ?? 'Artboard image'));
   // Validate the adapter's resolved sources, not only registered assets. A
   // layer can omit assetId, and data.layerType controls Design Lab dispatch.
   const composition = asCanvasJsonObject(designLabSourceFromCanvasDocument(document).composition)!;
@@ -194,7 +201,7 @@ function assertProjectImages(document: CanvasDocument, layers: readonly CanvasJs
     for (const value of activeLayers) {
       const layer = asCanvasJsonObject(value);
       if (!layer || typeof layer.url !== 'string') throw new TypeError('Active artboard contains an image without a source.');
-      assertEmbeddedImage(layer.url, String(layer.name ?? layer.id ?? 'Active artboard image'));
+      check(layer.url, String(layer.name ?? layer.id ?? 'Active artboard image'));
     }
   }
 }

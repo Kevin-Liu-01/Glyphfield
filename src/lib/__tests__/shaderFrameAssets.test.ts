@@ -222,3 +222,30 @@ describe('persistent shader frame assets', () => {
     expect((await readShaderFrameAsset(snapshots[0]!.assetId)).size).toBe(pngBlob().size + 1);
   });
 });
+
+describe('importShaderFrameAssets references', () => {
+  beforeEach(() => {
+    vi.stubGlobal('indexedDB', fakeIndexedDB);
+  });
+
+  function documentWithSnapshots(assetIds: string[], assetId: string) {
+    const document = createCanvasDocument('frames', 'gt', 'Frames', 1200, 675, ['assets']);
+    const snapshot = { assetId, height: 1, version: 1, width: 1 };
+    const metadata = { designLab: { snapshots: assetIds.map((id) => ({ frameSnapshot: { ...snapshot, assetId: id } })) } };
+    return { ...document, metadata: toCanvasJsonValue(metadata) as typeof document.metadata };
+  }
+
+  it('validates many references against one id lookup', async () => {
+    const snapshot = await createShaderFrameAsset(pngBlob(), DIMENSIONS);
+    const asset = { ...shaderFrameCanvasAsset(snapshot), source: `data:image/png;base64,${PNG}` };
+    const references = Array.from({ length: 500 }, () => snapshot.assetId);
+    const document = { ...documentWithSnapshots(references, snapshot.assetId), assets: { [asset.id]: asset } };
+    await importShaderFrameAssets(document);
+  });
+
+  it('still rejects a missing referenced asset with the same message', async () => {
+    const missing = `shader-frame:${'f'.repeat(64)}`;
+    await expect(importShaderFrameAssets(documentWithSnapshots([missing], missing))).rejects
+      .toThrow('A captured shader frame is missing its portable asset.');
+  });
+});

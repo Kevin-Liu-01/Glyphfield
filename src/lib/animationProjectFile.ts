@@ -112,12 +112,19 @@ function inlineAudioAssets(state: CanvasJsonObject): CanvasJsonObject[] {
 function assertPortable(document: CanvasDocument): void {
   const state = validateState(document);
   animationProjectIdentity(document);
-  for (const asset of Object.values(document.assets)) assertEmbedded(asset.source, asset.kind === 'image' ? 'image' : 'binary', asset.name);
+  // One registered source can back many audio entries; decode each once per kind.
+  const checked: Record<'binary' | 'image', Set<string>> = { binary: new Set(), image: new Set() };
+  const check = (source: string, kind: 'image' | 'binary', name: string) => {
+    if (checked[kind].has(source)) return;
+    assertEmbedded(source, kind, name);
+    checked[kind].add(source);
+  };
+  for (const asset of Object.values(document.assets)) check(asset.source, asset.kind === 'image' ? 'image' : 'binary', asset.name);
   for (const asset of inlineAudioAssets(state)) {
     const registered = typeof asset.assetId === 'string' ? document.assets[asset.assetId] : undefined;
     const source = registered?.source ?? asset.source;
     if (typeof source !== 'string') throw new TypeError('Animation audio is missing its embedded source.');
-    assertEmbedded(source, 'binary', String(asset.name ?? 'Audio'));
+    check(source, 'binary', String(asset.name ?? 'Audio'));
   }
   serializeCanvasDocument(document);
 }
