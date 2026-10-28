@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DESIGN_CANVAS_ID, designLayerWorldBounds, designSurfaceSize, packDesignWorkspace, packDesignWorkspaceJson, reparentDesignLayer, unpackDesignWorkspace, unpackDesignWorkspaceJson } from '../designWorkspace';
+import { DESIGN_CANVAS_ID, designLayerWorldBounds, designSurfaceSize, nextPastedArtboardPosition, packDesignWorkspace, packDesignWorkspaceJson, reparentDesignLayer, unpackDesignWorkspace, unpackDesignWorkspaceJson } from '../designWorkspace';
 import { resolveDesignLabFontSize } from '../designLabTypography';
 
 const canvas = { id: DESIGN_CANVAS_ID, x: 0, y: 0, snapshot: { dimensions: { width: 1600, height: 900 } } };
@@ -71,5 +71,21 @@ describe('open Design Lab workspace', () => {
     expect(packed.canvas).toBe(canvas);
     expect(packed.future).toBe('retained');
     expect(unpackDesignWorkspaceJson(packed).artboards).toEqual(source.artboards);
+  });
+});
+
+describe('nextPastedArtboardPosition', () => {
+  it('cascades past occupied slots like the inline loop did', () => {
+    expect(nextPastedArtboardPosition([], { x: 10, y: 20 })).toEqual({ x: 58, y: 68 });
+    expect(nextPastedArtboardPosition([{ x: 58, y: 68 }], { x: 10, y: 20 })).toEqual({ x: 106, y: 116 });
+    expect(nextPastedArtboardPosition([{ x: 58, y: 68 }, { x: 106, y: 116 }], { x: 10, y: 20 })).toEqual({ x: 154, y: 164 });
+  });
+
+  it('returns promptly when a step can no longer move the coordinates', () => {
+    const huge = 1e18;
+    const start = Date.now();
+    const position = nextPastedArtboardPosition([{ x: huge + 48, y: huge + 48 }], { x: huge, y: huge });
+    expect(Date.now() - start).toBeLessThan(1_000);
+    expect(position).toEqual({ x: huge + 48, y: huge + 48 });
   });
 });
