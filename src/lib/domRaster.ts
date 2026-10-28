@@ -4,7 +4,7 @@
  * images and fonts are embedded as data URLs, and the result is drawn from an
  * SVG foreignObject. Browser-only.
  */
-import { blobToDataUrl, imageUrlToDataUrl, resolveSvgRasterDimensions } from './download';
+import { blobToDataUrl, imageUrlToDataUrl, resolveLocalAssetUrl, resolveSvgRasterDimensions } from './download';
 
 export type DomRasterOptions = {
   /** @font-face rules with embedded sources, so text never rasterises in a fallback face. */
@@ -98,7 +98,7 @@ function aspectAlignment(position: string): string {
  * become preserveAspectRatio.
  */
 function imagesAsSvgImages(root: Element) {
-  for (const image of [...root.querySelectorAll('img')]) {
+  for (const image of root.querySelectorAll('img')) {
     const source = image.getAttribute('src');
     if (!source) continue;
     const style = image.getAttribute('style') ?? '';
@@ -118,21 +118,129 @@ function imagesAsSvgImages(root: Element) {
   }
 }
 
-/** Embed every font file referenced by url(...) in a @font-face stylesheet. */
+type CssUrlReference = {
+  /** Scanning resumes here, just past the token's closing quote or `)`. */
+  end: number;
+  /** The url body as written, before trimming. */
+  url: string;
+  /** Offsets of the url body; only this span is ever replaced. */
+  valueEnd: number;
+  valueStart: number;
+};
+
+const CSS_SPACE = /[\t\n\f\r ]/;
+
+function skipCssWhitespace(css: string, index: number): number {
+  while (index < css.length && CSS_SPACE.test(css[index]!)) index += 1;
+  return index;
+}
+
+/** Offset just past the string that opens at `index`; a lone close never happens. */
+function skipCssString(css: string, index: number): number {
+  const quote = css[index]!;
+  let cursor = index + 1;
+  while (cursor < css.length) {
+    const char = css[cursor]!;
+    if (char === '\\') cursor += 2;
+    else if (char === quote) return cursor + 1;
+    else cursor += 1;
+  }
+  return cursor;
+}
+
+/** A `url(` token is not a function token when it is part of a longer identifier. */
+function isCssUrlToken(css: string, index: number): boolean {
+  return css.slice(index, index + 4).toLowerCase() === 'url('
+    && !/[\w-]/.test(css[index - 1] ?? '\0');
+}
+
+/**
+ * Read the url(...) token that opens at `index` (the `u`). Quoted bodies honor
+ * `\` escapes and stop at their quote; unquoted bodies stop at `)`. A missing
+ * close simply runs to the end — the scan stays linear either way.
+ */
+function readCssUrl(css: string, index: number): CssUrlReference {
+  let cursor = skipCssWhitespace(css, index + 4);
+  const quote = css[cursor];
+  if (quote === '"' || quote === "'") {
+    const valueStart = cursor + 1;
+    let stop = valueStart;
+    while (stop < css.length) {
+      const char = css[stop]!;
+      if (char === '\\') stop += 2;
+      else if (char === quote || char === '\n' || char === '\r' || char === '\f') break;
+      else stop += 1;
+    }
+    cursor = skipCssWhitespace(css, css[stop] === quote ? stop + 1 : stop);
+    return {
+      end: css[cursor] === ')' ? cursor + 1 : cursor,
+      url: css.slice(valueStart, stop),
+      valueEnd: stop,
+      valueStart,
+    };
+  }
+  const valueStart = cursor;
+  let stop = cursor;
+  while (stop < css.length && !/[)"'\n\r\f]/.test(css[stop]!)) stop += 1;
+  return {
+    end: css[stop] === ')' ? stop + 1 : stop,
+    url: css.slice(valueStart, stop),
+    valueEnd: stop,
+    valueStart,
+  };
+}
+
+/** Every url(...) token outside comments and strings, in a single linear pass. */
+function scanCssUrls(css: string): CssUrlReference[] {
+  const urls: CssUrlReference[] = [];
+  let index = 0;
+  while (index < css.length) {
+    const char = css[index]!;
+    if (char === '/' && css[index + 1] === '*') {
+      const close = css.indexOf('*/', index + 2);
+      index = close < 0 ? css.length : close + 2;
+    } else if (char === '"' || char === "'") {
+      index = skipCssString(css, index);
+    } else if ((char === 'u' || char === 'U') && isCssUrlToken(css, index)) {
+      const reference = readCssUrl(css, index);
+      urls.push(reference);
+      index = reference.end;
+    } else {
+      index += 1;
+    }
+  }
+  return urls;
+}
+
+/** Embed every same-origin font file referenced by url(...) in a @font-face stylesheet. */
 export async function embedFontFaceCss(css: string): Promise<string> {
-  const urls = [...new Set([...css.matchAll(/url\((["']?)([^"')]+)\1\)/g)].map((match) => match[2]!))].filter((url) => !url.startsWith('data:'));
-  let embedded = css;
-  for (const url of urls) {
+  const references = scanCssUrls(css);
+  const wanted = new Set<string>();
+  for (const { url } of references) {
+    const trimmed = url.trim();
+    if (trimmed && !trimmed.startsWith('#') && !/^data:/i.test(trimmed)) wanted.add(trimmed);
+  }
+  const embedded = new Map<string, string>();
+  await Promise.all([...wanted].map(async (url) => {
+    const href = resolveLocalAssetUrl(url);
+    if (!href || href.startsWith('data:')) return;
     try {
-      const response = await fetch(new URL(url, window.location.href).href);
-      if (!response.ok) continue;
-      const data = await blobToDataUrl(await response.blob());
-      embedded = embedded.split(url).join(data);
+      const response = await fetch(href);
+      if (!response.ok) return;
+      embedded.set(url, await blobToDataUrl(await response.blob()));
     } catch {
       // A missing face falls back like the page itself would.
     }
+  }));
+  let result = '';
+  let cursor = 0;
+  for (const reference of references) {
+    const data = embedded.get(reference.url.trim());
+    if (!data) continue;
+    result += `${css.slice(cursor, reference.valueStart)}${data}`;
+    cursor = reference.valueEnd;
   }
-  return embedded;
+  return result + css.slice(cursor);
 }
 
 /** Serialise a styled clone of `node` into a standalone SVG at width × height. */

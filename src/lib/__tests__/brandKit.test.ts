@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createBrandIdentity, hydrateBrandIdentities, type BrandIdentity } from '../brandIdentity';
 import { brandAgentSetupPrompt, brandProjectUrl, brandSetupMode } from '../brandAgentSetup';
@@ -21,6 +21,10 @@ import { BrandSourceValidationError } from '../brandSource';
 
 const SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10"/></svg>';
 const WOFF2 = new Uint8Array([0x77, 0x4f, 0x46, 0x32, 0, 1, 0, 0, 1, 2, 3, 4]);
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 function svgFile(name = 'mark.svg') {
   return new File([SVG], name, { type: 'image/svg+xml' });
@@ -151,6 +155,20 @@ describe('brand kit', () => {
     expect(JSON.parse(tokens.previewText!)).toHaveProperty('color.ink.$type', 'color');
     expect((await createBrandKitArtifact(identity, 'markdown', load)).fileName).toBe('brand.md');
     expect((await createBrandKitArtifact(identity, 'tailwind', load)).blob.type).toBe('text/css');
+  });
+});
+
+describe('fetchBrandKitFile same-origin guard', () => {
+  it('reads a same-origin file and never fetches a URL that normalizes cross-origin', async () => {
+    const { fetchBrandKitFile } = await import('../brandIdentityActions');
+    const fetch = vi.fn(async () => new Response(new Uint8Array([1, 2, 3]).buffer as ArrayBuffer));
+    vi.stubGlobal('fetch', fetch);
+    await expect(fetchBrandKitFile('/fonts/acme.woff2')).resolves.toEqual(new Uint8Array([1, 2, 3]));
+    expect(fetch).toHaveBeenCalledWith('http://localhost:3000/fonts/acme.woff2');
+    fetch.mockClear();
+    await expect(fetchBrandKitFile('/\\evil.test/acme.woff2')).rejects.toThrow(/Could not read .* for the brand kit/);
+    await expect(fetchBrandKitFile('https://evil.test/acme.woff2')).rejects.toThrow(/Could not read .* for the brand kit/);
+    expect(fetch).not.toHaveBeenCalled();
   });
 });
 

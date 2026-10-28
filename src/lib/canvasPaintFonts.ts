@@ -1,4 +1,5 @@
 import type { BrandFontAsset } from '@/lib/brandIdentity';
+import { resolveLocalAssetUrl } from '@/lib/download';
 
 // The editable canvas lays text out with `font-optical-sizing: none` (see canvasTextLayout),
 // so a variable font draws its default optical size at every zoom. Canvas text has no such
@@ -87,7 +88,9 @@ export function canvasPaintFamilyList(list: string): string {
 
 async function registerPaintFamily(family: string, fonts: readonly BrandFontAsset[]) {
   const sources = await Promise.all(fonts.map(async (font) => {
-    const response = await fetch(font.path);
+    const href = resolveLocalAssetUrl(font.path);
+    if (!href) throw new Error(`${font.path} is not a data: or same-origin font file.`);
+    const response = await fetch(href);
     if (!response.ok) throw new Error(`${font.path} returned ${response.status}`);
     return response.arrayBuffer();
   }));

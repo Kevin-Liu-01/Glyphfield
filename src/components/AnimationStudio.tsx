@@ -113,7 +113,7 @@ import {
   canvasDocumentContentRevision,
   isCanvasDocumentEnvelope,
 } from '@/lib/canvasDocument';
-import { blobToDataUrl, imageUrlToDataUrl } from '@/lib/download';
+import { blobToDataUrl, imageUrlToDataUrl, resolveLocalAssetUrl } from '@/lib/download';
 import type { LiveMaterialSettings } from '@/lib/liveMaterials';
 import { readLiveMaterialPresentation, type LiveMaterialFrameState, type LiveMaterialPresentation } from '@/lib/liveMaterialPreview';
 import { createLiveMaterialFramePacer } from '@/lib/liveMaterialRenderBudget';
@@ -266,7 +266,9 @@ async function closeBrowserAudioContext(context: AudioContext | null): Promise<v
 }
 
 async function decodeAudioSource(context: AudioContext, source: string): Promise<AudioBuffer> {
-  const response = await fetch(source);
+  const href = resolveLocalAssetUrl(source);
+  if (!href) throw new Error('Audio asset could not be loaded (not a same-origin URL).');
+  const response = await fetch(href);
   if (!response.ok) throw new Error(`Audio asset could not be loaded (${response.status}).`);
   return context.decodeAudioData(await response.arrayBuffer());
 }

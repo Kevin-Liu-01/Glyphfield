@@ -48,6 +48,25 @@ describe('AppearanceFilteredContent', () => {
     expect(markup).not.toContain('dangerouslySetInnerHTML');
   });
 
+  it('escapes mask URL delimiters so a hostile path cannot add mask layers', () => {
+    const markup = renderToStaticMarkup(
+      <LogoAppearancePreview
+        ariaLabel='Logo'
+        color='#FFFFFF'
+        logoPath={'data:image/svg+xml,x")\nurl(https://evil.test/)'}
+        settings={DEFAULT_LOGO_APPEARANCE}
+      />
+    );
+
+    // &quot; is the markup form of the CSS string quotes; nothing outside them
+    // may be another url( layer.
+    const bodies = [...markup.matchAll(/mask-image:url\(((?:&quot;|[^;])*)\)/g)].map((match) => match[1]!);
+    expect(bodies.length).toBeGreaterThan(0);
+    for (const body of bodies) {
+      expect(body.replace(/&quot;[\s\S]*?&quot;/g, '')).not.toContain('url(');
+    }
+  });
+
   it('can fit imported-image effects to the exact editable frame', () => {
     const markup = renderToStaticMarkup(
       <LogoAppearancePreview

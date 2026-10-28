@@ -7,6 +7,41 @@ export function escapeXml(value: string): string {
     .replaceAll("'", '&apos;');
 }
 
+/**
+ * A CSS `url("…")` token for a caller-supplied URL. Quotes, backslashes and
+ * control characters become `\hh ` escapes so the value can never close the
+ * string early or inject another layer (F39).
+ */
+export function cssUrl(url: string): string {
+  let escaped = '';
+  for (const char of url) {
+    const code = char.codePointAt(0)!;
+    escaped += char === '"' || char === '\\' || code < 0x20 || code === 0x7f
+      ? `\\${code.toString(16)} `
+      : char;
+  }
+  return `url("${escaped}")`;
+}
+
+/**
+ * Resolve `source` against this page and return the absolute href only when
+ * reading it stays local: a data: URL, or anything that resolves to this
+ * origin (root-relative paths, blob: URLs the page created). Remote hosts,
+ * other schemes and parser tricks such as "/\host" or tab-stripped "//host"
+ * all return null — the check happens on the parsed URL, not on the text.
+ */
+export function resolveLocalAssetUrl(source: string): string | null {
+  let resolved: URL;
+  try {
+    resolved = new URL(source, window.location.href);
+  } catch {
+    return null;
+  }
+  if (resolved.protocol === 'data:') return resolved.href;
+  const origin = window.location.origin;
+  return origin !== 'null' && resolved.origin === origin ? resolved.href : null;
+}
+
 const pendingImageDataUrls = new Map<string, Promise<string>>();
 const DEFAULT_SVG_RASTER_PIXEL_RATIO = 2;
 const MAX_SVG_RASTER_EDGE = 4_800;
@@ -44,10 +79,14 @@ export function resolveSvgRasterDimensions(
  */
 export function imageUrlToDataUrl(source: string): Promise<string> {
   if (/^data:/i.test(source)) return Promise.resolve(source);
+  const href = resolveLocalAssetUrl(source);
+  if (!href) {
+    return Promise.reject(new Error(`Asset URL must be a data: or same-origin URL; received "${source.slice(0, 140)}".`));
+  }
   const pending = pendingImageDataUrls.get(source);
   if (pending) return pending;
 
-  const request = fetch(source).then(async (response) => {
+  const request = fetch(href).then(async (response) => {
     if (!response.ok) throw new Error(`Asset request failed with ${response.status}.`);
     return blobToDataUrl(await response.blob());
   });
