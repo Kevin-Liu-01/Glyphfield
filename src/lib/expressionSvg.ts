@@ -508,60 +508,89 @@ type CodeRow = { continuation: boolean; line: number; tokens: CodeToken[] };
 
 const CODE_BREAK_AFTER = /[\s,;(){}[\]=>.+\-*/|&:]/;
 
-/** Slice highlighted tokens to the characters [start, end). */
-function sliceTokens(tokens: readonly CodeToken[], start: number, end: number): CodeToken[] {
+/**
+ * Slice highlighted tokens to the characters [start, end). `cursor` resumes
+ * where the previous row ended so wrapping a line stays linear in its tokens.
+ */
+function sliceTokens(tokens: readonly CodeToken[], offsets: readonly number[], cursor: { index: number }, start: number, end: number): CodeToken[] {
   const result: CodeToken[] = [];
-  let offset = 0;
-  for (const token of tokens) {
+  while (cursor.index < tokens.length && offsets[cursor.index]! + tokens[cursor.index]!.content.length <= start) cursor.index += 1;
+  for (let index = cursor.index; index < tokens.length && offsets[index]! < end; index += 1) {
+    const token = tokens[index]!;
+    const offset = offsets[index]!;
     const from = Math.max(start, offset);
     const to = Math.min(end, offset + token.content.length);
     if (to > from) result.push({ color: token.color, content: token.content.slice(from - offset, to - offset) });
-    offset += token.content.length;
   }
   return result;
 }
 
 /** Longest prefix of `rest` that fits, pulled back to a break after a space or punctuation when one is near. */
 function codeCut(rest: string, prefix: string, room: number, measure: (text: string) => number): number {
-  let low = 1;
+  // Gallop 1, 2, 4 … until a probe overflows or the whole rest fits, then
+  // binary-search inside the last interval — the same cut a full binary search
+  // finds when measure is monotonic in the prefix length.
+  let low = 0;
   let high = rest.length;
-  while (low < high) {
+  for (let probe = 1; ; probe = Math.min(probe * 2, rest.length)) {
+    if (measure(prefix + rest.slice(0, probe)) <= room) {
+      if (probe >= rest.length) return rest.length;
+      low = probe;
+    } else {
+      high = probe;
+      break;
+    }
+  }
+  while (low + 1 < high) {
     const middle = Math.ceil((low + high) / 2);
     if (measure(prefix + rest.slice(0, middle)) <= room) low = middle;
-    else high = middle - 1;
+    else high = middle;
   }
-  for (let back = low; back > low * 0.5; back -= 1) {
+  const cut = Math.max(1, low);
+  for (let back = cut; back > cut * 0.5; back -= 1) {
     if (CODE_BREAK_AFTER.test(rest[back - 1]!)) return back;
   }
-  return low;
+  return cut;
 }
 
-function codeRow(tokens: readonly CodeToken[], line: number, prefix: string, start: number, end: number): CodeRow {
+function codeRow(tokens: readonly CodeToken[], offsets: readonly number[], cursor: { index: number }, line: number, prefix: string, continuation: boolean, start: number, end: number): CodeRow {
   const indent = prefix ? [{ color: tokens[0]?.color ?? '', content: prefix }] : [];
-  return { continuation: Boolean(prefix), line, tokens: [...indent, ...sliceTokens(tokens, start, end)] };
+  return { continuation, line, tokens: [...indent, ...sliceTokens(tokens, offsets, cursor, start, end)] };
 }
 
 /**
  * Break each source line into rows that fit `room`, after a space or
  * punctuation when one is near, with continuation rows indented two spaces past
- * the line's own indent.
+ * the line's own indent. Stops after `maxRows` rows (default unlimited).
  */
-export function wrapCodeLines(lines: readonly CodeToken[][], room: number, measure: (text: string) => number): CodeRow[] {
-  return lines.flatMap((tokens, index) => {
+export function wrapCodeLines(lines: readonly CodeToken[][], room: number, measure: (text: string) => number, maxRows = Number.POSITIVE_INFINITY): CodeRow[] {
+  const rows: CodeRow[] = [];
+  for (const [index, tokens] of lines.entries()) {
+    if (rows.length >= maxRows) break;
     const text = tokens.map(({ content }) => content).join('');
     const indent = `${/^\s*/.exec(text)![0]}  `;
-    const rows: CodeRow[] = [];
+    // An indent that eats most of the row would wrap one character per row.
+    const continuation = measure(indent) > room / 2 ? '' : indent;
+    const offsets = Array.from<number>({ length: tokens.length });
+    let offset = 0;
+    tokens.forEach((token, tokenIndex) => {
+      offsets[tokenIndex] = offset;
+      offset += token.content.length;
+    });
+    const cursor = { index: 0 };
+    let first = true;
     let start = 0;
     do {
-      const prefix = rows.length > 0 ? indent : '';
+      const prefix = first ? '' : continuation;
       const rest = text.slice(start);
-      const cut = measure(prefix + rest) <= room || rest.length <= 1 ? rest.length : codeCut(rest, prefix, room, measure);
-      rows.push(codeRow(tokens, index + 1, prefix, start, start + cut));
+      const cut = rest.length <= 1 ? rest.length : codeCut(rest, prefix, room, measure);
+      rows.push(codeRow(tokens, offsets, cursor, index + 1, prefix, !first, start, start + cut));
+      first = false;
       start += cut;
       while (text[start] === ' ') start += 1;
-    } while (start < text.length);
-    return rows;
-  });
+    } while (start < text.length && rows.length < maxRows);
+  }
+  return rows;
 }
 
 function renderCode(element: CanvasElement, context: ExpressionRenderContext): string {
@@ -611,7 +640,7 @@ function renderCode(element: CanvasElement, context: ExpressionRenderContext): s
     gutter = lineNumbers ? round(context.measure(String(lines.length), font) + size * 1.4) : 0;
     lineHeight = size * style.lineHeight;
     visible = Math.max(1, Math.floor((height - header - size * 1.4) / lineHeight));
-    rows = wrapCodeLines(lines, width - padX * 1.5 - gutter, measure);
+    rows = wrapCodeLines(lines, width - padX * 1.5 - gutter, measure, visible + 1);
     if (rows.length <= visible || size <= baseSize * 0.8) break;
     size = Math.max(baseSize * 0.8, size * 0.95);
   }

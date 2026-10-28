@@ -197,3 +197,112 @@ describe('brand pattern backgrounds', () => {
     expect(/stroke-width="([\d.]+)"/.exec(svg.slice(svg.indexOf('pattern-crosshatch')))![1]).not.toBe('0.55');
   });
 });
+
+describe('wrapCodeLines cost', () => {
+  type Token = { color: string; content: string };
+  type Row = { continuation: boolean; line: number; tokens: Token[] };
+
+  /** The previous implementation, kept as a behaviour oracle. */
+  function oracleWrap(lines: readonly Token[][], room: number, m: (text: string) => number): Row[] {
+    const BREAK = /[\s,;(){}[\]=>.+\-*/|&:]/;
+    const slice = (tokens: readonly Token[], start: number, end: number): Token[] => {
+      const result: Token[] = [];
+      let offset = 0;
+      for (const token of tokens) {
+        const from = Math.max(start, offset);
+        const to = Math.min(end, offset + token.content.length);
+        if (to > from) result.push({ color: token.color, content: token.content.slice(from - offset, to - offset) });
+        offset += token.content.length;
+      }
+      return result;
+    };
+    const cut = (rest: string, prefix: string): number => {
+      let low = 1;
+      let high = rest.length;
+      while (low < high) {
+        const middle = Math.ceil((low + high) / 2);
+        if (m(prefix + rest.slice(0, middle)) <= room) low = middle;
+        else high = middle - 1;
+      }
+      for (let back = low; back > low * 0.5; back -= 1) {
+        if (BREAK.test(rest[back - 1]!)) return back;
+      }
+      return low;
+    };
+    return lines.flatMap((tokens, index) => {
+      const text = tokens.map(({ content }) => content).join('');
+      const indent = `${/^\s*/.exec(text)![0]}  `;
+      const rows: Row[] = [];
+      let start = 0;
+      do {
+        const prefix = rows.length > 0 ? indent : '';
+        const rest = text.slice(start);
+        const end = m(prefix + rest) <= room || rest.length <= 1 ? rest.length : cut(rest, prefix);
+        rows.push({
+          continuation: Boolean(prefix),
+          line: index + 1,
+          tokens: [...(prefix ? [{ color: tokens[0]?.color ?? '', content: prefix }] : []), ...slice(tokens, start, start + end)],
+        });
+        start += end;
+        while (text[start] === ' ') start += 1;
+      } while (start < text.length);
+      return rows;
+    });
+  }
+
+  it('produces the same rows as the previous implementation on generated lines', () => {
+    const m = (text: string) => text.length * 7;
+    const alphabet = 'ab;,(){}=>+  ';
+    let seed = 42;
+    const next = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+    const lines: Token[][] = Array.from({ length: 40 }, () => {
+      const indent = ' '.repeat(Math.floor(next() * 8));
+      const body = Array.from({ length: 10 + Math.floor(next() * 200) }, () => alphabet[Math.floor(next() * alphabet.length)]).join('');
+      return next() < 0.3
+        ? [{ color: '#fff', content: indent + body }, { color: '#f0f', content: '// tail' }]
+        : [{ color: '#fff', content: indent + body }];
+    });
+    for (const room of [200, 340, 900]) {
+      expect(wrapCodeLines(lines, room, m), `room ${room}`).toEqual(oracleWrap(lines, room, m));
+    }
+  });
+
+  it('drops the continuation indent when it is wider than half the row', () => {
+    const m = (text: string) => text.length * 10;
+    const indent = `${' '.repeat(40)}  `;
+    const lines: Token[][] = [[{ color: '#fff', content: `${' '.repeat(40)}${'return '.repeat(20)}value;` }]];
+    const rows = wrapCodeLines(lines, 600, m);
+    expect(rows.length).toBeGreaterThan(1);
+    expect(rows.slice(1).every((row) => row.continuation && row.tokens[0]?.content !== indent)).toBe(true);
+  });
+
+  it('measures a bounded amount of text while wrapping a very long line', () => {
+    const source = 'word '.repeat(40_000);
+    let measured = 0;
+    const counting = (text: string) => {
+      measured += text.length;
+      return text.length * 5;
+    };
+    const rows = wrapCodeLines([[{ color: '#fff', content: source }]], 500, counting);
+    expect(rows.length).toBeGreaterThan(10);
+    expect(measured).toBeLessThanOrEqual(64 * source.length);
+  });
+
+  it('does not wrap one character per row behind a huge indent', () => {
+    const source = `${' '.repeat(10_000)}return done();`;
+    let measured = 0;
+    const counting = (text: string) => {
+      measured += text.length;
+      return text.length * 5;
+    };
+    const rows = wrapCodeLines([[{ color: '#fff', content: source }]], 500, counting);
+    expect(rows.length).toBeLessThan(500);
+    expect(measured).toBeLessThanOrEqual(64 * source.length);
+  });
+
+  it('stops after maxRows rows', () => {
+    const m = (text: string) => text.length * 10;
+    const lines: Token[][] = [[{ color: '#fff', content: 'alpha beta gamma delta '.repeat(20) }]];
+    expect(wrapCodeLines(lines, 100, m, 3)).toHaveLength(3);
+  });
+});

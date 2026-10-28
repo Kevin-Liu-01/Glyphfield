@@ -166,3 +166,28 @@ describe('applyBrandIdentitySource', () => {
     expect(identity).toMatchObject({ builtIn: false, id: 'acme', kind: 'custom', name: source.name });
   });
 });
+
+describe('validation cost bounds', () => {
+  it('stops item validation at maxItems and skips cross references after too_many', () => {
+    const identity = JSON.parse(JSON.stringify(BUILT_IN_BRAND_IDENTITIES[0])) as Record<string, unknown>;
+    identity.colors = Array.from({ length: 10_000 }, () => ({}));
+    const { issues } = validateBrandIdentitySource(identity, 'full');
+    expect(issues.filter(({ code, path }) => code === 'too_many' && path === 'colors')).toHaveLength(1);
+    const indices = issues.flatMap(({ path }) => {
+      const index = /^colors\[(\d+)\]/.exec(path)?.[1];
+      return index === undefined ? [] : [Number(index)];
+    });
+    expect(indices.length).toBeGreaterThan(0);
+    expect(Math.max(...indices)).toBeLessThan(32);
+    expect(issues.some(({ code }) => code === 'reference')).toBe(false);
+  });
+
+  it('checks references only for known colorSystem role keys', () => {
+    const identity = JSON.parse(JSON.stringify(BUILT_IN_BRAND_IDENTITIES[0])) as Record<string, unknown>;
+    identity.colorSystem = {
+      light: Object.fromEntries(Array.from({ length: 5_000 }, (_, index) => [`role-${index}`, 'not-a-color'])),
+    };
+    const { issues } = validateBrandIdentitySource(identity, 'full');
+    expect(issues.some(({ code }) => code === 'reference')).toBe(false);
+  });
+});

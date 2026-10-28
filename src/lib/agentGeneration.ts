@@ -48,6 +48,7 @@ import {
 } from '@/lib/expressionGeneration';
 import { expressionFormats, expressionState, type ExpressionToolKind } from '@/lib/expressionModel';
 import { CODE_LANGUAGES } from '@/lib/expressionSvg';
+import { validateBrandIdentitySource } from '@/lib/brandSource';
 import { brandBackgroundPalette, brandPatternSettings, expressionLayouts, expressionPartnerOptions } from '@/lib/expressionTemplates';
 
 const AGENT_IDENTITY_PRESETS = [
@@ -447,6 +448,11 @@ function fullIdentityValue(input: Record<string, unknown>): BrandIdentity | null
       throw new AgentGenerationError('Pass either { id } alone, the complete identity object from /api/identities, or { preset } with overrides.', 'identity', 'invalid_identity');
     }
     return preset;
+  }
+  const { issues, ok } = validateBrandIdentitySource(input, 'full');
+  if (!ok) {
+    const first = issues.find(({ severity }) => severity === 'error')!;
+    throw new AgentGenerationError(`identity is not valid: ${first.message} Validate with POST /api/brand/validate first.`, `identity.${first.path}`, 'invalid_identity');
   }
   const hydrated = hydrateBrandIdentities([input]).find(({ id }) => id === input.id);
   if (!hydrated) {

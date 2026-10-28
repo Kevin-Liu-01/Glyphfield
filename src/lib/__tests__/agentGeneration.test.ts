@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { BUILT_IN_BRAND_IDENTITIES } from '../brandIdentity';
+import { BUILT_IN_BRAND_IDENTITIES, hydrateBrandIdentities } from '../brandIdentity';
+import { validateBrandIdentitySource } from '../brandSource';
 
 import {
   agentAssetPaths,
@@ -291,5 +292,26 @@ describe('brand-true deterministic generation', () => {
     expect(pattern.content).toMatch(/fill="url\(#pattern-[a-z]+\)"/);
     const explicit = planAgentGeneration({ identity: { preset: 'stripe' }, kind: 'background', settings: { colorA: '#112233' } });
     expect(explicit).toMatchObject({ settings: { colorA: '#112233' } });
+  });
+});
+
+describe('full identity validation', () => {
+  it('keeps every built-in and served identity valid under full source validation', () => {
+    for (const identity of [...BUILT_IN_BRAND_IDENTITIES, ...hydrateBrandIdentities(null)]) {
+      const { issues, ok } = validateBrandIdentitySource(JSON.parse(JSON.stringify(identity)), 'full');
+      expect(ok, `${identity.id}: ${issues.filter(({ severity }) => severity === 'error').map(({ message }) => message).join(' ')}`).toBe(true);
+    }
+  });
+
+  it('rejects a complete identity that fails the BrandIdentity schema', () => {
+    const gt = JSON.parse(JSON.stringify(BUILT_IN_BRAND_IDENTITIES.find(({ id }) => id === 'gt')!)) as Record<string, unknown>;
+    gt.samples = { code: { label: 'demo', snippet: 'x'.repeat(5_000) } };
+    let error: { code?: string; field?: string } | undefined;
+    try {
+      planAgentGeneration({ identity: gt, kind: 'template', template: 'blog' });
+    } catch (caught) {
+      error = caught as { code?: string; field?: string };
+    }
+    expect(error).toMatchObject({ code: 'invalid_identity', field: 'identity.samples.code.snippet' });
   });
 });
