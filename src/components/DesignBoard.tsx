@@ -31,7 +31,7 @@ import { brandFontAssets, type BrandIdentity } from '@/lib/brandIdentity';
 
 import styles from './DesignBoard.module.css';
 import { BRAND_SURFACE_TONE_LABELS, BRAND_SURFACE_TONES } from '@/lib/brandOutputKit';
-import { imageUrlToDataUrl, resolveSvgRasterDimensions, svgToPngBlob } from '@/lib/download';
+import { embedBoardImages, embeddedDataUrl, resolveSvgRasterDimensions, svgToPngBlob } from '@/lib/download';
 import {
   isMoodboardComposition,
   MOODBOARD_ASPECT_LABELS,
@@ -117,34 +117,6 @@ function identityExport(identity: BrandIdentity): ExportPreviewAsset {
     format: 'JSON',
     previewText,
   };
-}
-
-/** Session cache so repeated exports never refetch and re-encode the same files. */
-const EMBED_CACHE = new Map<string, Promise<string>>();
-const EMBED_CACHE_LIMIT = 96;
-
-function embeddedDataUrl(source: string): Promise<string> {
-  const cached = EMBED_CACHE.get(source);
-  if (cached) return cached;
-  const request = imageUrlToDataUrl(source);
-  EMBED_CACHE.set(source, request);
-  void request.catch(() => EMBED_CACHE.delete(source));
-  if (EMBED_CACHE.size > EMBED_CACHE_LIMIT) EMBED_CACHE.delete(EMBED_CACHE.keys().next().value!);
-  return request;
-}
-
-/** Replace every external `href` in the board with an embedded data URL. */
-async function embedBoardImages(svg: string): Promise<string> {
-  const sources = [...new Set([...svg.matchAll(/href="([^"]+)"/g)].map((match) => match[1]!))].filter((source) => !source.startsWith('data:') && !source.startsWith('#'));
-  const pairs = await Promise.all(sources.map(async (source) => {
-    const unescaped = source.replaceAll('&amp;', '&');
-    try {
-      return [source, await embeddedDataUrl(unescaped)] as const;
-    } catch {
-      return [source, ''] as const;
-    }
-  }));
-  return pairs.reduce((markup, [source, data]) => (data ? markup.replaceAll(`href="${source}"`, `href="${data}"`) : markup), svg);
 }
 
 async function embeddedFontCss(identity: BrandIdentity): Promise<string> {
