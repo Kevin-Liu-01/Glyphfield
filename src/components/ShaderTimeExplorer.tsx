@@ -5,6 +5,7 @@ import { flushSync } from 'react-dom';
 import { Clock3, ImagePlus, Pause, Play, Plus, SkipBack, SkipForward } from '@/components/ui/SolidIcons';
 import StudioRange from '@/components/ui/StudioRange';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
+import { writeText } from '@/lib/domText';
 import type { ShaderMotionCapabilities } from '@/lib/shaderMotionCapabilities';
 
 export type ShaderTimeExplorerProps = {
@@ -26,6 +27,8 @@ const EXPLORATION_WINDOW_MS = 30_000;
 const FRAME_STEP_MS = 1000 / 60;
 const boundedTime = (value: number) => Number.isFinite(value) ? Math.max(0, value) : 0;
 const windowFor = (value: number) => Math.max(EXPLORATION_WINDOW_MS, Math.ceil(value / EXPLORATION_WINDOW_MS) * EXPLORATION_WINDOW_MS);
+// The clock advances every frame; the live readout redraws at 20 Hz, so most frames skip style and layout work.
+const LIVE_READOUT_INTERVAL_MS = 50;
 
 /** Native motion stays in its renderer. This readout never drives playback or wraps time. */
 export default function ShaderTimeExplorer(props: ShaderTimeExplorerProps) {
@@ -49,16 +52,19 @@ export default function ShaderTimeExplorer(props: ShaderTimeExplorerProps) {
   const syncDisplay = useCallback((value: number) => {
     const next = boundedTime(value);
     timeRef.current = next;
-    if (rangeRef.current) {
+    const range = rangeRef.current;
+    if (range) {
       // Playback never changes the user's exploration range. The elapsed
       // readout stays unbounded; only the thumb stops at the selected edge.
       const visibleTime = Math.min(next, windowRef.current);
-      rangeRef.current.max = String(windowRef.current);
-      rangeRef.current.value = String(visibleTime);
-      rangeRef.current.style.setProperty('--studio-range-progress', `${visibleTime / windowRef.current * 100}%`);
+      const max = String(windowRef.current);
+      const progress = `${visibleTime / windowRef.current * 100}%`;
+      if (range.max !== max) range.max = max;
+      range.value = String(visibleTime);
+      if (range.style.getPropertyValue('--studio-range-progress') !== progress) range.style.setProperty('--studio-range-progress', progress);
     }
-    if (secondsRef.current) secondsRef.current.textContent = `${(next / 1000).toFixed(2)}s`;
-    if (windowLabelRef.current) windowLabelRef.current.textContent = `${windowRef.current / 1000}s`;
+    writeText(secondsRef.current, `${(next / 1000).toFixed(2)}s`);
+    writeText(windowLabelRef.current, `${windowRef.current / 1000}s`);
   }, []);
 
   useLayoutEffect(() => {
@@ -72,12 +78,17 @@ export default function ShaderTimeExplorer(props: ShaderTimeExplorerProps) {
   useEffect(() => {
     if (!playing || busy) return;
     let previous: number | undefined;
+    let lastReadout = -Infinity;
     let animationFrame = 0;
     const tick = (now: number) => {
       const delta = previous === undefined || document.hidden ? 0 : Math.max(0, now - previous);
       previous = document.hidden ? undefined : now;
       if (!scrubbingRef.current && !document.hidden) {
-        syncDisplay(timeRef.current + delta);
+        timeRef.current = boundedTime(timeRef.current + delta);
+        if (now - lastReadout >= LIVE_READOUT_INTERVAL_MS) {
+          lastReadout = now;
+          syncDisplay(timeRef.current);
+        }
         latest.current.onLiveTime?.(timeRef.current);
       }
       animationFrame = requestAnimationFrame(tick);
@@ -207,7 +218,7 @@ export default function ShaderTimeExplorer(props: ShaderTimeExplorerProps) {
       </button>
       <div className='shader-lab-v2-frame-history-copy' title={`${motionLabel}. ${seekExplanation}`}>
         <span><Clock3 aria-hidden='true' /><span>Shader time</span></span>
-        <small>{playing ? 'Live' : 'Paused'} · <span ref={secondsRef}>{(boundedTime(timeMs) / 1000).toFixed(2)}s</span></small>
+        <small>{playing ? 'Live' : 'Paused'} · <span ref={secondsRef}>{`${(boundedTime(timeMs) / 1000).toFixed(2)}s`}</span></small>
       </div>
       <StudioRange aria-label='Explore shader time' aria-description={seekExplanation} disabled={!canSeek || busy}
         defaultValue={boundedTime(timeMs)} min={0} max={windowMs} step={FRAME_STEP_MS} ref={rangeRef}
@@ -222,7 +233,7 @@ export default function ShaderTimeExplorer(props: ShaderTimeExplorerProps) {
         <button className='flex h-7 shrink-0 items-center gap-1 rounded-[5px] border border-border px-2 text-[9px] tabular-nums hover:bg-muted disabled:opacity-40'
           aria-label='Extend shader exploration by 30 seconds' title={seekExplanation} disabled={!canSeek || busy}
           onClick={() => { const next = windowRef.current + EXPLORATION_WINDOW_MS; windowRef.current = next; setWindowMs(next); }} type='button'>
-          <span ref={windowLabelRef}>{windowMs / 1000}s</span><Plus aria-hidden='true' className='size-3' />
+          <span ref={windowLabelRef}>{`${windowMs / 1000}s`}</span><Plus aria-hidden='true' className='size-3' />
         </button>
         <button className={smallButton} aria-label='Capture shader frame' title='Save exact shader appearance' disabled={busy}
           onClick={() => latest.current.onCapture()} type='button'><ImagePlus aria-hidden='true' /></button>

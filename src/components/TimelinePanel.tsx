@@ -42,6 +42,7 @@ import {
 } from '@/lib/animation';
 import type { AnimationAudioClip, AnimationAudioState } from '@/lib/animationAudio';
 import type { AnimationKeyframe } from '@/lib/animationMotion';
+import { writeText } from '@/lib/domText';
 import type { StudioSource } from '@/lib/renderFrame';
 import type { StudioSettings, StudioTransitionSettings } from '@/lib/studio';
 
@@ -136,19 +137,6 @@ const PLAYING_ARIA_STEP_MS = 250;
 // While playing, the readout and scrubber repaint 15 times a second; the storyboard
 // playhead keeps every frame because moving it is a compositor-only transform.
 const PLAYING_READOUT_INTERVAL_MS = 1000 / 15;
-
-/**
- * Rewrites an element's single text node in place. Replacing the node is a DOM
- * insertion, which re-runs every `:has()` rule on its ancestors up to `<html>`.
- */
-function writeText(element: HTMLElement, text: string) {
-  const node = element.firstChild;
-  if (node instanceof Text && node === element.lastChild) {
-    if (node.data !== text) node.data = text;
-    return;
-  }
-  element.textContent = text;
-}
 
 function sourceLabel(source: StudioSource): string {
   return source.kind === 'text' ? source.text : source.name;

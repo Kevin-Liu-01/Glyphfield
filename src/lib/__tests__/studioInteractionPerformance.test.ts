@@ -120,7 +120,10 @@ describe('Studio interaction performance contracts', () => {
     expect(rangeControl).toContain('if (onPreview) onPreview(previewValue);');
     expect(rangeControl).toContain('flushSync(() => onChange(nextValue))');
     expect(rangeControl).not.toContain('setDisplayValue');
-    expect(frameHistory).toContain('syncDisplay(timeRef.current + delta)');
+    expect(frameHistory).toContain('timeRef.current = boundedTime(timeRef.current + delta);');
+    expect(frameHistory).toContain('if (now - lastReadout >= LIVE_READOUT_INTERVAL_MS) {');
+    expect(frameHistory).toContain('writeText(secondsRef.current,');
+    expect(frameHistory).not.toContain('.textContent =');
     expect(frameHistory).toContain('defaultValue={boundedTime(timeMs)}');
     expect(frameHistory).not.toContain('resolveLoopedMotionFrame');
     expect(frameHistory).not.toContain('setDisplayFrame');

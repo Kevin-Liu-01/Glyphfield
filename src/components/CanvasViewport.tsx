@@ -32,6 +32,7 @@ import { useMountEffect } from '@/hooks/useMountEffect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
 import { useStableHandlers } from '@/hooks/useStableHandlers';
 import { isCanvasTextEditingTarget } from '@/lib/canvasInteraction';
+import { writeText } from '@/lib/domText';
 import CanvasMinimap, { type CanvasMinimapHandle } from './CanvasMinimap';
 import { canvasNavigationBounds, centerCanvasNavigation, fitCanvasNavigation, resizeCanvasNavigationPan,
   type CanvasNavigationItem } from '@/lib/canvasNavigation';
@@ -336,7 +337,7 @@ export default function CanvasViewport({
       stageRef.current.style.setProperty('--canvas-zoom-inverse', String(100 / zoomRef.current));
     }
     const label = `${Math.round(zoomRef.current)}%`;
-    if (zoomValueRef.current && zoomValueRef.current.textContent !== label) zoomValueRef.current.textContent = label;
+    writeText(zoomValueRef.current, label);
     const range = viewportRef.current?.querySelector<HTMLInputElement>('.canvas-zoom-range input');
     if (range && range.value !== String(zoomRef.current)) range.value = String(zoomRef.current);
     const step = resolveCanvasGridStep(zoomRef.current);
