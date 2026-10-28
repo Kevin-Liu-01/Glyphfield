@@ -177,17 +177,81 @@ function base64Bytes(value: string): Uint8Array {
 
 const MAX_SVG_TAG_LENGTH = 8 * 1024;
 
-/** The root <svg> start tag, located without scanning for `>` more than once. */
-function rootSvgTag(text: string): string | null {
-  for (let index = text.indexOf('<svg'); index >= 0; index = text.indexOf('<svg', index + 4)) {
-    const next = text.charAt(index + 4);
-    if (next !== '' && next !== '>' && next !== '/' && !/\s/.test(next)) continue;
-    const end = text.indexOf('>', index + 4);
-    if (end < 0) return null;
-    const tag = text.slice(index, end + 1);
-    return tag.length <= MAX_SVG_TAG_LENGTH ? tag : null;
+function skipProlog(text: string): number {
+  let index = 0;
+  const advance = () => {
+    while (index < text.length && /\s/.test(text[index]!)) index += 1;
+    if (text.charCodeAt(index) === 0xFEFF) index += 1;
+  };
+  advance();
+  for (;;) {
+    if (text.startsWith('<?', index)) {
+      const end = text.indexOf('?>', index + 2);
+      if (end < 0) return -1;
+      index = end + 2;
+    } else if (text.startsWith('<!--', index)) {
+      const end = text.indexOf('-->', index + 4);
+      if (end < 0) return -1;
+      index = end + 3;
+    } else if (text.startsWith('<![CDATA[', index)) {
+      const end = text.indexOf(']]>', index + 9);
+      if (end < 0) return -1;
+      index = end + 3;
+    } else if (text.startsWith('<!', index)) {
+      let close = text.indexOf('>', index + 2);
+      let bracket = -1;
+      for (let scan = index + 2; close >= 0 && scan < close; scan += 1) {
+        if (text[scan] === '[') {
+          bracket = scan;
+          break;
+        }
+      }
+      if (bracket >= 0) {
+        const subsetEnd = text.indexOf(']', bracket + 1);
+        if (subsetEnd < 0) return -1;
+        close = text.indexOf('>', subsetEnd + 1);
+      }
+      if (close < 0) return -1;
+      index = close + 1;
+    } else {
+      break;
+    }
+    advance();
   }
-  return null;
+  return index;
+}
+
+function svgTagEnd(text: string, index: number): number {
+  let quote = '';
+  for (let position = index + 4; position < text.length; position += 1) {
+    const character = text[position]!;
+    if (quote) {
+      if (character === quote) quote = '';
+    } else if (character === '"' || character === "'") {
+      quote = character;
+    } else if (character === '>') {
+      return position + 1;
+    }
+    if (position - index >= MAX_SVG_TAG_LENGTH) return -1;
+  }
+  return -1;
+}
+
+/**
+ * The root <svg> start tag. Walks the XML prolog once — whitespace, a leading
+ * BOM, declarations, comments, CDATA and the DOCTYPE — then returns the start
+ * tag if the first element is `svg`. Everything stays linear: each skip jumps
+ * to a terminator and never rescans, and the tag scan tracks quote state so a
+ * quoted `>` cannot end it early.
+ */
+function rootSvgTag(text: string): string | null {
+  const index = skipProlog(text);
+  if (index < 0) return null;
+  if (!text.startsWith('<svg', index)) return null;
+  const next = text.charAt(index + 4);
+  if (next !== '' && next !== '>' && next !== '/' && !/\s/.test(next)) return null;
+  const end = svgTagEnd(text, index);
+  return end > 0 ? text.slice(index, end) : null;
 }
 
 /** Width / height of an SVG or PNG data URL, read without decoding the image. */

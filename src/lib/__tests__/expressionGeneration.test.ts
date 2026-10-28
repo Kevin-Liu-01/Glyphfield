@@ -36,3 +36,35 @@ describe('dataUrlAspect', () => {
     expect(dataUrlAspect(svgData('<svgx width="10" height="10"></svgx>'))).toBeNull();
   });
 });
+
+describe('rootSvgTag prolog handling', () => {
+  it('skips comments containing svg text before the real root', () => {
+    expect(dataUrlAspect(svgData('<!-- Example: <svg> -->\n<svg viewBox="0 0 1200 600"/>'))).toBeCloseTo(2);
+  });
+
+  it('reads the viewBox when a quoted > appears before it', () => {
+    expect(dataUrlAspect(svgData('<svg data-note="a > b" viewBox="0 0 10 5"></svg>'))).toBeCloseTo(2);
+  });
+
+  it('skips an XML declaration, a DOCTYPE with an internal subset and comments', () => {
+    const svg = '<?xml version="1.0"?>\n<!DOCTYPE svg [<!ENTITY x "y">]>\n<!-- note -->\n<svg width="640" height="320"></svg>';
+    expect(dataUrlAspect(svgData(svg))).toBeCloseTo(2);
+  });
+
+  it('returns null for unterminated prolog constructs', () => {
+    expect(dataUrlAspect(svgData('<!-- never closed <svg width="1" height="1">'))).toBeNull();
+    expect(dataUrlAspect(svgData('<?xml version="1.0" <svg width="1" height="1">'))).toBeNull();
+    expect(dataUrlAspect(svgData('<!DOCTYPE svg [ <svg width="1" height="1">'))).toBeNull();
+  });
+
+  it('returns null promptly for repeated unclosed comment and PI opens', () => {
+    const comments = svgData('<!--'.repeat(250_000));
+    const instructions = svgData('<?'.repeat(250_000));
+    const doctypes = svgData('<!a>'.repeat(250_000));
+    const start = Date.now();
+    expect(dataUrlAspect(comments)).toBeNull();
+    expect(dataUrlAspect(instructions)).toBeNull();
+    expect(dataUrlAspect(doctypes)).toBeNull();
+    expect(Date.now() - start).toBeLessThan(1_000);
+  });
+});
