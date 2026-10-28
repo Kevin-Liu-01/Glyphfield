@@ -111,3 +111,27 @@ export function packDesignWorkspaceJson(workspace: CanvasJsonObject): CanvasJson
   } else if (workspace.activeArtboardId) next.activeSurfaceId = workspace.activeArtboardId;
   return next;
 }
+
+/**
+ * Paste position for a copied artboard: a 48px cascade from the origin that
+ * skips occupied slots within a 24px tolerance. Bounded attempts and a step
+ * that can no longer move the coordinates keep huge origins from hanging.
+ */
+export function nextPastedArtboardPosition(
+  existing: readonly { x: number; y: number }[],
+  origin: { x: number; y: number }
+): { x: number; y: number } {
+  let x = origin.x + 48;
+  let y = origin.y + 48;
+  for (let attempt = 0; attempt < 512; attempt += 1) {
+    if (!existing.some((artboard) => Math.abs(artboard.x - x) < 24 && Math.abs(artboard.y - y) < 24)) {
+      return { x, y };
+    }
+    const nextX = x + 48;
+    const nextY = y + 48;
+    if (nextX === x && nextY === y) break;
+    x = nextX;
+    y = nextY;
+  }
+  return { x, y };
+}

@@ -55,8 +55,10 @@ export function parseLineList(value: string): number[] {
     if (!range) continue;
     const start = Number(range[1]);
     const end = Number(range[2] ?? range[1]);
-    for (let line = Math.min(start, end); line <= Math.max(start, end) && line - start < 200; line += 1) {
-      if (line > 0) lines.add(line);
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end)) continue;
+    const min = Math.max(1, Math.min(start, end));
+    for (let line = min; line <= Math.min(Math.max(start, end), min + 199); line += 1) {
+      lines.add(line);
     }
   }
   return [...lines].sort((first, second) => first - second);

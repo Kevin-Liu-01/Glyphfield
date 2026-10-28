@@ -102,10 +102,17 @@ function isStaticColor(value: unknown): value is LottieRecord & { k: number[] } 
   return isRecord(value) && value.a === 0 && Array.isArray(value.k) && value.k.length >= 3 && value.k.every((entry) => typeof entry === 'number');
 }
 
+/** Gradient stops are packed 4 numbers per colour; `g.p` must match them. */
+function gradientStopCount(p: unknown, stops: readonly unknown[]): number {
+  return typeof p === 'number' && Number.isInteger(p) && p >= 0
+    ? Math.min(p, Math.floor(stops.length / 4))
+    : 0;
+}
+
 function gradientStopColors(record: LottieRecord): string[] {
   const gradient = isRecord(record.g) ? record.g : null;
   const stops = gradient && isRecord(gradient.k) && gradient.k.a === 0 && Array.isArray(gradient.k.k) ? gradient.k.k as unknown[] : [];
-  const count = typeof gradient?.p === 'number' ? gradient.p : 0;
+  const count = gradientStopCount(gradient?.p, stops);
   return Array.from({ length: count }, (_, stop) => lottieColorToHex(stops.slice(stop * 4 + 1, stop * 4 + 4)));
 }
 
@@ -173,8 +180,8 @@ function recolor(value: unknown, colorMap: ReadonlyMap<string, string>): unknown
     next.c = { ...value.c, k: mapColor(value.c.k, colorMap) };
   }
   if ((value.ty === 'gf' || value.ty === 'gs') && isRecord(value.g) && isRecord(value.g.k) && value.g.k.a === 0 && Array.isArray(value.g.k.k)) {
-    const count = typeof value.g.p === 'number' ? value.g.p : 0;
     const stops = [...value.g.k.k as unknown[]];
+    const count = gradientStopCount(value.g.p, stops);
     for (let stop = 0; stop < count; stop += 1) {
       const mapped = mapColor(stops.slice(stop * 4 + 1, stop * 4 + 4), colorMap);
       stops.splice(stop * 4 + 1, 3, ...mapped.slice(0, 3));

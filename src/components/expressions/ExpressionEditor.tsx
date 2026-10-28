@@ -85,8 +85,8 @@ import ExpressionCanvas from './ExpressionCanvas';
 import { CanvasSection, ExpressionContentSections } from './ExpressionContentSections';
 import { SelectionInspector } from './ExpressionInspector';
 import ExpressionLayersPanel, { type LayersPanelApi } from './ExpressionLayersPanel';
-import { measureImageAspect, readFileAsAsset } from './expressionEditorUtils';
-import { dataUrlAspect } from '@/lib/expressionGeneration';
+import { readFileAsAsset } from './expressionEditorUtils';
+import { useAssetAspects } from './useAssetAspects';
 import { useExpressionDocument } from './useExpressionDocument';
 
 const loadedUploadFonts = new Set<string>();
@@ -131,26 +131,6 @@ function useFontEpoch(document: CanvasDocument): number {
     if (requests.length > 0) void Promise.all(requests).then(() => setEpoch((value) => value + 1));
   }, [document.assets, document.elements]);
   return epoch;
-}
-
-/** Image aspect ratios by asset id; logos and partner marks are fitted with exact boxes. */
-function useAssetAspects(assets: CanvasDocument['assets']): ReadonlyMap<string, number> {
-  const [aspects, setAspects] = useState<ReadonlyMap<string, number>>(() => new Map());
-  useEffect(() => {
-    let active = true;
-    const pending = Object.values(assets).filter((asset) => asset.kind === 'image' && !aspects.has(asset.id));
-    if (pending.length === 0) return;
-    void Promise.all(pending.map(async (asset) => [asset.id, dataUrlAspect(asset.source) ?? await measureImageAspect(asset.source, 0)] as const)).then((entries) => {
-      if (!active) return;
-      setAspects((current) => {
-        const next = new Map(current);
-        entries.forEach(([id, aspect]) => { if (aspect > 0) next.set(id, aspect); });
-        return next;
-      });
-    });
-    return () => { active = false; };
-  }, [aspects, assets]);
-  return aspects;
 }
 
 function inputRecord(input: unknown): Record<string, unknown> {

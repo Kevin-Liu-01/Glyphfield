@@ -108,3 +108,22 @@ describe('Lottie marker limit', () => {
     expect(appendLottieMarker(full, marker(MAX_LOTTIE_MARKERS))).toBe(full);
   });
 });
+
+describe('gradient stop bounds', () => {
+  const gradient = (p: number) => ({
+    assets: [],
+    layers: [{ g: { k: { a: 0, k: [0, 1, 0, 0, 1, 0, 0, 1] }, p }, ty: 'gf' }],
+  }) as unknown as LottieDocument;
+
+  it('reads at most the packed stop count', () => {
+    expect(listLottieColors(gradient(10_000_000))).toHaveLength(2);
+    expect(listLottieColors(gradient(2)).map(({ hex }) => hex).sort()).toEqual(['#0000FF', '#FF0000']);
+  });
+
+  it('keeps the stops array at its length when recolouring a huge p', () => {
+    const edited = applyLottieEdits(gradient(10_000_000), { colorMap: { '#FF0000': '#00FF00' }, hiddenLayers: [], textOverrides: {} });
+    const stops = (edited.layers as { g: { k: { k: unknown[] } } }[])[0]!.g.k.k;
+    expect(stops).toHaveLength(8);
+    expect(stops.slice(1, 4)).toEqual([0, 1, 0]);
+  });
+});

@@ -266,7 +266,7 @@ import {
   type TextEffectSettings,
 } from '@/lib/textEffects';
 
-import { DESIGN_CANVAS_ID, DESIGN_CANVAS_DIMENSIONS, designSurfaceSize, designLayerWorldBounds, reparentDesignLayer, packDesignWorkspace, unpackDesignWorkspace } from '@/lib/designWorkspace';
+import { DESIGN_CANVAS_ID, DESIGN_CANVAS_DIMENSIONS, designSurfaceSize, designLayerWorldBounds, nextPastedArtboardPosition, reparentDesignLayer, packDesignWorkspace, unpackDesignWorkspace } from '@/lib/designWorkspace';
 import CanvasRenderBoundary from '@/components/CanvasRenderBoundary';
 import {
   colorWithOpacity,
@@ -5450,12 +5450,7 @@ export default function ShaderLabStudio({
         ? { ...artboard, snapshot: captured.snapshot }
         : artboard
     ));
-    let x = artboard.x + 48;
-    let y = artboard.y + 48;
-    while (existing.some((artboard) => Math.abs(artboard.x - x) < 24 && Math.abs(artboard.y - y) < 24)) {
-      x += 48;
-      y += 48;
-    }
+    const { x, y } = nextPastedArtboardPosition(existing, artboard);
     const id = `artboard-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as DesignArtboardId;
     const nextArtboard: DesignArtboard = {
       id,
