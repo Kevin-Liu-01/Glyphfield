@@ -93,8 +93,8 @@ export function assertDesignLabEffectProps(effectProps: unknown, label = 'Effect
 }
 
 export type ImageEffectPass<Id extends string, EffectId extends Id = Id> = {
-  /** Layers to compose before this effect runs, in stack order. */
-  beneath: Id[];
+  /** Count of layers to compose before this effect runs, in stack order. */
+  beneathCount: number;
   layerId: EffectId;
 };
 
@@ -103,7 +103,7 @@ export function planImageEffectPasses<Id extends string, EffectId extends Id>(
   layerIds: readonly Id[],
   isImageEffect: (layerId: Id) => layerId is EffectId
 ): ImageEffectPass<Id, EffectId>[] {
-  return layerIds.flatMap((layerId, index) => isImageEffect(layerId) ? [{ beneath: layerIds.slice(0, index), layerId }] : []);
+  return layerIds.flatMap((layerId, index) => isImageEffect(layerId) ? [{ beneathCount: index, layerId }] : []);
 }
 
 type CanvasFactory = () => HTMLCanvasElement;
@@ -127,6 +127,7 @@ export async function resolveImageEffectOutputs<Id extends string, EffectId exte
   composeBeneath,
   createCanvas = createDocumentCanvas,
   height,
+  layerIds,
   outputs = new Map(),
   passes,
   run,
@@ -140,6 +141,7 @@ export async function resolveImageEffectOutputs<Id extends string, EffectId exte
   ) => unknown;
   createCanvas?: CanvasFactory;
   height: number;
+  layerIds: readonly Id[];
   /** Canvases kept between calls, keyed by layer, so live previews reuse them. */
   outputs?: Map<EffectId, HTMLCanvasElement>;
   passes: readonly ImageEffectPass<Id, EffectId>[];
@@ -154,7 +156,7 @@ export async function resolveImageEffectOutputs<Id extends string, EffectId exte
   if (!sourceContext) throw new Error('Canvas rendering is unavailable.');
   for (const pass of passes) {
     sourceContext.clearRect(0, 0, width, height);
-    await composeBeneath(sourceContext, pass.beneath, resolved);
+    await composeBeneath(sourceContext, layerIds.slice(0, pass.beneathCount), resolved);
     const result = await run(pass.layerId, source);
     if (!result) continue;
     const output = outputs.get(pass.layerId) ?? createCanvas();
@@ -167,4 +169,11 @@ export async function resolveImageEffectOutputs<Id extends string, EffectId exte
     resolved.set(pass.layerId, output);
   }
   return resolved;
+}
+
+/** Layers by id, keeping the first entry per id as `find` would. */
+export function firstLayerById<T extends { id: string }>(layers: readonly T[]): Map<string, T> {
+  const byId = new Map<string, T>();
+  for (const layer of layers) if (!byId.has(layer.id)) byId.set(layer.id, layer);
+  return byId;
 }

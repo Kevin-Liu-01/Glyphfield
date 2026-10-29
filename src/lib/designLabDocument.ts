@@ -6,10 +6,8 @@ import {
   createCanvasDocument,
   createCanvasElement,
   createEmbeddedCanvasAsset,
-  insertCanvasElement,
   inferCanvasAssetMimeType,
   parseCanvasDocument,
-  registerCanvasAsset,
   serializeCanvasDocument,
   toCanvasJsonObject,
   toCanvasJsonValue,
@@ -256,7 +254,7 @@ function layerEntries(input: DesignLabDocumentInput) {
 }
 
 export function createDesignLabCanvasDocument(input: DesignLabDocumentInput): CanvasDocument {
-  let document = createCanvasDocument(
+  const document = createCanvasDocument(
     input.id,
     input.brandId,
     input.title,
@@ -265,6 +263,12 @@ export function createDesignLabCanvasDocument(input: DesignLabDocumentInput): Ca
     ['animation', 'assets', 'constraints', 'guides', 'history', 'layers', 'pages', 'text']
   );
   const pageId = document.pageIds[0]!;
+  const page = document.pages[pageId]!;
+  // registerCanvasAsset / insertCanvasElement copy every collection per call;
+  // building them once here keeps the same order and overwrite semantics.
+  const assets = { ...document.assets };
+  const elements = { ...document.elements };
+  const elementIds = [...page.elementIds];
   const entries = layerEntries(input);
   const byId = new Map(entries.map((entry) => [stringValue(entry[1].id, ''), entry]));
   for (const layerId of input.layerOrder) {
@@ -272,12 +276,10 @@ export function createDesignLabCanvasDocument(input: DesignLabDocumentInput): Ca
     if (!entry) continue;
     const [type, layer] = entry;
     const asset = assetFromLayer(layer, type);
-    if (asset) document = registerCanvasAsset(document, asset);
-    document = insertCanvasElement(
-      document,
-      pageId,
-      elementFromLayer(layer, type, input.width, input.height)
-    );
+    if (asset) assets[asset.id] = { ...asset };
+    const element = elementFromLayer(layer, type, input.width, input.height);
+    elements[element.id] = element;
+    elementIds.push(element.id);
   }
   const suppliedFrames = new Map(input.frameAssets?.map((asset) => [asset.id, asset]));
   for (const snapshot of collectShaderFrameSnapshots({
@@ -286,12 +288,14 @@ export function createDesignLabCanvasDocument(input: DesignLabDocumentInput): Ca
     shaderLayers: input.shaderLayers,
     workspace: input.workspace,
   })) {
-    document = registerCanvasAsset(document, suppliedFrames.get(snapshot.assetId) ?? shaderFrameCanvasAsset(snapshot));
+    const asset = suppliedFrames.get(snapshot.assetId) ?? shaderFrameCanvasAsset(snapshot);
+    assets[asset.id] = { ...asset };
   }
-  const page = document.pages[pageId]!;
   return {
     ...document,
+    assets,
     createdAt: input.createdAt,
+    elements,
     metadata: {
       [DESIGN_LAB_METADATA_KEY]: {
         ...(input.identity ? { identity: jsonValue(input.identity) } : {}),
@@ -308,7 +312,7 @@ export function createDesignLabCanvasDocument(input: DesignLabDocumentInput): Ca
     },
     pages: {
       ...document.pages,
-      [pageId]: { ...page, background: input.backgroundColor },
+      [pageId]: { ...page, background: input.backgroundColor, elementIds },
     },
     revision: input.revision,
     updatedAt: input.updatedAt,

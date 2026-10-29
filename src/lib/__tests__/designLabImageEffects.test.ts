@@ -9,6 +9,7 @@ import {
   assertDesignLabEffectSettings,
   designLabImageEffectGroups,
   isDesignLabImageEffectId,
+  firstLayerById,
   planImageEffectPasses,
   resolveImageEffectOutputs,
 } from '../designLabImageEffects';
@@ -66,8 +67,8 @@ describe('Design Lab image effects', () => {
     const ids = ['shader-a', 'effect-x', 'text-b', 'effect-y', 'logo-c'];
     const passes = planImageEffectPasses(ids, (id): id is 'effect-x' | 'effect-y' => id.startsWith('effect-'));
     expect(passes).toEqual([
-      { beneath: ['shader-a'], layerId: 'effect-x' },
-      { beneath: ['shader-a', 'effect-x', 'text-b'], layerId: 'effect-y' },
+      { beneathCount: 1, layerId: 'effect-x' },
+      { beneathCount: 3, layerId: 'effect-y' },
     ]);
   });
 
@@ -83,10 +84,11 @@ describe('Design Lab image effects', () => {
         return canvas;
       },
       height: 90,
+      layerIds: ['shader-a', 'effect-x', 'effect-y', 'effect-z'],
       passes: [
-        { beneath: ['shader-a'], layerId: 'effect-x' },
-        { beneath: ['shader-a', 'effect-x'], layerId: 'effect-y' },
-        { beneath: ['shader-a', 'effect-x', 'effect-y'], layerId: 'effect-z' },
+        { beneathCount: 1, layerId: 'effect-x' },
+        { beneathCount: 2, layerId: 'effect-y' },
+        { beneathCount: 3, layerId: 'effect-z' },
       ],
       run: async (layerId) => layerId === 'effect-y' ? null : fakeCanvas(`gpu-${layerId}`),
       source,
@@ -112,13 +114,30 @@ describe('Design Lab image effects', () => {
       composeBeneath: () => undefined,
       createCanvas: () => fakeCanvas('new'),
       height: 10,
+      layerIds: ['effect-x'],
       outputs: kept,
-      passes: [{ beneath: [] as string[], layerId: 'effect-x' }],
+      passes: [{ beneathCount: 0, layerId: 'effect-x' }],
       run,
       width: 10,
     };
     const first = await resolveImageEffectOutputs<string, string>(options);
     const second = await resolveImageEffectOutputs<string, string>(options);
     expect(second.get('effect-x')).toBe(first.get('effect-x'));
+  });
+});
+
+describe('firstLayerById', () => {
+  it('keeps the first entry per id and preserves order and contents', () => {
+    const layers = [
+      { id: 'a', name: 'first a' },
+      { id: 'b', name: 'only b' },
+      { id: 'a', name: 'second a' },
+      { id: 'c', name: 'only c' },
+    ];
+    const byId = firstLayerById(layers);
+    expect([...byId.keys()]).toEqual(['a', 'b', 'c']);
+    expect(byId.get('a')?.name).toBe('first a');
+    expect(byId.get('b')?.name).toBe('only b');
+    expect(byId.get('c')?.name).toBe('only c');
   });
 });

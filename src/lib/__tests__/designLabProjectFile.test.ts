@@ -3,7 +3,7 @@ import { indexedDB as fakeIndexedDB } from 'fake-indexeddb';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parseCanvasDocument, toCanvasJsonObject, type CanvasJsonObject } from '../canvasDocument';
 import { brandTypographyFamily, createBrandIdentity } from '../brandIdentity';
-import { createDesignLabCanvasDocument } from '../designLabDocument';
+import { createDesignLabCanvasDocument, designLabSourceFromCanvasDocument } from '../designLabDocument';
 import {
   DESIGN_LAB_PROJECT_FILE_MAX_BYTES,
   designLabProjectIdentity,
@@ -241,5 +241,34 @@ describe('editable Design Lab project files', () => {
     expect(text).not.toHaveBeenCalled();
     const artifact = await prepareDesignLabProjectFile(fixture(), '../bad/name.json', async () => PNG);
     expect(artifact.fileName).toBe('..-bad-name.glyphfield.json');
+  });
+});
+
+describe('repeated ids and shared sources', () => {
+  it('reads one layer for a repeated element id', async () => {
+    const document = fixture();
+    const resolve = async (source: string) => source.includes('photo') ? PNG : SVG;
+    const file = await prepareDesignLabProjectFile(document, 'repeated', resolve);
+    const source = JSON.parse(await file.blob.text()) as { pages: Record<string, { elementIds: string[] }> };
+    const pageId = Object.keys(source.pages)[0]!;
+    source.pages[pageId]!.elementIds = [...source.pages[pageId]!.elementIds, ...source.pages[pageId]!.elementIds];
+    const restored = parseCanvasDocument(await readDesignLabProjectFile(new Blob([JSON.stringify(source)])));
+    const composition = designLabSourceFromCanvasDocument(restored).composition as { assets: unknown[] };
+    expect(composition.assets).toHaveLength(1);
+  });
+
+  it('decodes a source shared by many layers once', async () => {
+    const document = fixture();
+    const resolve = async (source: string) => source.includes('photo') ? PNG : SVG;
+    const file = await prepareDesignLabProjectFile(document, 'shared', resolve);
+    const spy = vi.spyOn(globalThis, 'atob');
+    try {
+      await readDesignLabProjectFile(file.blob);
+    } finally {
+      spy.mockRestore();
+    }
+    // One PNG source is shared by the registered asset, two artboard layers and
+    // the active composition; it is decoded once, not once per reference.
+    expect(spy.mock.calls.length).toBeLessThanOrEqual(3);
   });
 });

@@ -164,3 +164,20 @@ describe('Animation project files', () => {
     expect(JSON.stringify(document)).toBe(before);
   });
 });
+
+describe('shared embedded sources', () => {
+  it('validates a source shared by many audio entries once', async () => {
+    const document = fixture();
+    const resolve = async (source: string) => source === 'blob:logo' ? PNG : AUDIO;
+    const file = await prepareAnimationProjectFile(document, 'shared', resolve);
+    const spy = vi.spyOn(globalThis, 'atob');
+    try {
+      await readAnimationProjectFile(file.blob);
+    } finally {
+      spy.mockRestore();
+    }
+    // The image decodes once and the audio source once across its artboard
+    // snapshot entries; repeats would triple the audio decode.
+    expect(spy.mock.calls.length).toBeLessThanOrEqual(3);
+  });
+});
