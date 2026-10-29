@@ -8,6 +8,7 @@ import {
   hasLogoAppearanceEffects,
   logoAppearanceCssFilter,
   logoAppearanceDitherMask,
+  normalizeLogoAppearance,
   resolveLogoSvgFilterModel,
 } from '../logoAppearance';
 
@@ -59,6 +60,57 @@ describe('logo appearance', () => {
       shadowEnabled: true,
       shadowOpacity: 0,
     })).toBe(false);
+  });
+
+  it('normalizes imported appearance values field by field', () => {
+    expect(normalizeLogoAppearance(null)).toBe(DEFAULT_LOGO_APPEARANCE);
+    expect(normalizeLogoAppearance('shadow')).toBe(DEFAULT_LOGO_APPEARANCE);
+    expect(normalizeLogoAppearance([])).toBe(DEFAULT_LOGO_APPEARANCE);
+
+    const normalized = normalizeLogoAppearance({
+      borderColor: '#abc',
+      borderWidth: 2.5,
+      ditherEnabled: true,
+      shadowBlur: Number.NaN,
+      shadowColor: 'not a color',
+      shadowEnabled: 'yes',
+      shadowOffsetX: '0"/><script>alert(1)</script><x a="',
+      shadowOffsetY: Number.POSITIVE_INFINITY,
+    });
+    expect(normalized).toMatchObject({
+      borderColor: '#AABBCC',
+      borderWidth: 2.5,
+      ditherEnabled: true,
+      shadowBlur: DEFAULT_LOGO_APPEARANCE.shadowBlur,
+      shadowColor: DEFAULT_LOGO_APPEARANCE.shadowColor,
+      shadowEnabled: false,
+      shadowOffsetX: 0,
+      shadowOffsetY: 8,
+    });
+
+    const fallback = { ...DEFAULT_LOGO_APPEARANCE, shadowOffsetX: 4 };
+    expect(normalizeLogoAppearance({ shadowOffsetX: 'x' }, fallback).shadowOffsetX).toBe(4);
+    expect(normalizeLogoAppearance({ invert: true }, fallback).invert).toBe(true);
+  });
+
+  it('keeps hostile appearance numbers out of the SVG filter markup', () => {
+    const normalized = normalizeLogoAppearance({
+      shadowEnabled: true,
+      shadowOffsetX: '0"/><script>alert(1)</script><x a="',
+    });
+    const filter = buildLogoSvgFilter(normalized, '#000000');
+    expect(filter).not.toContain('<script');
+    expect(filter).toContain('dx="0"');
+
+    const direct = buildLogoSvgFilter({
+      ...DEFAULT_LOGO_APPEARANCE,
+      shadowColor: '#fff"/><script>alert(1)</script>',
+      shadowEnabled: true,
+      shadowOffsetX: '1" onload="alert(1)' as unknown as number,
+    }, '#000000');
+    expect(direct).not.toContain('<script');
+    expect(direct).not.toContain('onload=');
+    expect(direct).toContain('dx="0"');
   });
 
   it('builds an alpha-aware CSS treatment for inversion, outline, and shadow', () => {

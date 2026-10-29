@@ -3,8 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { BUILT_IN_BRAND_IDENTITIES } from '../brandIdentity';
 import { buildPdf, deflate, rgbaToRgb } from '../expressionExport';
 import { addExpressionLayer, updateExpressionLayer } from '../expressionOperations';
-import { activeCodeTab, patchElement, slotElement, pageElements, elementComponent } from '../expressionModel';
-import { setCodeTab } from '../expressionSource';
+import { activeCodeTab, patchElement, resolveExpressionColor, slotElement, pageElements, elementComponent } from '../expressionModel';
 import {
   buildExpressionPageSvg,
   estimateTextWidth,
@@ -18,6 +17,8 @@ import {
 } from '../expressionSvg';
 import { addLockupPartner, setLockupPartner, updateLockup } from '../expressionToolOperations';
 import { createExpressionDocument, expressionColors } from '../expressionTemplates';
+import { serializeCanvasDocument } from '../canvasDocument';
+import { parseExpressionSource, setCodeTab } from '../expressionSource';
 import { colorContrastRatio } from '../color';
 
 const gt = BUILT_IN_BRAND_IDENTITIES.find(({ id }) => id === 'gt')!;
@@ -136,6 +137,70 @@ describe('expression renderer', () => {
     }
     const shader = pageElements(document, pageId).find((element) => element.kind === 'shader')!;
     expect(renderExpressionElement(shader, contextFor(document))).toContain('/shader-previews/');
+  });
+});
+
+describe('expression markup safety', () => {
+  type DraftElement = { data: Record<string, unknown>; kind: string; textStyle?: Record<string, unknown> };
+  type DraftDocument = {
+    elements: Record<string, DraftElement>;
+    pageIds: string[];
+    pages: Record<string, { background: string }>;
+  };
+
+  function tamperedDocument(
+    kind: Parameters<typeof createExpressionDocument>[0],
+    edit: (draft: DraftDocument) => void
+  ) {
+    const draft = JSON.parse(serializeCanvasDocument(createExpressionDocument(kind, gt), { portable: false })) as DraftDocument;
+    edit(draft);
+    return parseExpressionSource(JSON.stringify(draft), kind, kind, gt);
+  }
+
+  it('escapes a stored textStyle color that tries to break out of the fill attribute', () => {
+    const document = tamperedDocument('blog', (draft) => {
+      const headline = Object.values(draft.elements).find((element) => element.kind === 'text')!;
+      headline.textStyle!.color = '#000" onload="alert(1)';
+      headline.textStyle!.tokenBound = false;
+      delete headline.data.fill;
+    });
+    const element = Object.values(document.elements).find((candidate) => candidate.kind === 'text')!;
+    const markup = renderExpressionElement(element, contextFor(document));
+    expect(markup).not.toContain('<script');
+    expect(markup).not.toContain('onload=');
+    expect(markup).toContain('fill="#000000"');
+  });
+
+  it('rejects a stored page background that tries to inject markup', () => {
+    const document = tamperedDocument('opengraph', (draft) => {
+      draft.pages[draft.pageIds[0]!].background = '#fff"/><script>alert(1)</script><rect fill="';
+    });
+    const markup = buildExpressionPageSvg(document, document.pageIds[0]!, contextFor(document));
+    expect(markup).not.toContain('<script');
+    expect(markup).toContain('fill="#FFFFFF"');
+  });
+
+  it('normalizes a stored logo appearance before it reaches the SVG filter', () => {
+    const document = tamperedDocument('opengraph', (draft) => {
+      const logo = Object.values(draft.elements).find((element) => element.data.slot === 'logo')!;
+      logo.data.appearance = { shadowEnabled: true, shadowOffsetX: '0"/><script>alert(1)</script><x a="' };
+    });
+    const logo = Object.values(document.elements).find((candidate) => candidate.data.slot === 'logo')!;
+    const markup = renderExpressionElement(logo, contextFor(document));
+    expect(markup).not.toContain('<script');
+    expect(markup).toContain('dx="0"');
+  });
+
+  it('resolves expression colors without returning unvalidated strings', () => {
+    const colors = { emphasis: '#D7FF64', ink: '#101010' };
+    expect(resolveExpressionColor('ink', colors, '#000000')).toBe('#101010');
+    expect(resolveExpressionColor('#a1b2c3', colors, '#000000')).toBe('#A1B2C3');
+    expect(resolveExpressionColor(undefined, colors, '#abcdef')).toBe('#abcdef');
+    expect(resolveExpressionColor('missing', colors, '#ABCDEF')).toBe('#ABCDEF');
+    expect(resolveExpressionColor(undefined, colors, '#000" onload="x"')).toBe('#000000');
+    expect(resolveExpressionColor('missing', colors, 'not a color')).toBe('#000000');
+    expect(resolveExpressionColor('constructor', colors, '#112233')).toBe('#112233');
+    expect(resolveExpressionColor('toString', colors, '#112233')).toBe('#112233');
   });
 });
 

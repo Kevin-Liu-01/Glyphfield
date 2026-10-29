@@ -18,6 +18,7 @@ import {
   dataNumber,
   dataString,
   elementComponent,
+  isSafeExpressionColor,
   pageElements,
   readCodeTabs,
   readLockupPartners,
@@ -26,7 +27,7 @@ import {
   resolveExpressionColor,
   type CodeTab,
 } from './expressionModel';
-import { buildLogoSvgFilter, DEFAULT_LOGO_APPEARANCE, type LogoAppearanceSettings } from './logoAppearance';
+import { buildLogoSvgFilter, normalizeLogoAppearance, type LogoAppearanceSettings } from './logoAppearance';
 import { terminalLanguageIcon } from './terminalLanguageIcon';
 
 /**
@@ -96,7 +97,7 @@ export function defaultFontFamily(_fontAssetId: string | undefined, family: stri
 }
 
 function uid(context: ExpressionRenderContext, element: CanvasElement, suffix: string): string {
-  return `${context.idPrefix}-${element.id.replace(/[^a-zA-Z0-9_-]/g, '_')}-${suffix}`;
+  return `${context.idPrefix.replace(/[^a-zA-Z0-9_-]/g, '_')}-${element.id.replace(/[^a-zA-Z0-9_-]/g, '_')}-${suffix}`;
 }
 
 function attributeFamily(value: string): string {
@@ -202,7 +203,7 @@ function renderText(element: CanvasElement, context: ExpressionRenderContext): s
     const content = parts.length === 3 && parts[2]
       ? `<tspan>${escapeXml(parts[0]!)}</tspan><tspan opacity="0.42">${escapeXml(parts[1]!)}</tspan><tspan data-partner-run="true" font-family="${attributeFamily(context.fontFamily(partnerFontId, partnerFamily))}" font-weight="${partnerWeight}">${escapeXml(parts[2])}</tspan>`
       : escapeXml(line);
-    return `<text x="${round(x)}" y="${baseline}" fill="${fill}" font-family="${family}" font-size="${layout.fontSize}" font-weight="${style.fontWeight}" letter-spacing="${tracking}" text-anchor="${anchor}" xml:space="preserve"${tabular}>${content}</text>`;
+    return `<text x="${round(x)}" y="${baseline}" fill="${escapeXml(fill)}" font-family="${family}" font-size="${layout.fontSize}" font-weight="${style.fontWeight}" letter-spacing="${tracking}" text-anchor="${anchor}" xml:space="preserve"${tabular}>${content}</text>`;
   }).join('');
 }
 
@@ -257,11 +258,11 @@ function renderImage(element: CanvasElement, context: ExpressionRenderContext, s
 function readAppearance(element: CanvasElement): LogoAppearanceSettings | null {
   const value = element.data.appearance;
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  return { ...DEFAULT_LOGO_APPEARANCE, ...(value as Partial<LogoAppearanceSettings>) };
+  return normalizeLogoAppearance(value);
 }
 
 function toneFilter(id: string, color: string): string {
-  return `<filter id="${id}" color-interpolation-filters="sRGB"><feFlood flood-color="${color}"/><feComposite in2="SourceAlpha" operator="in"/></filter>`;
+  return `<filter id="${id}" color-interpolation-filters="sRGB"><feFlood flood-color="${escapeXml(color)}"/><feComposite in2="SourceAlpha" operator="in"/></filter>`;
 }
 
 function renderLogo(element: CanvasElement, context: ExpressionRenderContext): string {
@@ -299,17 +300,17 @@ function renderShape(element: CanvasElement, context: ExpressionRenderContext): 
   const stroke = strokeValue === 'none' ? 'none' : resolveExpressionColor(strokeValue, context.colors, '#000000');
   const strokeWidth = dataNumber(element, 'strokeWidth', shape === 'line' ? 1 : 0);
   const { height, width, x, y } = element.bounds;
-  const strokeAttributes = stroke === 'none' || strokeWidth <= 0 ? '' : ` stroke="${stroke}" stroke-width="${round(strokeWidth)}"`;
+  const strokeAttributes = stroke === 'none' || strokeWidth <= 0 ? '' : ` stroke="${escapeXml(stroke)}" stroke-width="${round(strokeWidth)}"`;
   if (shape === 'line') {
     const color = stroke === 'none' ? fill : stroke;
     return width >= height
-      ? `<line x1="${round(x)}" y1="${round(y + height / 2)}" x2="${round(x + width)}" y2="${round(y + height / 2)}" stroke="${color}" stroke-width="${round(Math.max(0.5, strokeWidth))}"/>`
-      : `<line x1="${round(x + width / 2)}" y1="${round(y)}" x2="${round(x + width / 2)}" y2="${round(y + height)}" stroke="${color}" stroke-width="${round(Math.max(0.5, strokeWidth))}"/>`;
+      ? `<line x1="${round(x)}" y1="${round(y + height / 2)}" x2="${round(x + width)}" y2="${round(y + height / 2)}" stroke="${escapeXml(color)}" stroke-width="${round(Math.max(0.5, strokeWidth))}"/>`
+      : `<line x1="${round(x + width / 2)}" y1="${round(y)}" x2="${round(x + width / 2)}" y2="${round(y + height)}" stroke="${escapeXml(color)}" stroke-width="${round(Math.max(0.5, strokeWidth))}"/>`;
   }
   if (shape === 'ellipse') {
-    return `<ellipse cx="${round(x + width / 2)}" cy="${round(y + height / 2)}" rx="${round(width / 2)}" ry="${round(height / 2)}" fill="${fill}"${strokeAttributes}/>`;
+    return `<ellipse cx="${round(x + width / 2)}" cy="${round(y + height / 2)}" rx="${round(width / 2)}" ry="${round(height / 2)}" fill="${escapeXml(fill)}"${strokeAttributes}/>`;
   }
-  return `<rect x="${round(x)}" y="${round(y)}" width="${round(width)}" height="${round(height)}" rx="${round(element.style.borderRadius)}" fill="${fill}"${strokeAttributes}/>`;
+  return `<rect x="${round(x)}" y="${round(y)}" width="${round(width)}" height="${round(height)}" rx="${round(element.style.borderRadius)}" fill="${escapeXml(fill)}"${strokeAttributes}/>`;
 }
 
 function renderTexture(element: CanvasElement, context: ExpressionRenderContext): string {
@@ -323,12 +324,12 @@ function renderTexture(element: CanvasElement, context: ExpressionRenderContext)
     return `<defs><filter id="${id}" x="0" y="0" width="100%" height="100%"><feTurbulence baseFrequency="0.75" numOctaves="2" seed="7"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="table" tableValues="0 0.18"/></feComponentTransfer></filter></defs><rect ${area} filter="url(#${id})"/>`;
   }
   const path = texture === 'dots'
-    ? `<circle cx="${step / 2}" cy="${step / 2}" r="${round(Math.max(0.8, step / 22))}" fill="${color}"/>`
+    ? `<circle cx="${step / 2}" cy="${step / 2}" r="${round(Math.max(0.8, step / 22))}" fill="${escapeXml(color)}"/>`
     : texture === 'lines'
-      ? `<path d="M0 ${step - 0.5}H${step}" stroke="${color}" stroke-width="1"/>`
+      ? `<path d="M0 ${step - 0.5}H${step}" stroke="${escapeXml(color)}" stroke-width="1"/>`
       : texture === 'diagonal'
-        ? `<path d="M0 ${step}L${step} 0" stroke="${color}" stroke-width="1"/>`
-        : `<path d="M${step} 0H0V${step}" fill="none" stroke="${color}" stroke-width="1"/>`;
+        ? `<path d="M0 ${step}L${step} 0" stroke="${escapeXml(color)}" stroke-width="1"/>`
+        : `<path d="M${step} 0H0V${step}" fill="none" stroke="${escapeXml(color)}" stroke-width="1"/>`;
   return `<defs><pattern id="${id}" x="${round(x)}" y="${round(y)}" width="${step}" height="${step}" patternUnits="userSpaceOnUse">${path}</pattern></defs><rect ${area} fill="url(#${id})"/>`;
 }
 
@@ -378,14 +379,18 @@ export function resolveCodeTheme(themeId: string, colors: Readonly<Record<string
       tokens: { 'attr-name': '#79C0FF', boolean: '#79C0FF', builtin: '#FFA657', 'class-name': '#FFA657', comment: '#8B949E', constant: '#79C0FF', function: '#D2A8FF', keyword: '#FF7B72', number: '#79C0FF', operator: '#FF7B72', property: '#79C0FF', punctuation: '#8B949E', regex: '#A5D6FF', string: '#A5D6FF', tag: '#7EE787', variable: '#FFA657' },
     };
   }
-  const ink = colors.ink ?? '#18181B';
-  const paper = colors.paper ?? '#FFFFFF';
-  const emphasis = colors.emphasis ?? ink;
-  const success = colors.success ?? emphasis;
-  const warning = colors.warning ?? emphasis;
-  const progress = colors.progress ?? emphasis;
+  const paletteColor = (key: string, fallback: string) => {
+    const value = Object.prototype.hasOwnProperty.call(colors, key) ? colors[key] : undefined;
+    return isSafeExpressionColor(value) ? value : fallback;
+  };
+  const ink = paletteColor('ink', '#18181B');
+  const paper = paletteColor('paper', '#FFFFFF');
+  const emphasis = paletteColor('emphasis', ink);
+  const success = paletteColor('success', emphasis);
+  const warning = paletteColor('warning', emphasis);
+  const progress = paletteColor('progress', emphasis);
   if (themeId === 'brand-light') {
-    const background = mixHexColors(colors.muted ?? paper, paper, 0.4);
+    const background = mixHexColors(paletteColor('muted', paper), paper, 0.4);
     const foreground = ink;
     return {
       accent: emphasis,
@@ -406,7 +411,7 @@ export function resolveCodeTheme(themeId: string, colors: Readonly<Record<string
       },
     };
   }
-  const [darkest] = luminanceOrder([ink, colors.error ?? ink]);
+  const [darkest] = luminanceOrder([ink, paletteColor('error', ink)]);
   const background = darkest ?? ink;
   const foreground = readable(paper, background, '#FFFFFF');
   return {
@@ -501,7 +506,7 @@ function languageBadge(tab: CodeTab, x: number, y: number, size: number, theme: 
     return terminalLanguageIcon(icon, round(x), round(y), round(size));
   }
   const label = tab.language.slice(0, 2).toUpperCase();
-  return `<rect x="${round(x)}" y="${round(y)}" width="${round(size)}" height="${round(size)}" rx="${round(size * 0.18)}" fill="${theme.border}"/><text x="${round(x + size / 2)}" y="${round(y + size * 0.68)}" text-anchor="middle" fill="${theme.foreground}" font-family="${family}" font-size="${round(size * 0.46)}" font-weight="600">${label}</text>`;
+  return `<rect x="${round(x)}" y="${round(y)}" width="${round(size)}" height="${round(size)}" rx="${round(size * 0.18)}" fill="${escapeXml(theme.border)}"/><text x="${round(x + size / 2)}" y="${round(y + size * 0.68)}" text-anchor="middle" fill="${escapeXml(theme.foreground)}" font-family="${family}" font-size="${round(size * 0.46)}" font-weight="600">${escapeXml(label)}</text>`;
 }
 
 type CodeRow = { continuation: boolean; line: number; tokens: CodeToken[] };
@@ -582,15 +587,15 @@ function renderCode(element: CanvasElement, context: ExpressionRenderContext): s
   const tabSize = round(baseSize * 0.86);
   let headerMarkup = '';
   if (chrome === 'window') {
-    headerMarkup = [0, 1, 2].map((index) => `<circle cx="${round(x + padX + index * baseSize * 1.25)}" cy="${round(y + header / 2)}" r="${round(baseSize * 0.36)}" fill="${theme.border}"/>`).join('')
-      + `<text x="${round(x + width / 2)}" y="${round(y + header / 2 + tabSize * 0.36)}" text-anchor="middle" fill="${theme.muted}" font-family="${family}" font-size="${tabSize}">${escapeXml(active.name)}</text>`;
+    headerMarkup = [0, 1, 2].map((index) => `<circle cx="${round(x + padX + index * baseSize * 1.25)}" cy="${round(y + header / 2)}" r="${round(baseSize * 0.36)}" fill="${escapeXml(theme.border)}"/>`).join('')
+      + `<text x="${round(x + width / 2)}" y="${round(y + header / 2 + tabSize * 0.36)}" text-anchor="middle" fill="${escapeXml(theme.muted)}" font-family="${family}" font-size="${tabSize}">${escapeXml(active.name)}</text>`;
   } else if (chrome === 'tabs') {
     let cursor = x + padX * 0.5;
     headerMarkup = tabs.map((tab) => {
       const labelWidth = context.measure(tab.name, { family: style.fontFamily, size: tabSize, weight: style.fontWeight });
       const tabWidth = labelWidth + tabSize * 3.2;
       const isActive = tab.id === active.id;
-      const markup = `${isActive ? `<rect x="${round(cursor)}" y="${round(y + header - 2)}" width="${round(tabWidth)}" height="2" fill="${theme.accent}"/>` : ''}${languageBadge(tab, cursor + tabSize * 0.6, y + header / 2 - tabSize * 0.55, tabSize * 1.1, theme, family)}<text x="${round(cursor + tabSize * 2.1)}" y="${round(y + header / 2 + tabSize * 0.36)}" fill="${isActive ? theme.foreground : theme.muted}" font-family="${family}" font-size="${tabSize}" font-weight="${style.fontWeight}">${escapeXml(tab.name)}</text>`;
+      const markup = `${isActive ? `<rect x="${round(cursor)}" y="${round(y + header - 2)}" width="${round(tabWidth)}" height="2" fill="${escapeXml(theme.accent)}"/>` : ''}${languageBadge(tab, cursor + tabSize * 0.6, y + header / 2 - tabSize * 0.55, tabSize * 1.1, theme, family)}<text x="${round(cursor + tabSize * 2.1)}" y="${round(y + header / 2 + tabSize * 0.36)}" fill="${escapeXml(isActive ? theme.foreground : theme.muted)}" font-family="${family}" font-size="${tabSize}" font-weight="${style.fontWeight}">${escapeXml(tab.name)}</text>`;
       cursor += tabWidth + tabSize * 0.4;
       return markup;
     }).join('');
@@ -622,17 +627,17 @@ function renderCode(element: CanvasElement, context: ExpressionRenderContext): s
     const baseline = round(lineTop + lineHeight / 2 + size * 0.35);
     const marked = highlighted.has(row.line);
     const band = marked
-      ? `<rect x="${round(x)}" y="${round(lineTop)}" width="${round(width)}" height="${round(lineHeight)}" fill="${theme.accent}" opacity="0.14"/><rect x="${round(x)}" y="${round(lineTop)}" width="3" height="${round(lineHeight)}" fill="${theme.accent}"/>`
+      ? `<rect x="${round(x)}" y="${round(lineTop)}" width="${round(width)}" height="${round(lineHeight)}" fill="${escapeXml(theme.accent)}" opacity="0.14"/><rect x="${round(x)}" y="${round(lineTop)}" width="3" height="${round(lineHeight)}" fill="${escapeXml(theme.accent)}"/>`
       : '';
     const number = lineNumbers && !row.continuation
-      ? `<text x="${round(x + padX + gutter - size * 1.2)}" y="${baseline}" text-anchor="end" fill="${marked ? theme.foreground : theme.gutter}" font-family="${family}" font-size="${round(size)}" font-weight="${style.fontWeight}">${row.line}</text>`
+      ? `<text x="${round(x + padX + gutter - size * 1.2)}" y="${baseline}" text-anchor="end" fill="${escapeXml(marked ? theme.foreground : theme.gutter)}" font-family="${family}" font-size="${round(size)}" font-weight="${style.fontWeight}">${row.line}</text>`
       : '';
     const content = row.tokens.length > 0
-      ? row.tokens.map(({ color, content: value }) => `<tspan fill="${color}">${escapeXml(value)}</tspan>`).join('')
+      ? row.tokens.map(({ color, content: value }) => `<tspan fill="${escapeXml(color)}">${escapeXml(value)}</tspan>`).join('')
       : ' ';
-    return `${band}${number}<text x="${round(x + padX + gutter)}" y="${baseline}" fill="${theme.foreground}" font-family="${family}" font-size="${round(size)}" font-weight="${style.fontWeight}" letter-spacing="${tracking}" xml:space="preserve">${content}</text>`;
+    return `${band}${number}<text x="${round(x + padX + gutter)}" y="${baseline}" fill="${escapeXml(theme.foreground)}" font-family="${family}" font-size="${round(size)}" font-weight="${style.fontWeight}" letter-spacing="${tracking}" xml:space="preserve">${content}</text>`;
   }).join('');
-  return `<defs><clipPath id="${clipId}"><rect x="${round(x)}" y="${round(y)}" width="${round(width)}" height="${round(height)}" rx="${round(radius)}"/></clipPath></defs><g clip-path="url(#${clipId})"><rect x="${round(x)}" y="${round(y)}" width="${round(width)}" height="${round(height)}" fill="${theme.background}"/>${header ? `<rect x="${round(x)}" y="${round(y)}" width="${round(width)}" height="${header}" fill="${theme.header}"/><line x1="${round(x)}" y1="${round(y + header)}" x2="${round(x + width)}" y2="${round(y + header)}" stroke="${theme.border}"/>` : ''}${headerMarkup}${body}</g><rect x="${round(x + 0.5)}" y="${round(y + 0.5)}" width="${round(width - 1)}" height="${round(height - 1)}" rx="${round(radius)}" fill="none" stroke="${theme.border}"/>`;
+  return `<defs><clipPath id="${clipId}"><rect x="${round(x)}" y="${round(y)}" width="${round(width)}" height="${round(height)}" rx="${round(radius)}"/></clipPath></defs><g clip-path="url(#${clipId})"><rect x="${round(x)}" y="${round(y)}" width="${round(width)}" height="${round(height)}" fill="${escapeXml(theme.background)}"/>${header ? `<rect x="${round(x)}" y="${round(y)}" width="${round(width)}" height="${header}" fill="${escapeXml(theme.header)}"/><line x1="${round(x)}" y1="${round(y + header)}" x2="${round(x + width)}" y2="${round(y + header)}" stroke="${escapeXml(theme.border)}"/>` : ''}${headerMarkup}${body}</g><rect x="${round(x + 0.5)}" y="${round(y + 0.5)}" width="${round(width - 1)}" height="${round(height - 1)}" rx="${round(radius)}" fill="none" stroke="${escapeXml(theme.border)}"/>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -697,7 +702,7 @@ function renderLockup(element: CanvasElement, context: ExpressionRenderContext):
     if (partner.kind === 'text') {
       const size = round(h);
       const family = attributeFamily(context.fontFamily(partner.fontAssetId, partner.fontFamily ?? 'Inter'));
-      parts.push(`<text data-lockup-partner="${escapeXml(partner.id)}" x="${round(cursor)}" y="${round(top + h * 0.82)}" fill="${fill}" font-family="${family}" font-size="${size}" font-weight="${partner.fontWeight ?? 500}" letter-spacing="${round((partner.letterSpacing ?? 0) * size)}">${escapeXml(partner.label)}</text>`);
+      parts.push(`<text data-lockup-partner="${escapeXml(partner.id)}" x="${round(cursor)}" y="${round(top + h * 0.82)}" fill="${escapeXml(fill)}" font-family="${family}" font-size="${size}" font-weight="${partner.fontWeight ?? 500}" letter-spacing="${round((partner.letterSpacing ?? 0) * size)}">${escapeXml(partner.label)}</text>`);
     } else {
       const source = context.assetSource(partner.assetId);
       const artwork = context.assetArtwork?.(partner.assetId) ?? null;
@@ -713,10 +718,10 @@ function renderLockup(element: CanvasElement, context: ExpressionRenderContext):
       const gap = layout.gap * layout.scale;
       const center = cursor + gap + layout.separatorWidth * layout.scale / 2;
       if (layout.separator === '|') {
-        parts.push(`<line x1="${round(center)}" y1="${round(middle - layout.unit * layout.scale * 0.32)}" x2="${round(center)}" y2="${round(middle + layout.unit * layout.scale * 0.32)}" stroke="${fill}" stroke-opacity="0.32" stroke-width="1.5"/>`);
+        parts.push(`<line x1="${round(center)}" y1="${round(middle - layout.unit * layout.scale * 0.32)}" x2="${round(center)}" y2="${round(middle + layout.unit * layout.scale * 0.32)}" stroke="${escapeXml(fill)}" stroke-opacity="0.32" stroke-width="1.5"/>`);
       } else if (layout.separator !== 'none') {
         const size = round(layout.unit * layout.scale * 0.34);
-        parts.push(`<text x="${round(center)}" y="${round(middle + size * 0.36)}" text-anchor="middle" fill="${fill}" opacity="0.42" font-family="${escapeXml(FALLBACK_STACK)}" font-size="${size}" font-weight="300">${escapeXml(layout.separator)}</text>`);
+        parts.push(`<text x="${round(center)}" y="${round(middle + size * 0.36)}" text-anchor="middle" fill="${escapeXml(fill)}" opacity="0.42" font-family="${escapeXml(FALLBACK_STACK)}" font-size="${size}" font-weight="300">${escapeXml(layout.separator)}</text>`);
       }
       cursor += gap * 2 + layout.separatorWidth * layout.scale;
     }
@@ -741,11 +746,11 @@ function renderChart(element: CanvasElement, context: ExpressionRenderContext): 
     const bx = x + index * slot + (slot - barWidth) / 2;
     const isLast = index === values.length - 1;
     const label = labels[index]
-      ? `<text x="${round(bx + barWidth / 2)}" y="${round(y + height - labelSize * 0.4)}" text-anchor="middle" fill="${fill}" opacity="0.6" font-family="${escapeXml(FALLBACK_STACK)}" font-size="${labelSize}">${escapeXml(labels[index]!)}</text>`
+      ? `<text x="${round(bx + barWidth / 2)}" y="${round(y + height - labelSize * 0.4)}" text-anchor="middle" fill="${escapeXml(fill)}" opacity="0.6" font-family="${escapeXml(FALLBACK_STACK)}" font-size="${labelSize}">${escapeXml(labels[index]!)}</text>`
       : '';
-    return `<rect x="${round(bx)}" y="${round(y + plotHeight - barHeight)}" width="${round(barWidth)}" height="${round(barHeight)}" fill="${isLast ? accent : fill}" opacity="${isLast ? 1 : round(0.18 + index * 0.1)}"/>${label}`;
+    return `<rect x="${round(bx)}" y="${round(y + plotHeight - barHeight)}" width="${round(barWidth)}" height="${round(barHeight)}" fill="${escapeXml(isLast ? accent : fill)}" opacity="${isLast ? 1 : round(0.18 + index * 0.1)}"/>${label}`;
   }).join('');
-  return `<line x1="${round(x)}" y1="${round(y + plotHeight)}" x2="${round(x + width)}" y2="${round(y + plotHeight)}" stroke="${fill}" stroke-opacity="0.3"/>${bars}`;
+  return `<line x1="${round(x)}" y1="${round(y + plotHeight)}" x2="${round(x + width)}" y2="${round(y + plotHeight)}" stroke="${escapeXml(fill)}" stroke-opacity="0.3"/>${bars}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -790,8 +795,9 @@ export function renderExpressionElement(element: CanvasElement, context: Express
 export type ExpressionFontFace = { family: string; source: string };
 
 export function expressionFontFaceCss(fonts: readonly ExpressionFontFace[]): string {
+  const cdataSafe = (value: string) => value.replaceAll(']]>', '');
   return fonts
-    .map(({ family, source }) => `@font-face{font-family:${JSON.stringify(family)};src:url(${JSON.stringify(source)});font-weight:100 900;font-style:normal;font-display:block;}`)
+    .map(({ family, source }) => `@font-face{font-family:${JSON.stringify(cdataSafe(family))};src:url(${JSON.stringify(cdataSafe(source))});font-weight:100 900;font-style:normal;font-display:block;}`)
     .join('');
 }
 
@@ -805,5 +811,6 @@ export function buildExpressionPageSvg(
   if (!page) throw new RangeError(`Unknown page ${pageId}.`);
   const body = pageElements(document, pageId).map((element) => renderExpressionElement(element, context)).join('');
   const style = fonts.length > 0 ? `<defs><style><![CDATA[${expressionFontFaceCss(fonts)}]]></style></defs>` : '';
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${page.width}" height="${page.height}" viewBox="0 0 ${page.width} ${page.height}">${style}<rect width="${page.width}" height="${page.height}" fill="${page.background}"/>${body}</svg>`;
+  const background = isSafeExpressionColor(page.background) ? page.background : '#FFFFFF';
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${page.width}" height="${page.height}" viewBox="0 0 ${page.width} ${page.height}">${style}<rect width="${page.width}" height="${page.height}" fill="${escapeXml(background)}"/>${body}</svg>`;
 }

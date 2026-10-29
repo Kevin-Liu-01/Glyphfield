@@ -5,11 +5,9 @@ import {
   type CanvasDocument,
 } from './canvasDocument';
 import type { CanvasLayerTransform } from './canvasInteraction';
-import type { LogoAppearanceSettings } from './logoAppearance';
-import { normalizeHexOrFallback } from './color';
+import { normalizeLogoAppearance, type LogoAppearanceSettings } from './logoAppearance';
 import {
   parseSourceObject,
-  sourceBoolean,
   sourceNumber,
   sourceObject,
   sourceString,
@@ -77,30 +75,6 @@ function portableAsset(
     : namedAsset(value);
 }
 
-function logoAppearance(
-  value: Record<string, unknown> | null,
-  fallback: LogoAppearanceSettings
-): LogoAppearanceSettings {
-  if (!value) return fallback;
-  return {
-    borderColor: normalizeHexOrFallback(sourceString(value, 'borderColor', fallback.borderColor), fallback.borderColor),
-    borderEnabled: sourceBoolean(value, 'borderEnabled', fallback.borderEnabled),
-    borderOpacity: sourceNumber(value, 'borderOpacity', fallback.borderOpacity),
-    borderWidth: sourceNumber(value, 'borderWidth', fallback.borderWidth),
-    ditherAmount: sourceNumber(value, 'ditherAmount', fallback.ditherAmount),
-    ditherAngle: sourceNumber(value, 'ditherAngle', fallback.ditherAngle),
-    ditherEnabled: sourceBoolean(value, 'ditherEnabled', fallback.ditherEnabled),
-    ditherScale: sourceNumber(value, 'ditherScale', fallback.ditherScale),
-    invert: sourceBoolean(value, 'invert', fallback.invert),
-    shadowBlur: sourceNumber(value, 'shadowBlur', fallback.shadowBlur),
-    shadowColor: normalizeHexOrFallback(sourceString(value, 'shadowColor', fallback.shadowColor), fallback.shadowColor),
-    shadowEnabled: sourceBoolean(value, 'shadowEnabled', fallback.shadowEnabled),
-    shadowOffsetX: sourceNumber(value, 'shadowOffsetX', fallback.shadowOffsetX),
-    shadowOffsetY: sourceNumber(value, 'shadowOffsetY', fallback.shadowOffsetY),
-    shadowOpacity: sourceNumber(value, 'shadowOpacity', fallback.shadowOpacity),
-  };
-}
-
 export type OpenGraphWorkspaceDefaults = {
   allowedFontRoles: readonly BrandTypography['role'][];
   background: {
@@ -164,7 +138,7 @@ export function parseOpenGraphWorkspaceSource(
     fontRole: fontRole as BrandTypography['role'],
     fontWeight: sourceNumber(state, 'fontWeight', fallback.fontWeight),
     logo: logo ? {
-      appearance: logoAppearance(sourceObject(logo, 'appearance'), fallback.logo.appearance),
+      appearance: normalizeLogoAppearance(sourceObject(logo, 'appearance'), fallback.logo.appearance),
       asset: portableAsset(document, 'opengraph-logo', sourceObject(logo, 'asset'), 'Imported OpenGraph mark'),
       assetId: sourceString(logo, 'assetId', fallback.logo.assetId),
       scale: sourceNumber(logo, 'scale', fallback.logo.scale),

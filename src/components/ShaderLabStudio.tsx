@@ -212,6 +212,7 @@ import {
   drawLogoAppearanceLayer,
   logoAppearanceCssFilter,
   logoAppearanceDitherMask,
+  normalizeLogoAppearance,
   type LogoAppearanceSettings,
 } from '@/lib/logoAppearance';
 import { copyTextToClipboard } from '@/lib/clipboard';
@@ -998,7 +999,7 @@ function restoredLogoLayers(
   return savedLayers.map((savedLayer) => {
     const current = currentById.get(savedLayer.id);
     return {
-      appearance: savedLayer.appearance ? { ...savedLayer.appearance } : current?.appearance ?? { ...DEFAULT_LOGO_APPEARANCE },
+      appearance: normalizeLogoAppearance(savedLayer.appearance, current?.appearance ?? { ...DEFAULT_LOGO_APPEARANCE }),
       color: savedLayer.color ?? current?.color ?? '#FFFFFF',
       convertedAssetId: savedLayer.convertedAssetId,
       id: savedLayer.id,
@@ -1049,8 +1050,7 @@ function restoredImageLayerAppearance(
   savedAsset: Partial<CompositionAsset>,
   current: CompositionAsset | undefined
 ): LogoAppearanceSettings {
-  if (savedAsset.appearance) return { ...savedAsset.appearance };
-  return current?.appearance ?? { ...DEFAULT_LOGO_APPEARANCE };
+  return normalizeLogoAppearance(savedAsset.appearance, current?.appearance ?? { ...DEFAULT_LOGO_APPEARANCE });
 }
 
 function restoredImageLayerKind(

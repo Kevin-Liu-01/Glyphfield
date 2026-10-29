@@ -1,8 +1,14 @@
+import { normalizeHexOrFallback } from '@/lib/color';
 import { escapeXml } from '@/lib/download';
 import {
   compositeFinishedLayer,
   DEFAULT_MATERIAL_FINISH,
 } from '@/lib/materialFinish';
+import {
+  sourceBoolean,
+  sourceNumber,
+  sourceString,
+} from '@/lib/sourceCode';
 
 export type LogoAppearanceSettings = {
   borderColor: string;
@@ -39,6 +45,38 @@ export const DEFAULT_LOGO_APPEARANCE: LogoAppearanceSettings = {
   shadowOffsetY: 8,
   shadowOpacity: 28,
 };
+
+/** Type-check an appearance record from stored source before it reaches render. */
+export function normalizeLogoAppearance(
+  value: unknown,
+  fallback: LogoAppearanceSettings = DEFAULT_LOGO_APPEARANCE
+): LogoAppearanceSettings {
+  const record = value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+  if (!record) return fallback;
+  return {
+    borderColor: normalizeHexOrFallback(sourceString(record, 'borderColor', fallback.borderColor), fallback.borderColor),
+    borderEnabled: sourceBoolean(record, 'borderEnabled', fallback.borderEnabled),
+    borderOpacity: sourceNumber(record, 'borderOpacity', fallback.borderOpacity),
+    borderWidth: sourceNumber(record, 'borderWidth', fallback.borderWidth),
+    ditherAmount: sourceNumber(record, 'ditherAmount', fallback.ditherAmount),
+    ditherAngle: sourceNumber(record, 'ditherAngle', fallback.ditherAngle),
+    ditherEnabled: sourceBoolean(record, 'ditherEnabled', fallback.ditherEnabled),
+    ditherScale: sourceNumber(record, 'ditherScale', fallback.ditherScale),
+    invert: sourceBoolean(record, 'invert', fallback.invert),
+    shadowBlur: sourceNumber(record, 'shadowBlur', fallback.shadowBlur),
+    shadowColor: normalizeHexOrFallback(sourceString(record, 'shadowColor', fallback.shadowColor), fallback.shadowColor),
+    shadowEnabled: sourceBoolean(record, 'shadowEnabled', fallback.shadowEnabled),
+    shadowOffsetX: sourceNumber(record, 'shadowOffsetX', fallback.shadowOffsetX),
+    shadowOffsetY: sourceNumber(record, 'shadowOffsetY', fallback.shadowOffsetY),
+    shadowOpacity: sourceNumber(record, 'shadowOpacity', fallback.shadowOpacity),
+  };
+}
+
+function finiteNumber(value: number): number {
+  return Number.isFinite(value) ? value : 0;
+}
 
 export function hasLogoAppearanceEffects(settings: LogoAppearanceSettings): boolean {
   return settings.invert
@@ -83,7 +121,7 @@ function buildSvgShadow(
   input: string,
   settings: LogoAppearanceSettings
 ): string {
-  return `<feGaussianBlur in="${input}" stdDeviation="${settings.shadowBlur / 2}" result="shadow-blur"/><feOffset in="shadow-blur" dx="${settings.shadowOffsetX}" dy="${settings.shadowOffsetY}" result="shadow-offset"/><feFlood flood-color="${escapeXml(settings.shadowColor)}" flood-opacity="${settings.shadowOpacity / 100}" result="shadow-color"/><feComposite in="shadow-color" in2="shadow-offset" operator="in" result="shadow"/>`;
+  return `<feGaussianBlur in="${input}" stdDeviation="${finiteNumber(settings.shadowBlur / 2)}" result="shadow-blur"/><feOffset in="shadow-blur" dx="${finiteNumber(settings.shadowOffsetX)}" dy="${finiteNumber(settings.shadowOffsetY)}" result="shadow-offset"/><feFlood flood-color="${escapeXml(settings.shadowColor)}" flood-opacity="${finiteNumber(settings.shadowOpacity / 100)}" result="shadow-color"/><feComposite in="shadow-color" in2="shadow-offset" operator="in" result="shadow"/>`;
 }
 
 export function logoAppearanceCssFilter(settings: LogoAppearanceSettings): string {
@@ -125,7 +163,7 @@ export function buildLogoSvgFilter(
     ? `<feTurbulence type="fractalNoise" baseFrequency="${model.ditherFrequencyX.toFixed(4)} ${model.ditherFrequencyY.toFixed(4)}" numOctaves="1" seed="23" stitchTiles="stitch" result="dither-noise"/><feColorMatrix in="dither-noise" type="luminanceToAlpha" result="dither-alpha"/><feComponentTransfer in="dither-alpha" result="dither-threshold"><feFuncA type="discrete" tableValues="${model.ditherTable}"/></feComponentTransfer><feComposite in="${model.filteredSource}" in2="dither-threshold" operator="in" result="dithered"/>`
     : '';
   const border = settings.borderEnabled && settings.borderWidth > 0
-    ? `<feMorphology in="SourceAlpha" operator="dilate" radius="${settings.borderWidth}" result="expanded"/><feComposite in="expanded" in2="SourceAlpha" operator="out" result="outline-alpha"/><feFlood flood-color="${escapeXml(settings.borderColor)}" flood-opacity="${settings.borderOpacity / 100}" result="outline-color"/><feComposite in="outline-color" in2="outline-alpha" operator="in" result="outline"/>`
+    ? `<feMorphology in="SourceAlpha" operator="dilate" radius="${finiteNumber(settings.borderWidth)}" result="expanded"/><feComposite in="expanded" in2="SourceAlpha" operator="out" result="outline-alpha"/><feFlood flood-color="${escapeXml(settings.borderColor)}" flood-opacity="${finiteNumber(settings.borderOpacity / 100)}" result="outline-color"/><feComposite in="outline-color" in2="outline-alpha" operator="in" result="outline"/>`
     : '';
   const shadow = settings.shadowEnabled
     ? buildSvgShadow(showSource ? model.outputSource : 'SourceAlpha', settings)
@@ -151,7 +189,7 @@ export function buildImageSvgFilter(
     ? `<feTurbulence type="fractalNoise" baseFrequency="${model.ditherFrequencyX.toFixed(4)} ${model.ditherFrequencyY.toFixed(4)}" numOctaves="1" seed="23" stitchTiles="stitch" result="dither-noise"/><feColorMatrix in="dither-noise" type="luminanceToAlpha" result="dither-alpha"/><feComponentTransfer in="dither-alpha" result="dither-threshold"><feFuncA type="discrete" tableValues="${model.ditherTable}"/></feComponentTransfer><feComposite in="${model.filteredSource}" in2="dither-threshold" operator="in" result="dithered"/>`
     : '';
   const border = settings.borderEnabled && settings.borderWidth > 0
-    ? `<feMorphology in="SourceAlpha" operator="dilate" radius="${settings.borderWidth}" result="expanded"/><feComposite in="expanded" in2="SourceAlpha" operator="out" result="outline-alpha"/><feFlood flood-color="${escapeXml(settings.borderColor)}" flood-opacity="${settings.borderOpacity / 100}" result="outline-color"/><feComposite in="outline-color" in2="outline-alpha" operator="in" result="outline"/>`
+    ? `<feMorphology in="SourceAlpha" operator="dilate" radius="${finiteNumber(settings.borderWidth)}" result="expanded"/><feComposite in="expanded" in2="SourceAlpha" operator="out" result="outline-alpha"/><feFlood flood-color="${escapeXml(settings.borderColor)}" flood-opacity="${finiteNumber(settings.borderOpacity / 100)}" result="outline-color"/><feComposite in="outline-color" in2="outline-alpha" operator="in" result="outline"/>`
     : '';
   const shadow = settings.shadowEnabled
     ? buildSvgShadow(model.outputSource, settings)
