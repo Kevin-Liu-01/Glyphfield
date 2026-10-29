@@ -1,8 +1,8 @@
 diff --git a/dist/shader-mount.js b/dist/shader-mount.js
-index 5cf3dfe98acca473afa58329e5828e4a79d0f478..00dc7ff61e0e9b9abb40c72f261ba247201291e3 100644
+index 5cf3dfe98acca473afa58329e5828e4a79d0f478..415a07945b44dbe408c17092fb61cbe4aabf01cc 100644
 --- a/dist/shader-mount.js
 +++ b/dist/shader-mount.js
-@@ -5,6 +5,61 @@
+@@ -5,6 +5,66 @@
  
  import { vertexShaderSource } from "./vertex-shader.js";
  const DEFAULT_MAX_PIXEL_COUNT = 1920 * 1080 * 4;
@@ -11,6 +11,11 @@ index 5cf3dfe98acca473afa58329e5828e4a79d0f478..00dc7ff61e0e9b9abb40c72f261ba247
 +// canvas, context and compiled programs here for the next mount with the same
 +// context attributes. The pool is small and drops contexts that were lost.
 +const POOLED_CANVAS_LIMIT = 2;
++// Live motion draws at most 60 times a second, with the same deadline pacing as Glyphfield's
++// createLiveMaterialFramePacer, so a 120 Hz display does not double each shader's GPU and
++// main-thread work. Frame time still accumulates from the last draw.
++const FRAME_INTERVAL_MS = 1e3 / 60;
++const FRAME_TOLERANCE_MS = 0.75;
 +const CACHED_PROGRAM_LIMIT = 6;
 +const canvasPool = [];
 +const programCaches = /* @__PURE__ */ new WeakMap();
@@ -64,7 +69,15 @@ index 5cf3dfe98acca473afa58329e5828e4a79d0f478..00dc7ff61e0e9b9abb40c72f261ba247
  class ShaderMount {
    parentElement;
    canvasElement;
-@@ -52,7 +107,9 @@ class ShaderMount {
+@@ -17,6 +77,7 @@ class ShaderMount {
+   rafId = null;
+   /** Time of the last rendered frame */
+   lastRenderTime = 0;
++  nextFrameAt = null;
+   /** Total time that we have played any animation, passed as a uniform to the shader for time-based VFX */
+   currentFrame = 0;
+   /** The speed that we progress through animation time (multiplies by delta time every update). Allows negatives to play in reverse. If set to 0, rAF will stop entirely so static shaders have no recurring performance costs */
+@@ -52,7 +113,9 @@ class ShaderMount {
        styleElement.setAttribute("data-paper-shader", "");
        this.ownerDocument.head.prepend(styleElement);
      }
@@ -75,7 +88,7 @@ index 5cf3dfe98acca473afa58329e5828e4a79d0f478..00dc7ff61e0e9b9abb40c72f261ba247
      this.canvasElement = canvasElement;
      this.parentElement.prepend(canvasElement);
      this.fragmentShader = fragmentShader;
-@@ -61,11 +118,16 @@ class ShaderMount {
+@@ -61,11 +124,16 @@ class ShaderMount {
      this.currentFrame = frame;
      this.minPixelRatio = minPixelRatio;
      this.maxPixelCount = maxPixelCount;
@@ -93,7 +106,7 @@ index 5cf3dfe98acca473afa58329e5828e4a79d0f478..00dc7ff61e0e9b9abb40c72f261ba247
      this.initProgram();
      this.setupPositionAttribute();
      this.setupUniforms();
-@@ -79,13 +141,14 @@ class ShaderMount {
+@@ -79,13 +147,14 @@ class ShaderMount {
      this.ownerDocument.addEventListener("visibilitychange", this.handleDocumentVisibilityChange);
    }
    initProgram = () => {
@@ -109,7 +122,42 @@ index 5cf3dfe98acca473afa58329e5828e4a79d0f478..00dc7ff61e0e9b9abb40c72f261ba247
      this.gl.bindBuffer(this.gl.ARRAY_BUFFER, positionBuffer);
      const positions = [-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1];
      this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(positions), this.gl.STATIC_DRAW);
-@@ -394,13 +457,16 @@ class ShaderMount {
+@@ -216,11 +285,24 @@ class ShaderMount {
+       this.rafId = null;
+     }
+   };
++  frame = (currentTime) => {
++    if (this.hasBeenDisposed) return;
++    if (this.nextFrameAt !== null && currentTime + FRAME_TOLERANCE_MS < this.nextFrameAt) {
++      this.rafId = requestAnimationFrame(this.frame);
++      return;
++    }
++    if (this.nextFrameAt === null || currentTime < this.nextFrameAt) {
++      this.nextFrameAt = currentTime + FRAME_INTERVAL_MS;
++    } else {
++      this.nextFrameAt += (Math.floor((currentTime - this.nextFrameAt) / FRAME_INTERVAL_MS) + 1) * FRAME_INTERVAL_MS;
++    }
++    this.render(currentTime);
++  };
+   requestRender = () => {
+     if (this.rafId !== null) {
+       cancelAnimationFrame(this.rafId);
+     }
+-    this.rafId = requestAnimationFrame(this.render);
++    this.rafId = requestAnimationFrame(this.frame);
+   };
+   /** Creates a texture from an image and sets it into a uniform value */
+   setTextureUniform = (uniformName, image) => {
+@@ -356,7 +438,7 @@ class ShaderMount {
+     this.currentSpeed = newSpeed;
+     if (this.rafId === null && newSpeed !== 0) {
+       this.lastRenderTime = performance.now();
+-      this.rafId = requestAnimationFrame(this.render);
++      this.rafId = requestAnimationFrame(this.frame);
+     }
+     if (this.rafId !== null && newSpeed === 0) {
+       cancelAnimationFrame(this.rafId);
+@@ -394,13 +476,16 @@ class ShaderMount {
          this.gl.deleteTexture(texture);
        });
        this.textures.clear();
@@ -128,7 +176,7 @@ index 5cf3dfe98acca473afa58329e5828e4a79d0f478..00dc7ff61e0e9b9abb40c72f261ba247
      }
      if (this.resizeObserver) {
        this.resizeObserver.disconnect();
-@@ -414,6 +480,7 @@ class ShaderMount {
+@@ -414,6 +499,7 @@ class ShaderMount {
      this.ownerDocument.removeEventListener("visibilitychange", this.handleDocumentVisibilityChange);
      this.uniformLocations = {};
      this.canvasElement.remove();

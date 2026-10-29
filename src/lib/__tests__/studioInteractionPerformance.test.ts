@@ -108,6 +108,20 @@ describe('Studio interaction performance contracts', () => {
     expect(deferredRuntime).toContain("addEventListener('wheel', rescheduleAfterInteraction");
   });
 
+  it('paces Paper shader motion to at most 60 frames a second on faster displays', () => {
+    const patch = readSource('patches/@paper-design__shaders@0.0.78.patch');
+    expect(patch).toContain('+const FRAME_INTERVAL_MS = 1e3 / 60;');
+    expect(patch).toContain('+    this.rafId = requestAnimationFrame(this.frame);');
+    expect(patch).not.toContain('+    this.rafId = requestAnimationFrame(this.render);');
+  });
+
+  it('keeps the text inspector mounted between text layers and keys only the controls that hold drafts', () => {
+    const inspector = readSource('src/components/DesignLabInspector.tsx');
+    expect(inspector).not.toContain('key={selection.layer.id}');
+    expect(inspector).toContain('<InspectorTextArea\n        key={selectedTextLayer.id}');
+    expect(inspector.match(/<ColorControl key=\{selectedTextLayer\.id\}/g)).toHaveLength(5);
+  });
+
   it('keeps Design Lab playhead and inspector previews off the full editor render path', () => {
     const designLab = readDesignLabSource();
     const liveMaterial = readSource('src/components/LiveMaterialCanvas.tsx');

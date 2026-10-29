@@ -949,6 +949,7 @@ export const DesignLabTextLayerInspector = memo(function DesignLabTextLayerInspe
     <label className='shader-lab-v2-text-input'>
       <Type aria-hidden='true' />
       <InspectorTextArea
+        key={selectedTextLayer.id}
         ariaLabel={`${selectedTextLayer.name} content`}
         onSelection={onTextSelection}
         onChange={(value) => updateTextLayer(selectedTextLayer.id, { value })}
@@ -970,7 +971,7 @@ export const DesignLabTextLayerInspector = memo(function DesignLabTextLayerInspe
         onChange={(update) => updateTextLayer(selectedTextLayer.id, update)}
         weight={selectedTextLayer.weight}
       />
-      <ColorControl
+      <ColorControl key={selectedTextLayer.id}
         ariaLabel='Text color'
         label='Text color'
         onChange={(color) => updateTextLayer(selectedTextLayer.id, { color })}
@@ -1117,14 +1118,14 @@ export const DesignLabTextLayerInspector = memo(function DesignLabTextLayerInspe
         {selectedTextAppearance.textEffect.kind !== 'solid' ? (
           <div className='shader-lab-v2-text-effect-tuning'>
             <div className='shader-lab-v2-effect-colors'>
-              <ColorControl
+              <ColorControl key={selectedTextLayer.id}
                 ariaLabel='Text effect foreground color'
                 label='Foreground'
                 onChange={(color) => updateTextBox(selectedTextLayer.id, { color })}
                 onPreview={(color) => previewSelectedTextAppearance({ color })}
                 value={selection.appearance.color}
               />
-              <ColorControl
+              <ColorControl key={selectedTextLayer.id}
                 ariaLabel='Text effect background color'
                 label='Background'
                 onChange={(backgroundColor) => updateTextLayer(selectedTextLayer.id, {
@@ -1180,14 +1181,14 @@ export const DesignLabTextLayerInspector = memo(function DesignLabTextLayerInspe
       <div className='shader-lab-v2-effect-group'>
         <label><span>Text outline</span><StudioCheckbox checked={selectedTextAppearance.outlineEnabled} onChange={(event) => updateTextLayer(selectedTextLayer.id, { outlineEnabled: event.target.checked })} /></label>
         {selectedTextAppearance.outlineEnabled ? <>
-          <ColorControl ariaLabel='Text outline color' label='Outline color' onChange={(outlineColor) => updateTextLayer(selectedTextLayer.id, { outlineColor })} onPreview={(outlineColor) => previewSelectedTextAppearance({ outlineColor })} value={selectedTextAppearance.outlineColor} />
+          <ColorControl key={selectedTextLayer.id} ariaLabel='Text outline color' label='Outline color' onChange={(outlineColor) => updateTextLayer(selectedTextLayer.id, { outlineColor })} onPreview={(outlineColor) => previewSelectedTextAppearance({ outlineColor })} value={selectedTextAppearance.outlineColor} />
           <RangeControl label='Outline width' max={12} min={0.5} onChange={(outlineWidth) => updateTextLayer(selectedTextLayer.id, { outlineWidth })} onPreview={(outlineWidth) => previewSelectedTextAppearance({ outlineWidth })} step={0.5} value={selectedTextAppearance.outlineWidth} />
         </> : null}
       </div>
       <div className='shader-lab-v2-effect-group'>
         <label><span>Text shadow</span><StudioCheckbox checked={selectedTextAppearance.shadowEnabled} onChange={(event) => updateTextLayer(selectedTextLayer.id, { shadowEnabled: event.target.checked })} /></label>
         {selectedTextAppearance.shadowEnabled ? <>
-          <ColorControl ariaLabel='Text shadow color' label='Shadow color' onChange={(shadowColor) => updateTextLayer(selectedTextLayer.id, { shadowColor })} onPreview={(shadowColor) => previewSelectedTextAppearance({ shadowColor })} value={selectedTextAppearance.shadowColor} />
+          <ColorControl key={selectedTextLayer.id} ariaLabel='Text shadow color' label='Shadow color' onChange={(shadowColor) => updateTextLayer(selectedTextLayer.id, { shadowColor })} onPreview={(shadowColor) => previewSelectedTextAppearance({ shadowColor })} value={selectedTextAppearance.shadowColor} />
           <RangeControl label='Shadow blur' max={64} min={0} onChange={(shadowBlur) => updateTextLayer(selectedTextLayer.id, { shadowBlur })} onPreview={(shadowBlur) => previewSelectedTextAppearance({ shadowBlur })} step={1} value={selectedTextAppearance.shadowBlur} />
           <RangeControl label='Shadow X' max={48} min={-48} onChange={(shadowOffsetX) => updateTextLayer(selectedTextLayer.id, { shadowOffsetX })} onPreview={(shadowOffsetX) => previewSelectedTextAppearance({ shadowOffsetX })} step={1} value={selectedTextAppearance.shadowOffsetX} />
           <RangeControl label='Shadow Y' max={48} min={-48} onChange={(shadowOffsetY) => updateTextLayer(selectedTextLayer.id, { shadowOffsetY })} onPreview={(shadowOffsetY) => previewSelectedTextAppearance({ shadowOffsetY })} step={1} value={selectedTextAppearance.shadowOffsetY} />
@@ -1740,7 +1741,6 @@ export const DesignLabInspectorPanel = memo(function DesignLabInspectorPanel({
       <OptionalRender value={selectedContentLayerId}>{() => <LabInspectorSection className='shader-lab-v2-control-section shader-lab-v2-layer-inspector' data-canvas-selection-preserve meta={selectedCanvasLayerCount > 1 ? `${selectedCanvasLayerCount} layers` : contentKind ?? ''} title='Selected layer'>
         <OptionalRender value={selectedTextInspector}>{(selection) => (
           <DesignLabTextLayerInspector
-            key={selection.layer.id}
             canvasHeight={canvasDimensions.height}
             canvasWidth={canvasDimensions.width}
             identity={identity}
