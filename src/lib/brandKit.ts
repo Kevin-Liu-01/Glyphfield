@@ -10,7 +10,7 @@ import {
   type BrandTypography,
 } from './brandIdentity';
 import { auditBrandHealth, brandContrastResults } from './brandHealth';
-import { brandVisualAssets } from './brandOutputKit';
+import { brandVisualAssets, commentText } from './brandOutputKit';
 import {
   brandCssVariables,
   brandDesignTokens,
@@ -74,7 +74,7 @@ export function brandKitFontFaces(identity: BrandIdentity): string[] {
     const rule = `@font-face {\n  font-family: ${JSON.stringify(font.family)};\n  src: url(${JSON.stringify(`../${fontFileName(font)}`)}) format(${JSON.stringify(font.format)});\n  font-style: ${font.style};\n  font-weight: ${weight};\n  font-display: swap;\n}`;
     return included.has(font.id)
       ? rule
-      : `/* ${font.label} is not included: kits package only uploaded or open-licensed fonts. Add your licensed copy at ${fontFileName(font)}. */\n${rule}`;
+      : `/* ${commentText(`${font.label} is not included: kits package only uploaded or open-licensed fonts. Add your licensed copy at ${fontFileName(font)}.`)} */\n${rule}`;
   });
 }
 

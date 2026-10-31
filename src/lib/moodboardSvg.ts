@@ -12,6 +12,7 @@ import {
   brandPalette,
   brandSurface,
   contrastRatio,
+  cssSingleQuoted,
   escapeXml,
   estimateTextWidth,
   fitText,
@@ -118,7 +119,7 @@ function fontSpec(identity: BrandIdentity, role: 'Accent' | 'Body' | 'Code' | 'D
     family,
     monospace: metrics.monospace,
     lineHeight: typography.lineHeight ?? (role === 'Display' ? 1 : 1.45),
-    stack: `'${family.replaceAll("'", '')}', ${fallback}`,
+    stack: `'${cssSingleQuoted(family)}', ${fallback}`,
     tracking: typography.letterSpacing ?? 0,
     weight,
   };
@@ -1226,13 +1227,13 @@ export function moodboardFontFaceCss(identity: BrandIdentity, sources: ReadonlyM
     const source = sources.get(font.path);
     if (!source) return '';
     const weight = font.weightMin !== undefined && font.weightMax !== undefined ? `${font.weightMin} ${font.weightMax}` : String(font.weight);
-    return `@font-face{font-family:'${font.family.replaceAll("'", '')}';src:url('${escapeXml(source)}');font-style:${font.style};font-weight:${weight};font-display:block;}`;
+    return `@font-face{font-family:'${escapeXml(cssSingleQuoted(font.family))}';src:url('${escapeXml(source)}');font-style:${font.style};font-weight:${weight};font-display:block;}`;
   }).join('');
 }
 
 function legacyFontFaces(identity: BrandIdentity, assets: MoodboardSvgAssets): string {
   const fonts = moodboardFonts(identity);
-  const rule = (font: FontSpec, source: string | undefined) => (source ? `@font-face{font-family:'${font.family.replaceAll("'", '')}';src:url('${escapeXml(source)}');font-style:normal;font-weight:100 900;font-display:block;}` : '');
+  const rule = (font: FontSpec, source: string | undefined) => (source ? `@font-face{font-family:'${escapeXml(cssSingleQuoted(font.family))}';src:url('${escapeXml(source)}');font-style:normal;font-weight:100 900;font-display:block;}` : '');
   return [
     rule(fonts.display, assets.displayFont),
     rule(fonts.body, assets.bodyFont ?? assets.displayFont),

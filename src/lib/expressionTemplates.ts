@@ -8,7 +8,7 @@ import {
 import type { CanvasAsset, CanvasDocument, CanvasElement, CanvasJsonValue } from './canvasDocument';
 import { layoutCanvasText } from './canvasText';
 import { colorContrastRatio } from './color';
-import { fontMetrics } from './brandOutputKit';
+import { fontMetrics, jsSingleQuoted } from './brandOutputKit';
 import { escapeXml } from './download';
 import type { ExpressionDeviceId } from './expressionDevices';
 import { estimateTextWidth } from './expressionSvg';
@@ -295,9 +295,8 @@ function codeSample(identity: BrandIdentity): CodeSample {
     const terminal = own.startsWith('$');
     return { title, tabs: [{ code: own, highlight: [1], language: terminal ? 'bash' : 'typescript', name: terminal ? 'Terminal' : 'index.ts' }] };
   }
-  const quote = (value: string) => value.replaceAll('\\', '\\\\').replaceAll("'", "\\'");
   const accent = identity.colors.find(({ id }) => id === 'emphasis') ?? identity.colors[0];
-  const code = `export const brand = {\n  name: '${quote(identity.name)}',\n  tagline: '${quote(identity.tagline)}',\n  accent: '${accent?.hex ?? '#000000'}',\n};`;
+  const code = `export const brand = {\n  name: '${jsSingleQuoted(identity.name)}',\n  tagline: '${jsSingleQuoted(identity.tagline)}',\n  accent: '${jsSingleQuoted(accent?.hex ?? '#000000')}',\n};`;
   return { title, tabs: [{ code, highlight: [2], language: 'typescript', name: 'brand.ts' }] };
 }
 

@@ -1,4 +1,5 @@
 import { createBrandIdentity, type BrandIdentity } from './brandIdentity';
+import { jsSingleQuoted } from './brandOutputKit';
 import type { BrandHealthReport } from './brandHealth';
 
 /**
@@ -42,7 +43,7 @@ export function brandAgentSetupPrompt({
     ? ` It currently scores ${report.score}/100 on Glyphfield's brand health audit with ${report.counts.error} errors and ${report.counts.warning} warnings.`
     : '';
   const projectStep = mode === 'new'
-    ? `This project is new: fill every section. If the URL does not open it, create the project yourself with await studio.invoke('identity.project.create', { from: 'starter', name: '${identity.name === 'Untitled brand' ? 'Brand name' : identity.name.replaceAll("'", '’')}' }) (from: 'scratch' starts empty), then read window.glyphfield.studio again: the new project owns the API.`
+    ? `This project is new: fill every section. If the URL does not open it, create the project yourself with await studio.invoke('identity.project.create', { from: 'starter', name: '${identity.name === 'Untitled brand' ? 'Brand name' : jsSingleQuoted(identity.name)}' }) (from: 'scratch' starts empty), then read window.glyphfield.studio again: the new project owns the API.`
     : 'This project already has content: run identity.read and identity.audit first, keep what is correct, and change only what the sources contradict, what is missing, or what the audit flags.';
 
   return [

@@ -7,8 +7,8 @@
 import { brandAssetPath, brandTypographyFamily, type BrandIdentity } from './brandIdentity';
 import type { BrandElement, BrandElementSettings } from './brandElements';
 import { brandElementContent } from './brandElementContent';
-import { contrastRatio, escapeXml, isDarkColor } from './brandOutputKit';
-import { mixHexColors } from './color';
+import { contrastRatio, cssSingleQuoted, escapeXml, isDarkColor } from './brandOutputKit';
+import { mixHexColors, normalizeHexOrFallback } from './color';
 import { getEmailLifecycleTemplate } from './emailLifecycle';
 
 export const BRAND_EMAIL_WIDTH = 600;
@@ -44,11 +44,13 @@ function siteUrl(website: string): string {
 }
 
 function stack(family: string, fallback: string): string {
-  return `'${family.replaceAll("'", '')}', ${fallback}`;
+  return `'${e(cssSingleQuoted(family))}', ${fallback}`;
 }
 
 function palette(settings: BrandElementSettings): Palette {
-  const { accentColor: accent, backgroundColor: background, foregroundColor: foreground } = settings;
+  const accent = normalizeHexOrFallback(settings.accentColor, '#FF5A47');
+  const background = normalizeHexOrFallback(settings.backgroundColor, '#FFFFFF');
+  const foreground = normalizeHexOrFallback(settings.foregroundColor, '#111111');
   const onAccent = [background, foreground, '#FFFFFF', '#111111'].reduce((best, candidate) => (
     contrastRatio(accent, candidate) > contrastRatio(accent, best) + 0.5 ? candidate : best
   ), background);
