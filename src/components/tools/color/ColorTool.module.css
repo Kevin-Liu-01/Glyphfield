@@ -547,9 +547,12 @@
 }
 
 
+/* Room below the clamped last line for descenders; the negative margin keeps the layout. */
 .proofTitle {
   display: -webkit-box;
   overflow: hidden;
+  padding-bottom: 0.1em;
+  margin-bottom: -0.1em;
   font-size: 1.3rem;
   line-height: 1.08;
   letter-spacing: -0.02em;

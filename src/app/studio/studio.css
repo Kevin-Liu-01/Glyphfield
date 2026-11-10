@@ -7635,9 +7635,12 @@ input.studio-range[data-studio-range='true'] {
   margin: 0;
 }
 
+/* Clamped display lines keep their descenders: room below the last line, and the negative margin keeps the layout. */
 .brand-art-preview h2 {
   display: -webkit-box;
   overflow: hidden;
+  padding-bottom: 0.1em;
+  margin-bottom: -0.1em;
   font-family: var(--brand-display), sans-serif;
   font-size: clamp(2.15rem, 4.2vw, 4.8rem);
   font-weight: var(--brand-display-weight);
@@ -8363,7 +8366,8 @@ html.dark .studio-app .brand-art-evidence-theme--dark {
 
 .brand-direction-editorial-copy h2 {
   max-width: 26ch;
-  margin: auto 0 0;
+  margin: auto 0 -0.1em;
+  padding-bottom: 0.1em;
   display: -webkit-box;
   overflow: hidden;
   font-family: var(--font-sans);

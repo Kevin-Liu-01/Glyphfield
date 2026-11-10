@@ -1362,7 +1362,8 @@
 }
 
 .grid[data-layout='type-display'] > :nth-child(1) { grid-column: 1 / -1; }
-.grid[data-layout='type-display'] > :nth-child(2) { grid-column: 1 / -1; align-self: center; overflow: hidden; white-space: nowrap; text-overflow: clip; }
+/* Clipped one-line specimens get room above and below for ascenders and descenders; the negative margin keeps the layout. */
+.grid[data-layout='type-display'] > :nth-child(2) { grid-column: 1 / -1; align-self: center; overflow: hidden; padding-block: 0.15em; margin-block: -0.15em; white-space: nowrap; text-overflow: clip; }
 .grid[data-layout='type-display'] > :nth-child(3) { grid-column: 1 / span 9; }
 
 .typeMeta {
@@ -1442,6 +1443,8 @@
 
 .scaleSample {
   overflow: hidden;
+  padding-block: 0.15em;
+  margin-block: -0.15em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

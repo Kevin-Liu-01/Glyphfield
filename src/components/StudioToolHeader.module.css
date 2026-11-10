@@ -53,7 +53,7 @@
   font-size: var(--studio-toolbar-label-size);
   font-weight: 500;
   letter-spacing: -0.012em;
-  line-height: 1;
+  line-height: 1.25;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -65,7 +65,7 @@
   overflow: hidden;
   color: hsl(var(--muted-foreground));
   font-size: var(--studio-toolbar-meta-size);
-  line-height: 1;
+  line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -119,7 +119,7 @@
   max-height: var(--studio-toolbar-control-height);
   font-family: inherit;
   font-size: var(--studio-toolbar-label-size);
-  line-height: 1;
+  line-height: 1.25;
   white-space: nowrap;
 }
 

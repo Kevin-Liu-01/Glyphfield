@@ -30,7 +30,7 @@ type ButtonProps = ComponentProps<'button'> & {
 };
 
 const baseClassName =
-  "group/button relative inline-flex shrink-0 cursor-pointer items-center justify-center rounded-md border bg-clip-padding font-[inherit] font-medium leading-none whitespace-nowrap transition-[background-color,border-color,color,opacity,transform] outline-none select-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px active:scale-[0.98] motion-reduce:active:transform-none disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4";
+  "group/button relative inline-flex shrink-0 cursor-pointer items-center justify-center rounded-md border bg-clip-padding font-[inherit] font-medium leading-tight whitespace-nowrap transition-[background-color,border-color,color,opacity,transform] outline-none select-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px active:scale-[0.98] motion-reduce:active:transform-none disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4";
 
 const variantClassNames: Record<ButtonVariant, string> = {
   default:
