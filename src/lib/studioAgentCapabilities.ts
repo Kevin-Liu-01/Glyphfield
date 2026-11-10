@@ -359,6 +359,16 @@ export const STUDIO_TOOL_ACTION_CONTRACTS = {
       description: 'Move active layers between the canvas and artboards, preserving their world-space boxes, text layout, and appearance. IDs change only to avoid a destination collision.',
       input: "{ target: 'canvas' | artboardId, layerIds: string[], placement?: 'preserve' | 'beside' }", output: 'null',
     },
+    'design.capture': {
+      description: 'Frame a UI capture as a new 16:9 artboard: a full-bleed shader ground from a preset or any material, with the capture centered, corners rounded and a shadow. The artboard becomes active, so design.export renders it next.',
+      input: "{ image: PNG, JPEG or WebP Blob or base64 data URL (under 24 MB), preset?: id from design.capture.presets (default 'brand-grain'), materialId?: id from /api/materials, palette?: 'brand' | [#RRGGBB, #RRGGBB, #RRGGBB], settings?: { amplitude?, brightness?, centerX?, centerY?, density?, detail?, frequency?, grain?, rotationX?, rotationY?, rotationZ?, speed?, strength? }, width?: 960..3840, rounded to a multiple of 16 (default 1600; height is width × 9/16; also sets the export width), padding?: 0..0.3 of the height on every side (default 0.1), radius?: 0..96 artboard px (default 20), shadow?: boolean (default true), name? }; materialId, palette and settings override the preset",
+      output: '{ artboardId, width, height, materialId, preset: preset id or null }',
+    },
+    'design.capture.presets': {
+      description: 'List the UI capture presets (material, palette and settings), defaults and limits.',
+      input: 'No input',
+      output: "{ defaultPreset, defaults: { padding, radius, shadow, width }, limits, presets: [{ id, name, description, materialId, palette: 'brand' | [three colors], settings }] }",
+    },
     'design.export': {
       description: 'Render the selected artboard using the authentic Design Lab renderer. Loose canvas layers are not exported; select an artboard first.',
       input: "{ format: 'png' | 'jpg' | 'gif' | 'mp4', mode?: 'standard' | 'shader-sequence', download?: boolean }",

@@ -267,6 +267,8 @@ import {
 } from '@/lib/textEffects';
 
 import { DESIGN_CANVAS_ID, DESIGN_CANVAS_DIMENSIONS, designSurfaceSize, designLayerWorldBounds, reparentDesignLayer, packDesignWorkspace, unpackDesignWorkspace } from '@/lib/designWorkspace';
+import { describeUiCapturePresets, resolveUiCaptureRequest, uiCaptureArtboardSnapshot, type UiCaptureRequest } from '@/lib/uiCapture';
+import { prepareUiCaptureImage } from '@/lib/uiCaptureImage';
 import CanvasRenderBoundary from '@/components/CanvasRenderBoundary';
 import {
   colorWithOpacity,
@@ -1683,6 +1685,7 @@ function designAutomationExportInput(input: unknown): DesignAutomationExportInpu
 }
 
 type DesignAutomationHandlers = {
+  captureAction: (action: string, input: unknown) => Promise<unknown>;
   effectAction: (action: string, input: unknown) => Promise<unknown>;
   formatText: (input: unknown) => Promise<unknown>;
   layerAction: (action: string, input: unknown) => Promise<unknown>;
@@ -1828,6 +1831,7 @@ const DESIGN_AUTOMATION_ACTION_FAMILIES = [
   ['design.workspace.', 'workspaceAction'],
   ['design.layers.', 'layerAction'],
   ['design.effects.', 'effectAction'],
+  ['design.capture', 'captureAction'],
 ] as const satisfies readonly (readonly [string, keyof DesignAutomationHandlers])[];
 
 async function invokeDesignAutomationAction(handlers: DesignAutomationHandlers, action: string, input: unknown) {
@@ -4109,15 +4113,16 @@ export default function ShaderLabStudio({
     };
   }
 
-  async function addArtboard(duplicate = false) {
-    if (artboardOperationRef.current || frameCapturePendingRef.current) return;
+  /** Adds a blank, duplicated or prepared artboard and makes it active; resolves its id, or null when busy or failed. */
+  async function addArtboard(duplicate = false, prepared?: { name: string; snapshot: DesignArtboardSnapshot }): Promise<DesignArtboardId | null> {
+    if (artboardOperationRef.current || frameCapturePendingRef.current) return null;
     artboardOperationRef.current = true;
     try {
       const captured = await captureArtboardBeforeLeaving();
       const currentArtboards = workspaceArtboardsRef.current;
       const sourceArtboard = currentArtboards.find((artboard) => artboard.id === captured.artboardId);
       const id = `artboard-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as DesignArtboardId;
-      const snapshot = duplicate ? cloneArtboardSnapshot(captured.snapshot) : {
+      const snapshot = prepared?.snapshot ?? (duplicate ? cloneArtboardSnapshot(captured.snapshot) : {
         assets: [],
         backgroundColor: captured.snapshot.backgroundColor,
         dimensions: { ...captured.snapshot.dimensions },
@@ -4131,11 +4136,11 @@ export default function ShaderLabStudio({
         shaderSequence: { ...DEFAULT_DESIGN_SHADER_SEQUENCE_SETTINGS, targetLayerId: null },
         textLayers: [],
         timeline: { frame: 0, paused: false, timeMs: 0 },
-      } satisfies DesignArtboardSnapshot;
+      } satisfies DesignArtboardSnapshot);
       const nextArtboard: DesignArtboard = {
         id,
         displayScale: duplicate ? sourceArtboard?.displayScale : undefined,
-        name: duplicate ? `${sourceArtboard?.name ?? 'Artboard'} copy` : `Artboard ${currentArtboards.filter(({ id }) => id !== DESIGN_CANVAS_ID).length + 1}`,
+        name: prepared?.name ?? (duplicate ? `${sourceArtboard?.name ?? 'Artboard'} copy` : `Artboard ${currentArtboards.filter(({ id }) => id !== DESIGN_CANVAS_ID).length + 1}`),
         snapshot,
         ...nextArtboardPosition(snapshot.dimensions),
       };
@@ -4146,10 +4151,34 @@ export default function ShaderLabStudio({
       ];
       applyActiveArtboard(nextArtboard, nextArtboards, true);
       setExportError(null);
+      return id;
     } catch (error) {
       setExportError(error instanceof Error ? error.message : 'The artboard could not be created with its captured shader frames.');
+      return null;
     } finally {
       artboardOperationRef.current = false;
+    }
+  }
+
+  /** Frames a UI capture at 16:9 on a shader ground as a new artboard. */
+  async function addUiCaptureArtboard(image: unknown, request: UiCaptureRequest): Promise<DesignArtboardId> {
+    const prepared = await prepareUiCaptureImage(image, request);
+    const snapshot = uiCaptureArtboardSnapshot({
+      brandPalette: brandPalette.colors,
+      image: prepared,
+      request,
+      shaderSequence: DEFAULT_DESIGN_SHADER_SEQUENCE_SETTINGS,
+    });
+    const id = await addArtboard(false, { name: request.name, snapshot });
+    if (!id) throw new Error('The capture artboard could not be created. Wait for the current artboard operation to finish.');
+    return id;
+  }
+
+  async function addUiCaptureFromFile(file: File) {
+    try {
+      await addUiCaptureArtboard(file, resolveUiCaptureRequest({ name: file.name.replace(/\.[a-z0-9]+$/i, '') || 'UI capture' }));
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : 'The capture could not be added.');
     }
   }
 
@@ -7309,6 +7338,19 @@ export default function ShaderLabStudio({
       await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
       return null;
     },
+    captureAction: async (action: string, input: unknown) => {
+      if (action === 'design.capture.presets') return describeUiCapturePresets();
+      if (action !== 'design.capture') throw new TypeError(`Unknown capture action: ${action}`);
+      assertShaderWorkspaceIdle();
+      if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('design.capture requires { image, ... }.');
+      const { image, ...fields } = input as Record<string, unknown>;
+      const request = resolveUiCaptureRequest(fields);
+      const artboardId = await addUiCaptureArtboard(image, request);
+      // A scripted capture exports at its own size, so the PNG matches the width the caller asked for.
+      updateExportSettings({ width: request.size.width });
+      await surfaceShown(artboardId);
+      return { artboardId, height: request.size.height, materialId: request.materialId, preset: request.presetId, width: request.size.width };
+    },
     workspaceAction: async (action: string, input: unknown) => {
       if (action === 'design.workspace.describe') return {
         activeSurface: editingCanvas ? 'canvas' : activeArtboardId,
@@ -7824,6 +7866,7 @@ export default function ShaderLabStudio({
   });
   const artboardToolbarActions = useStableHandlers<DesignLabArtboardToolbarActions>({
     addArtboard: (duplicate) => void addArtboard(duplicate),
+    addUiCapture: (file) => void addUiCaptureFromFile(file),
     editLooseCanvas: () => {
       deselectCanvasLayers();
       void activateArtboard(DESIGN_CANVAS_ID);

@@ -47,6 +47,40 @@ if (!(artifact.blob instanceof Blob) || artifact.blob.size === 0) {
 
 Call `window.glyphfield.studio.download(artifact)` only after verification when the user requested a saved file.
 
+## UI captures
+
+To set a product screenshot at 16:9 on a shader ground, run two Design Lab actions: `design.capture` builds the artboard and makes it active, then `design.export` renders it.
+
+```js
+const studio = window.glyphfield.studio;
+await studio.selectTool('material');
+const { presets } = await studio.invoke('design.capture.presets');
+const capture = await studio.invoke('design.capture', {
+  image: 'data:image/png;base64,...', // or a PNG, JPEG or WebP Blob; under 24 MB
+  preset: 'purple-grain',             // capy's purple grain; default 'brand-grain'
+  width: 1920,                        // 960..3840, a multiple of 16; height is width × 9 / 16; also sets the export width
+});
+// capture: { artboardId, width, height, materialId, preset }
+const artifact = await studio.invoke('design.export', { format: 'png', download: false });
+```
+
+Input fields, all optional except `image`:
+
+- `preset`: `purple-grain`, `brand-grain`, `brand-mesh`, `brand-warp` or `brand-dither`. Brand presets build the ground from the active identity's accent, with a tint toward its highlight and a shade toward its ink.
+- `materialId`: any id from `/api/materials`. It replaces the preset's material.
+- `palette`: `'brand'` or `['#RRGGBB', '#RRGGBB', '#RRGGBB']`, the first being the ground's base. It replaces the preset's palette.
+- `settings`: numeric ground settings merged over the preset's. The keys are `amplitude`, `brightness`, `centerX`, `centerY`, `density`, `detail`, `frequency`, `grain`, `rotationX`, `rotationY`, `rotationZ`, `speed` and `strength`. Colors go in `palette`, not here.
+- `padding`: 0–0.3 of the height on every side. Default 0.1.
+- `radius`: 0–96 artboard px. Default 20. A dark ground also gets a faint light edge on the capture.
+- `shadow`: boolean. Default `true`.
+- `name`: names the artboard and the capture layer.
+
+Unknown fields, a `height`, an unknown preset or material, and malformed colors throw before anything changes. The action resolves once the new artboard is shown.
+
+Design Lab cannot open a URL. Capture the page with your own browser first, then pass its bytes as `image`.
+
+From a script outside the page, pass a base64 data URL. A PNG export returns a Blob; read it back in chunks through `FileReader`. Verify the PNG's width and height match the capture's `width` and `height` at export width, and that the ground is not black (a shader that failed to render).
+
 ## Completion
 
 Confirm non-empty bytes, filename, MIME, extension, dimensions, and expected transparency. For GIF/MP4 inspect multiple frames, motion continuity, text color stability, shader movement, and final-loop closure. For MP4 with audio, inspect the audio stream rather than assuming UI state was muxed.

@@ -103,6 +103,8 @@ design.workspace.describe
 design.workspace.activate
 design.workspace.move
 design.workspace.frameSelection
+design.capture
+design.capture.presets
 design.layers.arrange
 design.layers.lock
 design.layers.rotate
@@ -134,6 +136,8 @@ design.export.shader-sequence.mp4
 ### Workspace and layers
 
 `design.workspace.describe` returns `{ activeSurface, canvas: { layerIds }, artboards: [{ id, name, x, y, width, height, layerIds }] }`. `design.workspace.activate` takes `{ target: 'canvas' | artboardId }`. `design.workspace.move` takes `{ target, layerIds, placement?: 'preserve' | 'beside' }` and keeps each layer's position and size in canvas space. `design.workspace.frameSelection` creates an artboard around the selected loose canvas layers. [Export, saving, and source](/docs/studio/design-lab/export#browser-api) covers artboards in more detail.
+
+`design.capture` frames a PNG, JPEG or WebP screenshot (a `Blob` or base64 data URL in `image`) as a new 16:9 artboard on a shader ground and makes it active, so `design.export` renders it next. It takes `preset`, or `materialId`, `palette` and `settings` to choose the ground, plus `width`, `padding`, `radius`, `shadow` and `name`, and resolves `{ artboardId, width, height, materialId, preset }`. `design.capture.presets` lists the presets, defaults and limits. [UI captures](/docs/studio/design-lab/captures) has the full field table.
 
 `design.layers.arrange` takes `{ arrangement, layerIds? }` and aligns layers to the bounds of the selection or spaces them evenly. `arrangement` is `left`, `horizontal-center`, `right`, `top`, `vertical-center`, `bottom`, `distribute-horizontal` or `distribute-vertical`. Omit `layerIds`, or pass an empty array, to use the current selection. Locked layers are skipped, and a fully selected group moves as one unit. Alignment needs two units and distribution needs three.
 

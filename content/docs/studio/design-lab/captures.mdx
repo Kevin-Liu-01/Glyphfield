@@ -1,0 +1,59 @@
+---
+title: UI captures
+description: Set a product screenshot at 16:9 on a shader ground as a new artboard, from a preset or any material, then export it like any other artboard.
+icon: MonitorCog
+---
+
+A UI capture is a Design Lab artboard with two layers: a full-bleed shader ground and the screenshot centered on it. The screenshot's corners are rounded in its own pixels, so its shadow and border follow the corners. Both layers stay editable: change the ground in the Shader Library, or move, resize and restyle the screenshot like any image layer.
+
+## Add a capture
+
+Click **Capture** in the artboard bar and choose a PNG, JPEG or WebP screenshot. Design Lab adds a 1600 × 900 artboard named after the file, with the **Brand grain** ground, an inset of 10% of the height on every side, a 20 px corner radius and a soft shadow. On a dark ground the capture also gets a faint light edge, because a shadow cannot separate it there. The capture fits inside the inset at its own aspect ratio, and the artboard keeps at most twice the pixels it shows, so a 2x export stays sharp.
+
+Export it from the tool header like any artboard. [Export, saving, and source](/docs/studio/design-lab/export) covers formats and sizes.
+
+## Presets
+
+A preset names the ground: a material, a palette and settings. Brand presets build the ground around the active identity's accent color: the accent, a tint toward its highlight and a shade toward its ink. They read the identity when the capture is made.
+
+| Preset | Material | Palette |
+| --- | --- | --- |
+| `purple-grain` | Paper Grain Gradient | Fixed purple, matching the grain capy uses for its product stills |
+| `brand-grain` (default) | Paper Grain Gradient | Brand |
+| `brand-mesh` | Paper Mesh Gradient | Brand |
+| `brand-warp` | Paper Warp | Brand |
+| `brand-dither` | Paper Dithering | Brand |
+
+Any material from [`/api/materials`](/api/materials) can be a ground through the Browser API.
+
+## Browser API
+
+`design.capture` builds the artboard and makes it active, so `design.export` renders it next. `design.capture.presets` lists the presets, defaults and limits.
+
+```js
+const studio = window.glyphfield.studio;
+await studio.selectTool('material');
+const { artboardId, width, height } = await studio.invoke('design.capture', {
+  image: screenshotBlob, // or 'data:image/png;base64,...'
+  preset: 'purple-grain',
+  width: 1920,
+});
+const artifact = await studio.invoke('design.export', { format: 'png', download: false });
+```
+
+| Field | Values |
+| --- | --- |
+| `image` | Required. A PNG, JPEG or WebP `Blob`, or a base64 data URL of one, under 24 MB |
+| `preset` | A preset id. Defaults to `brand-grain` unless `materialId` is set |
+| `materialId` | Any material id from `/api/materials`. Overrides the preset's material |
+| `palette` | `'brand'` or three `#RRGGBB` colors. The first is the ground's base. Overrides the preset's palette |
+| `settings` | Numeric ground settings: `amplitude`, `brightness`, `centerX`, `centerY`, `density`, `detail`, `frequency`, `grain`, `rotationX`, `rotationY`, `rotationZ`, `speed`, `strength`. Merged over the preset's |
+| `width` | 960–3840, rounded to a multiple of 16. Defaults to 1600. The height is always width × 9 / 16. It also sets the export width, so the next export is this size |
+| `padding` | 0–0.3 of the height on every side. Defaults to 0.1 |
+| `radius` | 0–96 artboard pixels. Defaults to 20 |
+| `shadow` | Defaults to `true` |
+| `name` | The artboard and layer name. Defaults to "UI capture" |
+
+The action rejects unknown fields, a `height`, an unknown preset or material, and malformed colors. It resolves `{ artboardId, width, height, materialId, preset }` once the artboard is shown. The ground renders live, so wait for the shader to be ready before a final export, as with any shader artboard.
+
+Design Lab cannot open a URL itself. To frame a live page, capture it with a browser you control (for example Playwright's `page.screenshot()`), then pass the bytes as `image`.

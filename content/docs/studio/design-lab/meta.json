@@ -6,6 +6,7 @@
     "layers",
     "effects",
     "shaders",
+    "captures",
     "export"
   ]
 }

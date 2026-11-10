@@ -487,6 +487,7 @@ export const DesignLabHeader = memo(function DesignLabHeader({
 
 export type DesignLabArtboardToolbarActions = {
   addArtboard: (duplicate: boolean) => void;
+  addUiCapture: (file: File) => void;
   editLooseCanvas: () => void;
   frameCanvasSelection: () => void;
   removeActiveArtboard: () => void;
@@ -521,6 +522,7 @@ export const DesignLabArtboardToolbar = memo(function DesignLabArtboardToolbar({
   const { selectArtboardFromPicker, updateActiveArtboardDimensions } = actions;
   // Copy, paste and move announcements replace the summary for a moment.
   const canvasClipboardStatus = useValueStore(statusStore);
+  const captureInputRef = useRef<HTMLInputElement>(null);
   return (
     <StudioArtboardBar
       activeArtboardId={activeArtboardId}
@@ -534,6 +536,20 @@ export const DesignLabArtboardToolbar = memo(function DesignLabArtboardToolbar({
       extraActions={(
         <>
           {canFrameSelection ? <Button aria-label='Create artboard from selection' onClick={actions.frameCanvasSelection} size='sm' type='button' variant='outline'><Frame aria-hidden='true' /><span>Frame selection</span></Button> : null}
+          <Button aria-label='Frame a UI capture' onClick={() => captureInputRef.current?.click()} size='sm' title='Set a screenshot at 16:9 on a shader ground' type='button' variant='ghost'><MonitorUp aria-hidden='true' /><span>Capture</span></Button>
+          <input
+            accept='image/png,image/jpeg,image/webp'
+            aria-hidden='true'
+            className='hidden'
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0];
+              event.currentTarget.value = '';
+              if (file) actions.addUiCapture(file);
+            }}
+            ref={captureInputRef}
+            tabIndex={-1}
+            type='file'
+          />
           <Button aria-label='Edit loose canvas layers' aria-pressed={editingCanvas} onClick={actions.editLooseCanvas} size='sm' title='Add ideas anywhere outside your artboards' type='button' variant='ghost'><Move aria-hidden='true' /><span>Canvas</span></Button>
           <Button aria-label='Artboard tutorial' aria-pressed={workspaceTourOpen} onClick={actions.toggleWorkspaceTour} size='icon-sm' title='Artboard tutorial' type='button' variant='ghost'><Info aria-hidden='true' /></Button>
         </>

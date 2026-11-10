@@ -24,7 +24,7 @@ Glyphfield keeps a brand identity and every file made from it in one system. A c
 
 The Studio includes a Starter identity and reference identities for Basement, General Translation, Ramp, Mintlify, Tailwind CSS, Vite+, Cloudflare, and Stripe. Users can copy any of them into a new project or start from an empty identity.
 
-Design Lab is the general layer compositor. It places text, marks, images, stickers, shader layers, and effect layers on artboards and exports PNG, JPG, GIF, and MP4 files from 320 to 3840 pixels wide.
+Design Lab is the general layer compositor. It places text, marks, images, stickers, shader layers, and effect layers on artboards and exports PNG, JPG, GIF, and MP4 files from 320 to 3840 pixels wide. `design.capture` frames a product screenshot at 16:9 on a shader ground from a named preset or any material; `design.capture.presets` lists the presets.
 
 The Shader Library is shared by Design Lab, Animation, Lottie backgrounds, and the expression tools. It combines Paper Shaders (Apache-2.0), the Shaders.com WebGPU components (MIT), ShaderGradient (MIT), and original Glyphfield shaders. It also includes a fluid simulation adapted from Pavel Dobryakov's WebGL Fluid Simulation (MIT) and a cloth material adapted from HoloCloth (MIT). The catalog at https://www.glyphfield.com/api/materials lists every current material with its engine, controls, and defaults.
 
