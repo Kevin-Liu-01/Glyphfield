@@ -7,6 +7,8 @@ type NavigatorConnection = {
 };
 
 const MOTION_REVEAL_SETTLE_MS = 180;
+// A long momentum scroll never settles, so a waiting section reveals by this deadline anyway.
+const MOTION_REVEAL_MAX_WAIT_MS = 300;
 
 export default function MarketingMotion() {
   useMountEffect(() => {
@@ -16,6 +18,7 @@ export default function MarketingMotion() {
     const footer = document.querySelector<HTMLElement>('[data-motion-footer]');
     const intersectingSections = new Set<HTMLElement>();
     let revealTimer = 0;
+    let revealDeadline = 0;
 
     function reveal(section: HTMLElement) {
       section.dataset.motionState = 'visible';
@@ -37,8 +40,10 @@ export default function MarketingMotion() {
       intersectingSections.clear();
     };
     const scheduleSettledReveal = () => {
+      const now = performance.now();
+      if (!revealTimer) revealDeadline = now + MOTION_REVEAL_MAX_WAIT_MS;
       window.clearTimeout(revealTimer);
-      revealTimer = window.setTimeout(revealSettledSections, MOTION_REVEAL_SETTLE_MS);
+      revealTimer = window.setTimeout(revealSettledSections, Math.max(0, Math.min(MOTION_REVEAL_SETTLE_MS, revealDeadline - now)));
     };
     const observer = new IntersectionObserver(
       (entries) => {

@@ -773,11 +773,13 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
     else reloadTimerRef.current = window.setTimeout(run, wait);
   }
 
+  // Tinting fetches, decodes and re-encodes the logo, so it follows the settled colour, not every frame of a drag.
+  const settledArtColor = settledState.appearance.artColor;
   useEffect(() => {
     if (!brandLogoAsset) return;
     let disposed = false;
     void imageUrlToDataUrl(brandLogoAsset.path)
-      .then((dataUrl) => rasterizeImageDataUrl(dataUrl, artColor))
+      .then((dataUrl) => rasterizeImageDataUrl(dataUrl, settledArtColor))
       .then((logo) => {
         if (disposed) return;
         brandLogoRef.current = { ...logo, label: identity.name };
@@ -785,7 +787,7 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
       })
       .catch(() => { if (!disposed) brandLogoRef.current = undefined; });
     return () => { disposed = true; };
-  }, [artColor, brandLogoAsset, identity.name]);
+  }, [brandLogoAsset, identity.name, settledArtColor]);
 
   useEffect(() => {
     const canvasElement = canvasRef.current;
