@@ -4,7 +4,7 @@ import type {
   BrandColorSystem,
   BrandIdentity,
 } from './brandIdentity';
-import { brandCssVariables, brandDesignTokens, brandTailwindTheme, type BrandTokenSection } from './brandTokens';
+import { brandCssVariables, brandDesignTokens, brandTailwindTheme, brandTokenName, type BrandTokenSection } from './brandTokens';
 import { formatOklch, normalizeHex, normalizeHexOrFallback } from './color';
 import {
   compactColorSystem,
@@ -203,7 +203,7 @@ export function isColorTokenFormat(value: unknown): value is ColorTokenFormat {
 /** The original Color tokens output: one OKLCH custom property per color, named by color name, with opacity. */
 export function legacyOklchTokens(state: ColorWorkingState): string {
   return state.colors
-    .map((color) => `--color-${color.name.toLocaleLowerCase().replaceAll(' ', '-')}: ${formatOklch(color.hex).replace(')', ` / ${colorOpacity(state, color.id)}%)`)}; /* ${normalizeHexOrFallback(color.hex)} */`)
+    .map((color) => `--color-${brandTokenName(color.name)}: ${formatOklch(color.hex).replace(')', ` / ${colorOpacity(state, color.id)}%)`)}; /* ${normalizeHexOrFallback(color.hex)} */`)
     .join('\n');
 }
 

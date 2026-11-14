@@ -107,6 +107,65 @@ export function escapeXml(value: string): string {
     .replaceAll("'", '&apos;');
 }
 
+/** Text inside a block comment: comment terminators are defused and control characters are removed. */
+export function commentText(value: string): string {
+  let safe = '';
+  for (const character of value) {
+    const code = character.codePointAt(0)!;
+    if (code >= 0x20 && code !== 0x7f) safe += character;
+  }
+  return safe.replace(/\*\//g, '* /');
+}
+
+/** Text inside a single-quoted CSS string; wrap it in `'` at the sink. */
+export function cssSingleQuoted(value: string): string {
+  let safe = '';
+  for (const character of value) {
+    const code = character.codePointAt(0)!;
+    if (character === '\\') safe += '\\\\';
+    else if (character === "'") safe += "\\'";
+    else if (character === '\n') safe += '\\a ';
+    else if (code < 0x20 || code === 0x7f) safe += `\\${code.toString(16)} `;
+    else safe += character;
+  }
+  return safe;
+}
+
+const CUBIC_BEZIER_TIMING = /^\s*cubic-bezier\(\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\)/i;
+const TIMING_KEYWORD = /^(?:linear|ease|ease-in|ease-out|ease-in-out|step-start|step-end)$/i;
+const STEPS_TIMING = /^\s*steps\(\s*\d+\s*(?:,\s*(?:jump-start|jump-end|jump-none|jump-both|start|end)\s*)?\)\s*$/i;
+
+/**
+ * A safe CSS timing function: a leading cubic-bezier is reserialized from its
+ * numbers, whole-value keyword and steps() easings pass through, anything else
+ * is `ease`.
+ */
+export function cssTimingFunction(value: string): string {
+  const trimmed = value.trim();
+  const bezier = CUBIC_BEZIER_TIMING.exec(trimmed);
+  if (bezier) {
+    const values = bezier.slice(1, 5).map(Number);
+    if (values.every(Number.isFinite)) return `cubic-bezier(${values.join(', ')})`;
+  }
+  if (TIMING_KEYWORD.test(trimmed) || STEPS_TIMING.test(trimmed)) return trimmed;
+  return 'ease';
+}
+
+/** Text inside a single-quoted JavaScript string; wrap it in `'` at the sink. */
+export function jsSingleQuoted(value: string): string {
+  let safe = '';
+  for (const character of value) {
+    const code = character.codePointAt(0)!;
+    if (character === '\\') safe += '\\\\';
+    else if (character === "'") safe += "\\'";
+    else if (character === '\n') safe += '\\n';
+    else if (code === 0x2028 || code === 0x2029) safe += `\\u${code.toString(16)}`;
+    else if (code < 0x20 || code === 0x7f) continue;
+    else safe += character;
+  }
+  return safe;
+}
+
 /** A stable 32-bit hash used to seed generative artwork. */
 export function hashSeed(value: string): number {
   let hash = 2166136261;

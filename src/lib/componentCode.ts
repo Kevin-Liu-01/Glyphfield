@@ -1,4 +1,5 @@
 import type { BrandColor, BrandIdentity } from '@/lib/brandIdentity';
+import { commentText } from '@/lib/brandOutputKit';
 import { brandCssVariables, brandTailwindTheme, type BrandTokenSection } from '@/lib/brandTokens';
 import {
   componentContent,
@@ -80,7 +81,7 @@ export function componentCode(
     const css = [
       brandCssVariables(tokenIdentity, { include: TOKEN_SECTIONS }).trimEnd(),
       '',
-      `/* ${componentPattern(pattern)?.label ?? pattern} */`,
+      `/* ${commentText(componentPattern(pattern)?.label ?? pattern)} */`,
       componentCss(collectClasses(tree), context),
       '',
     ].join('\n');
@@ -90,7 +91,7 @@ export function componentCode(
     ];
   }
   const tsx = [
-    `/* ${identity.name} — ${componentPattern(pattern)?.label ?? pattern}. Styles come from theme.css (Tailwind CSS v4). */`,
+    `/* ${commentText(`${identity.name} — ${componentPattern(pattern)?.label ?? pattern}. Styles come from theme.css (Tailwind CSS v4).`)} */`,
     '',
     `export function ${name}() {`,
     '  return (',

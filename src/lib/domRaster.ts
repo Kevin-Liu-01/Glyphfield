@@ -4,7 +4,7 @@
  * images and fonts are embedded as data URLs, and the result is drawn from an
  * SVG foreignObject. Browser-only.
  */
-import { blobToDataUrl, imageUrlToDataUrl, resolveSvgRasterDimensions } from './download';
+import { blobToDataUrl, escapeXml, imageUrlToDataUrl, resolveSvgRasterDimensions } from './download';
 
 export type DomRasterOptions = {
   /** @font-face rules with embedded sources, so text never rasterises in a fallback face. */
@@ -152,7 +152,7 @@ export async function domToSvg(node: HTMLElement, { fontFaceCss = '', height, wi
   wrapper.setAttribute('style', `width:${width}px;height:${height}px;overflow:hidden;`);
   wrapper.append(clone);
   const markup = new XMLSerializer().serializeToString(wrapper);
-  const style = fontFaceCss ? `<style>${fontFaceCss.replaceAll(']]>', '')}</style>` : '';
+  const style = fontFaceCss ? `<style>${escapeXml(fontFaceCss)}</style>` : '';
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs>${style}</defs><foreignObject x="0" y="0" width="${width}" height="${height}">${markup}</foreignObject></svg>`;
 }
 

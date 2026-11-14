@@ -4,6 +4,7 @@ import {
   type BrandIdentity,
   type BrandTypography,
 } from './brandIdentity';
+import { commentText, cssTimingFunction } from './brandOutputKit';
 import { formatOklch, normalizeHex } from './color';
 import {
   brandColorScales,
@@ -254,7 +255,7 @@ export function brandDesignTokens(identity: BrandIdentity, options: BrandTokenSe
 }
 
 function header(identity: BrandIdentity, title: string): string {
-  return `/* ${identity.name} — ${title}. Exported by Glyphfield from project "${identity.id}". */`;
+  return `/* ${commentText(`${identity.name} — ${title}. Exported by Glyphfield from project "${identity.id}".`)} */`;
 }
 
 function withFontFaces(options: BrandTokenSerializerOptions): string[] {
@@ -274,7 +275,7 @@ function semanticColors(identity: BrandIdentity, mode: ColorMode): ReturnType<ty
 
 function semanticDeclarations(identity: BrandIdentity, mode: ColorMode, prefix: string, indent: string): string[] {
   const resolved = semanticColors(identity, mode);
-  return SEMANTIC_COLOR_ROLES.map(({ id }) => `${indent}${prefix}${id}: ${resolved[id].hex}; /* ${resolved[id].ref} */`);
+  return SEMANTIC_COLOR_ROLES.map(({ id }) => `${indent}${prefix}${id}: ${resolved[id].hex}; /* ${commentText(resolved[id].ref)} */`);
 }
 
 /** Dark values for `prefers-color-scheme: dark` (unless data-theme="light") and for data-theme="dark" or .dark. */
@@ -324,7 +325,7 @@ export function brandCssVariables(identity: BrandIdentity, options: BrandTokenSe
   const includes = sectionFilter(options);
   const groups: string[][] = [];
   if (includes('color')) {
-    groups.push(identity.colors.map((color) => `  --brand-color-${color.id}: ${normalizeHex(color.hex)}; /* ${color.name} — ${color.role.replace(/\*\//g, '')} */`));
+    groups.push(identity.colors.map((color) => `  --brand-color-${color.id}: ${normalizeHex(color.hex)}; /* ${commentText(`${color.name} — ${color.role}`)} */`));
   }
   if (includes('scale')) {
     for (const [id, scale] of brandColorScales(identity)) {
@@ -338,7 +339,7 @@ export function brandCssVariables(identity: BrandIdentity, options: BrandTokenSe
   if (includes('motion')) {
     for (const motion of identity.motion) {
       tail.push(`  --brand-duration-${brandTokenName(motion.id)}: ${motion.durationMs}ms;`);
-      tail.push(`  --brand-ease-${brandTokenName(motion.id)}: ${motion.curve};`);
+      tail.push(`  --brand-ease-${brandTokenName(motion.id)}: ${cssTimingFunction(motion.curve)};`);
     }
   }
   if (tail.length) groups.push(tail);
@@ -379,7 +380,7 @@ function tailwindTypeLines(identity: BrandIdentity): string[][] {
 function tailwindTailLines(identity: BrandIdentity, includes: (section: BrandTokenSection) => boolean): string[] {
   return [
     ...(includes('radius') ? [`  --radius-brand: ${identity.style.borderRadius}px;`] : []),
-    ...(includes('motion') ? identity.motion.filter((motion) => parseCubicBezier(motion.curve)).map((motion) => `  --ease-${brandTokenName(motion.id)}: ${motion.curve};`) : []),
+    ...(includes('motion') ? identity.motion.map((motion) => `  --ease-${brandTokenName(motion.id)}: ${cssTimingFunction(motion.curve)};`) : []),
   ];
 }
 

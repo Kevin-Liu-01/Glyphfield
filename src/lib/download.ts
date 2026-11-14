@@ -68,6 +68,41 @@ export function blobToDataUrl(blob: Blob): Promise<string> {
   });
 }
 
+/** Session cache so repeated exports never refetch and re-encode the same files. */
+const EMBED_CACHE = new Map<string, Promise<string>>();
+const EMBED_CACHE_LIMIT = 96;
+
+export function embeddedDataUrl(source: string): Promise<string> {
+  const cached = EMBED_CACHE.get(source);
+  if (cached) return cached;
+  const request = imageUrlToDataUrl(source);
+  EMBED_CACHE.set(source, request);
+  void request.catch(() => EMBED_CACHE.delete(source));
+  if (EMBED_CACHE.size > EMBED_CACHE_LIMIT) EMBED_CACHE.delete(EMBED_CACHE.keys().next().value!);
+  return request;
+}
+
+/** Replace every same-origin `href` in a generated SVG with an embedded data URL. */
+export async function embedBoardImages(svg: string): Promise<string> {
+  const sources = [...new Set([...svg.matchAll(/href="([^"]+)"/g)].map((match) => match[1]!))].filter((source) => !source.startsWith('data:') && !source.startsWith('#'));
+  const pairs = await Promise.all(sources.map(async (source) => {
+    const unescaped = source.replaceAll('&amp;', '&');
+    let url: URL | null = null;
+    try {
+      url = new URL(unescaped, window.location.href);
+    } catch {
+      url = null;
+    }
+    if (url?.origin !== window.location.origin) return [source, ''] as const;
+    try {
+      return [source, await embeddedDataUrl(unescaped)] as const;
+    } catch {
+      return [source, ''] as const;
+    }
+  }));
+  return pairs.reduce((markup, [source, data]) => (data ? markup.replaceAll(`href="${source}"`, `href="${data}"`) : markup), svg);
+}
+
 function triggerDownload(url: string, filename: string): void {
   const anchor = document.createElement('a');
   anchor.download = filename;
